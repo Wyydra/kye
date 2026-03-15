@@ -52,6 +52,9 @@ Métadonnées : Blocs de commentaires HTML placés immédiatement au-dessus de c
     + un type `State` affiche des points d'ancrage pour des transitions (ne pouvant etre relié qu'avec une relation du bon type )
   c'est interpretation dynamique peuvent custom et l'utilisateur peut ajouter les siennes
 
+## Syncro
+sous forme de patch git-like qui apparaissent dans l'inbox
+
 ## Scripting
 Scripting Lua (ou ts?) :
 
