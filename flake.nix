@@ -36,14 +36,15 @@
         ];
 
         libraries = with pkgs; [
-          # webkitgtk_4_1
-          # gtk3
-          # cairo
-          # gdk-pixbuf
-          # glib
-          # dbus
-          # openssl_3
-          # librsvg
+          webkitgtk_4_1
+          gtk3
+          cairo
+          gdk-pixbuf
+          glib
+          dbus
+          librsvg
+          libsoup_3
+
         ];
 
         packages =
@@ -52,6 +53,8 @@
             pkg-config
             bun
             rust
+            cargo-tauri
+            just
           ]);
       in {
         devShells.default = pkgs.mkShell {

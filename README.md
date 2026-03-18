@@ -25,7 +25,7 @@ L'unité universelle est le Bloc. Tout objet (Note, Composant, État, Port, Flè
 Les métadonnées JSON sont cachées dans des commentaires HTML juste au-dessus du titre H2. C'est le Type et les Relations qui dictent l'interprétation visuelle :
 
 - Bloc Standard : Pas de parent. Rendu comme une carte sur le canevas.
-- Interface / Port : Possède une propriété "parent": "ID". Rendu comme un point d'ancrage sur le bord de la carte parente.
+- Interface / Port (dans le type system?) : Possède une propriété "parent": "ID". Rendu comme un point d'ancrage sur le bord de la carte parente.
 - Relation (Flèche) : Possède des propriétés "from": "ID" et "to": "ID".
 
 système de base simplifié, mais rajouter un tag pour le type ou sous type c'est pas mal aussi je pense.
