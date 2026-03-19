@@ -22,6 +22,20 @@ impl Workspace {
     pub fn blocks(&self) -> &Vec<Block> {
         &self.blocks
     }
+
+    pub fn add_block(&mut self, block: Block) -> Result<(), AddBlockError> {
+        if self.blocks.iter().any(|b| b.id == block.id) {
+            return Err(AddBlockError::DuplicateId(block.id));
+        }
+        self.blocks.push(block);
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Error)]
+pub enum AddBlockError {
+    #[error("Block with ID {0} already exists in the workspace")]
+    DuplicateId(Uuid),
 }
 
 pub struct WorkspaceName(String);
@@ -65,3 +79,8 @@ pub enum CreateWorkspaceError {
     Unknown(#[from] anyhow::Error),
 }
 
+#[derive(Debug, Error)]
+pub enum SaveWorkspaceError {
+    #[error(transparent)]
+    Unknown(#[from] anyhow::Error),
+}

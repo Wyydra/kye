@@ -2,8 +2,9 @@ use std::fmt::Display;
 
 use thiserror::Error;
 
+#[derive(Debug, Clone)]
 pub struct Block {
-    id: uuid::Uuid,
+    pub id: uuid::Uuid,
     content: Content,
     metadata: Metadata,
 }
@@ -23,6 +24,7 @@ impl Block {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Content(String);
 
 impl Content {
@@ -38,6 +40,7 @@ impl Display for Content {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Metadata(String);
 
 impl Metadata {
@@ -72,6 +75,8 @@ impl CreateBlockRequest {
 
 #[derive(Debug, Error)]
 pub enum CreateBlockError  {
-    #[error(transparent)]
+    #[error("Storage error")]
+    Storage(#[from] crate::models::workspace::SaveWorkspaceError),
+    #[error("Unknown error")]
     Unknown(#[from] anyhow::Error),
 }
