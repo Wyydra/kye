@@ -1,13 +1,12 @@
 use domain::models::block::{Content, CreateBlockRequest, Metadata};
 use domain::ports::BlockService;
 use domain::service::Service;
-use infra::markdown::ComrakMarkdownRepository;
+use infra::markdown::DirectoryMarkdownRepository;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. On donne au Repo le chemin vers notre fichier de test ("test_workspace/test.md")
-    // (Dans la V2, ça prendra un dossier, mais pour l'instant ton code lit un fichier unique)
-    let repo = ComrakMarkdownRepository::new(std::path::PathBuf::from("test_workspace/test.md"));
+    // 1. On donne au Repo le chemin vers notre dossier de test ("test_workspace")
+    let repo = DirectoryMarkdownRepository::new(std::path::PathBuf::from("test_workspace"));
     
     // 2. On instancie notre Service (stateless) avec ce Repository
     let service = Service::new(repo);

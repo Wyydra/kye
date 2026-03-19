@@ -1,5 +1,3 @@
-# Bienvenue dans mon test Kye
-
 <!-- { "id": "11111111-1111-1111-1111-111111111111", "type": "standard", "origin_hint": "test.md" } -->
 
 ## aaedf7a5-c17d-47d0-99a1-a368b6925fdd
@@ -19,9 +17,3 @@ C'est un port d'entrée. Voici son contenu texte.
 ### Un sous-bloc
 
 Du texte dans le sous-bloc.
-
-<!-- {"type": "standard"} -->
-
-## 0a4c1567-8f14-4fa4-a582-b0e375c76c7a
-
-Du texte...
