@@ -55,6 +55,7 @@
             rust
             cargo-tauri
             just
+            typescript typescript-language-server
           ]);
       in {
         devShells.default = pkgs.mkShell {

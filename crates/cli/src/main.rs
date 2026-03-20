@@ -1,12 +1,12 @@
 use domain::models::block::{Content, CreateBlockRequest, Metadata};
 use domain::ports::BlockService;
 use domain::service::Service;
-use infra::markdown::DirectoryMarkdownRepository;
+use infra::markdown::DirectoryWorkspaceRepository;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 1. On donne au Repo le chemin vers notre dossier de test ("test_workspace")
-    let repo = DirectoryMarkdownRepository::new(std::path::PathBuf::from("test_workspace"));
+    let repo = DirectoryWorkspaceRepository::new(std::path::PathBuf::from("test_workspace"));
     
     // 2. On instancie notre Service (stateless) avec ce Repository
     let service = Service::new(repo);

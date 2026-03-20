@@ -19,7 +19,7 @@ use comrak::{Arena, Options, parse_document, format_commonmark};
 use comrak::nodes::NodeValue;
 
 #[derive(Debug, Clone)]
-pub struct DirectoryMarkdownRepository {
+pub struct DirectoryWorkspaceRepository {
     dir_path: PathBuf,
     // Maps each Block ID to the file it was loaded from
     block_index: Arc<RwLock<HashMap<Uuid, PathBuf>>>,
@@ -29,7 +29,7 @@ pub struct DirectoryMarkdownRepository {
     default_inbox_file: PathBuf,
 }
 
-impl DirectoryMarkdownRepository {
+impl DirectoryWorkspaceRepository {
     pub fn new(dir_path: PathBuf) -> Self {
         let default_inbox_file = dir_path.join("inbox.md");
         Self { 
@@ -41,7 +41,7 @@ impl DirectoryMarkdownRepository {
     }
 }
 
-impl WorkspaceRepository for DirectoryMarkdownRepository {
+impl WorkspaceRepository for DirectoryWorkspaceRepository {
     async fn load_workspace(&self) -> Result<Workspace, anyhow::Error> {
         let workspace_name = self.dir_path
             .file_name()
@@ -168,7 +168,7 @@ impl WorkspaceRepository for DirectoryMarkdownRepository {
     async fn save_workspace(&self, workspace: &Workspace) -> Result<(), SaveWorkspaceError> {
         // SOLUTION 3: On clone les map depuis le ReadLock et on relâche le Lock tout de suite !
         // Comme ça, pas de goulot d'étranglement pendant l'écriture sur le disque.
-        let (mut files_to_write, prefixes) = {
+        let (files_to_write, prefixes) = {
             let index_guard = self.block_index.read().map_err(|_| SaveWorkspaceError::Unknown(anyhow::anyhow!("Poison error")))?;
             let pref_guard = self.file_prefixes.read().map_err(|_| SaveWorkspaceError::Unknown(anyhow::anyhow!("Poison error")))?;
             
