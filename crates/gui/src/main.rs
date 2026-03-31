@@ -1,13 +1,13 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use domain::models::block::{Content, CreateBlockRequest, Metadata};
-use domain::service::Service;
 use domain::ports::BlockService;
+use domain::service::Service;
 use infra::markdown::DirectoryWorkspaceRepository;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,20 +48,31 @@ struct AppState {
 
 #[tauri::command]
 async fn get_workspace(state: tauri::State<'_, AppState>) -> Result<WorkspaceDto, String> {
-    let workspace = state.service.get_workspace().await.map_err(|e| e.to_string())?;
-    
+    let workspace = state
+        .service
+        .get_workspace()
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok((&workspace).into())
 }
 
 #[tauri::command]
-async fn create_block(content: String, metadata: String, state: tauri::State<'_, AppState>) -> Result<BlockDto, String> {
+async fn create_block(
+    content: String,
+    metadata: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<BlockDto, String> {
     let req = CreateBlockRequest::new(Content::new(&content), Metadata::new(&metadata));
-    
-    let block = state.service.create_block(&req).await.map_err(|e| e.to_string())?;
-    
+
+    let block = state
+        .service
+        .create_block(&req)
+        .await
+        .map_err(|e| e.to_string())?;
+
     Ok((&block).into())
 }
-
 
 fn main() {
     let root_path = std::env::current_dir()

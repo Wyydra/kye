@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
-import { Handle, Position } from '@xyflow/react'
-import ReactMarkdown from 'react-markdown'
+import { Handle, Position, NodeResizer } from '@xyflow/react'
+import { RoughNodeWrapper } from './RoughNodeWrapper'
+import { MilkdownEditor } from './MilkdownEditor'
 
 export type KyeNodeData = {
     markdown: string;
@@ -11,69 +11,25 @@ export type KyeNodeData = {
 
 export type KyeNode = Node<KyeNodeData, 'kye-block'>;
 
-export function KyeNode({ id, data }: NodeProps<KyeNode>) {
-    const [isEditing, setIsEditing] = useState(false)
-    const [text, setText] = useState(data.markdown)
-
-    const onDoubleClick = useCallback(() => {
-        setIsEditing(true)
-    }, [])
-
-    const onBlur = useCallback(() => {
-        setIsEditing(false)
-        if (data.onMarkdownChange) {
-            data.onMarkdownChange(id, text)
-        }
-    }, [id, text, data])
+export function KyeNode({ id, data, selected }: NodeProps<KyeNode>) {
+    const onMarkdownChange = (newMd: string) => data.onMarkdownChange?.(id, newMd)
+    const handleStyle = { background: selected ? '#3b82f6' : '#999', opacity: selected ? 1 : 0.5 };
 
     return (
-        <div
-            className="kye-node"
-            style={{
-                background: '#fff',
-                border: '1px solid #ddd',
-                borderRadius: 4,
-                padding: 8,
-                minWidth: 300,
-                minHeight: 150,
-                maxHeight: 400,
-                display: 'flex',
-                flexDirection: 'column',
-            }}
-        >
-            <Handle type="target" position={Position.Top} />
-
-            {isEditing ? (
-                <textarea
-                    autoFocus
-                    style={{
-                        width: '100%',
-                        height: '100%',
-                        border: 'none',
-                        outline: 'none',
-                        resize: 'none',
-                        font: 'inherit',
-                        flexGrow: 1
-                    }}
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    onBlur={onBlur}
-                />
-            ) : (
-                <div
-                    onDoubleClick={onDoubleClick}
-                    style={{
-                        height: '100%',
-                        overflowY: 'auto',
-                        flexGrow: 1,
-                        cursor: 'text'
-                    }}
-                >
-                    <ReactMarkdown>{text}</ReactMarkdown>
+        <>
+            <NodeResizer isVisible={selected} minWidth={250} minHeight={150} color="#3b82f6" />
+            <RoughNodeWrapper className="kye-node" backgroundColor="#fff" color="#444" selected={selected}>
+                <Handle type="target" position={Position.Top} style={{ ...handleStyle, top: -5 }} />
+                <div style={{ flexGrow: 1, overflow: 'auto', padding: '4px' }}>
+                    <MilkdownEditor
+                        key={id}
+                        initialValue={data.markdown}
+                        onChange={onMarkdownChange}
+                        readOnly={!selected}
+                    />
                 </div>
-            )}
-
-            <Handle type="source" position={Position.Bottom} />
-        </div>
+                <Handle type="source" position={Position.Bottom} style={{ ...handleStyle, bottom: -5 }} />
+            </RoughNodeWrapper>
+        </>
     )
 }
