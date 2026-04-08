@@ -2,6 +2,7 @@ use std::fmt::Display;
 use thiserror::Error;
 use uuid::Uuid;
 use crate::models::block::Block;
+use crate::models::block::UpdateBlockError;
 
 pub struct Workspace {
     id: Uuid,
@@ -29,6 +30,15 @@ impl Workspace {
         }
         self.blocks.push(block);
         Ok(())
+    }
+
+    pub fn update_block_content(&mut self, id: Uuid, new_content: crate::models::block::Content) -> Result<(), crate::models::block::UpdateBlockError> {
+        if let Some(block) = self.blocks.iter_mut().find(|b| *b.id() == id) {
+            block.update_content(new_content);
+            Ok(())
+        } else {
+            Err(UpdateBlockError::NotFound(id))
+        }
     }
 }
 

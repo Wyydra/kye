@@ -22,6 +22,10 @@ impl Block {
     pub fn metadata(&self) -> &Metadata {
         &self.metadata
     }
+    
+    pub fn update_content(&mut self, new_content: Content) {
+        self.content = new_content;
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -73,8 +77,35 @@ impl CreateBlockRequest {
     }
 }
 
+pub struct UpdateBlockRequest {
+    id: uuid::Uuid,
+    content: Content,
+}
+
+impl UpdateBlockRequest {
+    pub fn new(id: uuid::Uuid, content: Content) -> Self {
+        Self { id, content }
+    }
+    pub fn id(&self) -> uuid::Uuid {
+        self.id
+    }
+    pub fn content(&self) -> &Content {
+        &self.content
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum CreateBlockError  {
+    #[error("Storage error")]
+    Storage(#[from] crate::models::workspace::SaveWorkspaceError),
+    #[error("Unknown error")]
+    Unknown(#[from] anyhow::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum UpdateBlockError {
+    #[error("Block {0} not found")]
+    NotFound(uuid::Uuid),
     #[error("Storage error")]
     Storage(#[from] crate::models::workspace::SaveWorkspaceError),
     #[error("Unknown error")]

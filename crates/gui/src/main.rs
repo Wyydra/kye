@@ -2,10 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use domain::models::block::{Content, CreateBlockRequest, Metadata};
+use domain::models::block::{Content, CreateBlockRequest, UpdateBlockRequest, Metadata};
 use domain::ports::BlockService;
 use domain::service::Service;
 use infra::markdown::DirectoryWorkspaceRepository;
@@ -44,6 +45,7 @@ impl From<&domain::models::block::Block> for BlockDto {
 
 struct AppState {
     service: Arc<Service<DirectoryWorkspaceRepository>>,
+    workspace_path: PathBuf,
 }
 
 #[tauri::command]
@@ -74,6 +76,28 @@ async fn create_block(
     Ok((&block).into())
 }
 
+#[tauri::command]
+async fn update_block(
+    id: Uuid,
+    content: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let req = UpdateBlockRequest::new(id, Content::new(&content));
+
+    state
+        .service
+        .update_block(&req)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn get_workspace_path(state: tauri::State<'_, AppState>) -> String {
+    state.workspace_path.to_string_lossy().to_string()
+}
+
 fn main() {
     let root_path = std::env::current_dir()
         .unwrap_or_default()
@@ -82,12 +106,12 @@ fn main() {
         .map(|p| p.join("test_workspace"))
         .unwrap_or_else(|| std::path::PathBuf::from("../../test_workspace")); // Fallback
 
-    let repo = DirectoryWorkspaceRepository::new(root_path);
+    let repo = DirectoryWorkspaceRepository::new(root_path.clone());
     let service = Arc::new(Service::new(repo));
 
     tauri::Builder::default()
-        .manage(AppState { service })
-        .invoke_handler(tauri::generate_handler![get_workspace, create_block])
+        .manage(AppState { service, workspace_path: root_path })
+        .invoke_handler(tauri::generate_handler![get_workspace, create_block, update_block, get_workspace_path])
         .run(tauri::generate_context!())
         .expect("Tauri Error");
 }

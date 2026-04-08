@@ -1,3 +1,85 @@
 body {
-  overscroll-behaviour: none;
+  overscroll-behavior: none;
 }
+
+/* React Flow Node: KyeNode */
+.kye-node {
+  background-color: #fff;
+  border: 2px solid #444;
+  border-radius: 8px;
+  width: 100%;
+  height: 100%;
+  min-width: 200px;
+  min-height: 100px;
+  padding: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kye-node.is-selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.kye-node-content {
+  flex-grow: 1;
+  overflow: auto;
+  padding: 4px;
+}
+
+.kye-node-handle {
+  background: #999;
+  width: 10px;
+  height: 10px;
+  border: 2px solid white;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.kye-node:hover .kye-node-handle,
+.kye-node.is-selected .kye-node-handle {
+  opacity: 1;
+}
+
+.kye-node.is-selected .kye-node-handle {
+  background: #3b82f6;
+}
+
+.tiptap-container .tiptap {
+  outline: none !important;
+  height: 100%;
+  padding: 4px 8px;
+  user-select: text;
+  cursor: text;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.tiptap-container.readonly .tiptap {
+  user-select: auto;
+  cursor: default;
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Typography */
+.tiptap h1 { font-size: 1.5em; font-weight: 700; margin-top: 1em; margin-bottom: 0.5em; }
+.tiptap h2 { font-size: 1.3em; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
+.tiptap h3 { font-size: 1.1em; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
+.tiptap p { margin-top: 0; margin-bottom: 0.75em; }
+.tiptap ul, .tiptap ol { padding-left: 1.5em; margin-bottom: 1em; }
+.tiptap li { padding: 0.1em 0; }
+.tiptap blockquote { border-left: 3px solid #e2e8f0; padding-left: 1em; margin-left: 0; font-style: italic; color: #64748b; }
+.tiptap code { background-color: #f1f5f9; padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; font-family: monospace; }
+.tiptap pre { background-color: #1e293b; color: #f8fafc; padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; }
+.tiptap pre code { background: none; color: inherit; padding: 0; }

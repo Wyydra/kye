@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        block::{Block, CreateBlockError, CreateBlockRequest},
+        block::{Block, CreateBlockError, CreateBlockRequest, UpdateBlockRequest, UpdateBlockError},
         workspace::Workspace,
     },
     ports::{BlockService, WorkspaceRepository},
@@ -48,5 +48,16 @@ where
         self.repo.save_workspace(&workspace).await?;
 
         Ok(new_block)
+    }
+
+    async fn update_block(&self, req: &UpdateBlockRequest) -> Result<(), UpdateBlockError> {
+        let mut workspace = self.repo.load_workspace().await.map_err(|e| {
+            UpdateBlockError::Unknown(anyhow::anyhow!("Loading error: {}", e))
+        })?;
+
+        workspace.update_block_content(req.id(), req.content().clone())?;
+        self.repo.save_workspace(&workspace).await?;
+
+        Ok(())
     }
 }
