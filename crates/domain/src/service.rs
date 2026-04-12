@@ -5,29 +5,37 @@ use crate::{
         block::{Block, CreateBlockError, CreateBlockRequest, UpdateBlockRequest, UpdateBlockError},
         workspace::Workspace,
     },
-    ports::{BlockService, WorkspaceRepository},
+    ports::{BlockService, WorkspaceRepository, EventDispatcher},
 };
 
 #[derive(Debug, Clone)]
-pub struct Service<R>
+pub struct Service<R, E>
 where
     R: WorkspaceRepository,
+    E: EventDispatcher,
 {
     repo: R,
+    dispatcher: E,
 }
 
-impl<R> Service<R>
+impl<R, E> Service<R, E>
 where
     R: WorkspaceRepository,
+    E: EventDispatcher,
 {
-    pub fn new(repo: R) -> Self {
-        Self { repo }
+    pub fn new(repo: R, dispatcher: E) -> Self {
+        Self { repo, dispatcher }
+    }
+
+    pub fn notify_external_update(&self) {
+        self.dispatcher.dispatch_workspace_updated();
     }
 }
 
-impl<R> BlockService for Service<R>
+impl<R, E> BlockService for Service<R, E>
 where
     R: WorkspaceRepository,
+    E: EventDispatcher,
 {
     async fn get_workspace(&self) -> Result<Workspace, anyhow::Error> {
         self.repo.load_workspace().await
