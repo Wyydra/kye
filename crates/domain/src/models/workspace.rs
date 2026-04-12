@@ -25,8 +25,8 @@ impl Workspace {
     }
 
     pub fn add_block(&mut self, block: Block) -> Result<(), AddBlockError> {
-        if self.blocks.iter().any(|b| b.id == block.id) {
-            return Err(AddBlockError::DuplicateId(block.id));
+        if self.blocks.iter().any(|b| b.id() == block.id()) {
+            return Err(AddBlockError::DuplicateId(*block.id()));
         }
         self.blocks.push(block);
         Ok(())

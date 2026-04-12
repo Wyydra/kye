@@ -6,24 +6,22 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use domain::models::block::{Content, CreateBlockRequest, UpdateBlockRequest, Metadata};
-use domain::ports::{BlockService, EventDispatcher};
+use domain::models::block::{Content, CreateBlockRequest, UpdateBlockRequest};
+use domain::ports::{BlockService, EventDispatcher, MetadataProvider, WorkspaceWatcher};
 use domain::service::Service;
 use infra::markdown::DirectoryWorkspaceRepository;
 use infra::watcher::FSWatcher;
-use tauri::{AppHandle, Manager};
-use tauri::Emitter;
-
+use tauri::{Emitter, Manager};
 
 #[derive(Clone)]
 pub struct TauriEventDispatcher {
-    app_handle: AppHandle,
+    app_handle: tauri::AppHandle,
 }
 
 impl EventDispatcher for TauriEventDispatcher {
     fn dispatch_workspace_updated(&self) {
         if let Err(e) = self.app_handle.emit("workspace_updated", ()) {
-            eprintln!("Failed to emit workspace_updated event: {}", e);
+            tracing::error!("Failed to emit workspace_updated event: {}", e);
         }
     }
 }
@@ -55,7 +53,7 @@ impl From<&domain::models::block::Block> for BlockDto {
         Self {
             id: *b.id(),
             content: b.content().to_string(),
-            metadata: b.metadata().to_string(),
+            metadata: infra::metadata::render_json(b.id(), b.metadata()),
         }
     }
 }
@@ -82,7 +80,12 @@ async fn create_block(
     metadata: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<BlockDto, String> {
-    let req = CreateBlockRequest::new(Content::new(&content), Metadata::new(&metadata));
+    let metadata_provider = infra::metadata::JsonMetadataProvider(metadata);
+    let fields = metadata_provider.get_fields().unwrap_or_else(|e| {
+        tracing::error!("Metadata error: {}", e);
+        domain::models::block::metadata::Fields::new()
+    });
+    let req = CreateBlockRequest::new(Content::new(&content), fields);
 
     let block = state
         .service
@@ -116,6 +119,10 @@ fn get_workspace_path(state: tauri::State<'_, AppState>) -> String {
 }
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
     let root_path = std::env::current_dir()
         .unwrap_or_default()
         .parent()
@@ -131,21 +138,24 @@ fn main() {
                 let dispatcher = TauriEventDispatcher { app_handle };
                 let repo = DirectoryWorkspaceRepository::new(workspace_path.clone());
                 let service = Arc::new(Service::new(repo, dispatcher));
-                
-                app.manage(AppState { 
-                    service: service.clone(), 
-                    workspace_path: workspace_path.clone() 
+
+                app.manage(AppState {
+                    service: service.clone(),
+                    workspace_path: workspace_path.clone(),
                 });
 
-                let watcher = FSWatcher::new(workspace_path);
-                watcher.watch(move || {
-                    service.notify_external_update();
-                });
+                let watcher = FSWatcher::new(workspace_path, (*service).clone());
+                watcher.watch();
 
                 Ok(())
             }
         })
-        .invoke_handler(tauri::generate_handler![get_workspace, create_block, update_block, get_workspace_path])
+        .invoke_handler(tauri::generate_handler![
+            get_workspace,
+            create_block,
+            update_block,
+            get_workspace_path
+        ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");
 }

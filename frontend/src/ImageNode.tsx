@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Node, NodeProps } from '@xyflow/react'
 import { Handle, Position, NodeResizer } from '@xyflow/react'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -5,6 +6,7 @@ import { useWorkspace } from './WorkspaceContext'
 
 export type ImageNodeData = {
     markdown: string;
+    metadata?: Record<string, any>;
     [key: string]: unknown;
 }
 
@@ -32,18 +34,20 @@ function resolveImageUrl(markdown: string, workspacePath?: string): string {
     return PLACEHOLDER;
 }
 
-export function ImageNode({ data, selected }: NodeProps<ImageNode>) {
+export const ImageNode = memo(function ImageNode({ data, selected }: NodeProps<ImageNode>) {
     const workspacePath = useWorkspace();
     const imageUrl = resolveImageUrl(data.markdown, workspacePath);
+    const type = (data.metadata?.type as string) || 'image';
 
     return (
         <>
             <NodeResizer isVisible={selected} minWidth={150} minHeight={150} color="#3b82f6" />
-            <div className={`kye-node ${selected ? 'is-selected' : ''}`} style={{ padding: '4px' }}>
-                <Handle type="source" position={Position.Top} id="top" className="kye-node-handle" />
-                <Handle type="source" position={Position.Right} id="right" className="kye-node-handle" />
+            <div className={`block-node block-type-${type} ${selected ? 'is-selected' : ''}`} style={{ padding: '4px' }}>
+                <div className="block-type-badge">{type}</div>
+                <Handle type="source" position={Position.Top} id="top" className="block-node-handle" />
+                <Handle type="source" position={Position.Right} id="right" className="block-node-handle" />
                 
-                <div className={`kye-node-content ${selected ? "nodrag nopan" : ""}`} style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                <div className={`block-node-content ${selected ? "nodrag nopan" : ""}`} style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                     <img 
                       src={imageUrl} 
                       alt="Node content" 
@@ -53,9 +57,9 @@ export function ImageNode({ data, selected }: NodeProps<ImageNode>) {
                     />
                 </div>
                 
-                <Handle type="source" position={Position.Bottom} id="bottom" className="kye-node-handle" />
-                <Handle type="source" position={Position.Left} id="left" className="kye-node-handle" />
+                <Handle type="source" position={Position.Bottom} id="bottom" className="block-node-handle" />
+                <Handle type="source" position={Position.Left} id="left" className="block-node-handle" />
             </div>
         </>
     )
-}
+});

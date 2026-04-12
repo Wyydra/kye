@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react'
 import type { Node, Edge, Connection } from '@xyflow/react'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import '@xyflow/react/dist/style.css'
 import { TextNode } from './TextNode'
 import { ImageNode } from './ImageNode'
@@ -57,6 +58,14 @@ export default function App() {
 
   useEffect(() => {
     loadWorkspace()
+    
+    const unlisten = listen('workspace_updated', () => {
+        loadWorkspace();
+    });
+
+    return () => {
+        unlisten.then(f => f());
+    }
   }, [])
 
   const onMarkdownChange = useCallback((id: string, newMarkdown: string) => {
@@ -89,40 +98,40 @@ export default function App() {
   useEffect(() => {
     if (!workspace) return
 
-    const initialNodes: Node[] = workspace.blocks.map((block, index) => {
-      let nodeType = 'text-block'; // Fallback par défaut
-      
-      try {
-          if (block.metadata) {
-              const meta = JSON.parse(block.metadata);
-              
-              // On génère la clé attendue (ex: "image-block")
-              const targetType = meta.type ? `${meta.type}-block` : 'text-block';
-              
-              // Si ce composant a bien été enregistré dans notre dictionnaire `nodeTypes`, on l'utilise
-              if (targetType in nodeTypes) {
-                  nodeType = targetType;
-              }
-          }
-      } catch(e) {
-          console.warn("Invalid metadata JSON for block", block.id);
-      }
-
-      return {
-        id: block.id,
-        type: nodeType,
-        position: {
-          x: 50 + (index % 3) * 450,
-          y: 50 + Math.floor(index / 3) * 250
-        },
-        data: {
-          markdown: block.content,
-          onMarkdownChange
+    setNodes(currentNodes => {
+      return workspace.blocks.map((block, index) => {
+        let nodeType = 'text-block';
+        let metadata = {};
+        try {
+            if (block.metadata) {
+                metadata = JSON.parse(block.metadata);
+                const targetType = (metadata as any).type ? `${(metadata as any).type}-block` : 'text-block';
+                if (targetType in nodeTypes) {
+                    nodeType = targetType;
+                }
+            }
+        } catch(e) {
+            console.warn("Invalid metadata JSON for block", block.id);
         }
-      }
-    })
 
-    setNodes(initialNodes)
+        const existingNode = currentNodes.find(n => n.id === block.id);
+
+        return {
+          id: block.id,
+          type: nodeType,
+          position: existingNode ? existingNode.position : {
+            x: 50 + (index % 3) * 450,
+            y: 50 + Math.floor(index / 3) * 250
+          },
+          selected: existingNode?.selected || false,
+          data: {
+            markdown: block.content,
+            metadata,
+            onMarkdownChange
+          }
+        }
+      })
+    })
   }, [workspace, setNodes, onMarkdownChange])
 
   return (

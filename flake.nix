@@ -32,12 +32,12 @@
 
         buildToolsVersion = "34.0.0";
         androidComposition = pkgs.androidenv.composeAndroidPackages {
-          buildToolsVersions = [ buildToolsVersion "35.0.0" ];
-          platformVersions = [ "34" "35" "36" ];
+          buildToolsVersions = [buildToolsVersion "35.0.0"];
+          platformVersions = ["34" "35" "36"];
           includeEmulator = false;
           includeNDK = true;
-          ndkVersions = [ "26.1.10909125" ]; # Version NDK souvent recommandée pour Tauri
-          cmakeVersions = [ "3.22.1" ];
+          ndkVersions = ["26.1.10909125"]; # Version NDK souvent recommandée pour Tauri
+          cmakeVersions = ["3.22.1"];
           includeSources = false;
           includeSystemImages = false;
           extraLicenses = [
@@ -69,6 +69,7 @@
           dbus
           librsvg
           libsoup_3
+          glib-networking
         ];
 
         packages =
@@ -78,11 +79,13 @@
             bun
             rust
             cargo-tauri
+            cargo-watch
             just
-            typescript typescript-language-server
-            
+            typescript
+            typescript-language-server
+
             jdk17
-            android-tools 
+            android-tools
             androidSdk
           ]);
       in {
@@ -93,6 +96,7 @@
           ANDROID_HOME = "${androidSdk}/libexec/android-sdk";
           NDK_HOME = "${androidSdk}/libexec/android-sdk/ndk/26.1.10909125";
           GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${androidSdk}/libexec/android-sdk/build-tools/${buildToolsVersion}/aapt2";
+          GIO_MODULE_DIR = "${pkgs.glib-networking}/lib/gio/modules/";
 
           shellHook = ''
             export LD_LIBRARY_PATH=${pkgs.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH

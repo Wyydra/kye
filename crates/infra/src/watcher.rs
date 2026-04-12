@@ -1,34 +1,46 @@
-use notify::{Watcher, RecursiveMode, Event, EventKind};
+use domain::ports::{BlockService, WorkspaceWatcher};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
-use std::sync::mpsc::channel;
-use std::thread;
+use std::time::Duration;
 
-pub struct FSWatcher {
+pub struct FSWatcher<S: BlockService> {
     path: PathBuf,
+    service: S,
 }
 
-impl FSWatcher {
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
+impl<S: BlockService> FSWatcher<S> {
+    pub fn new(path: PathBuf, service: S) -> Self {
+        Self { path, service }
     }
+}
 
-    pub fn watch<F>(&self, on_change: F) 
-    where 
-        F: Fn() + Send + Sync + 'static 
-    {
+impl<S: BlockService> WorkspaceWatcher for FSWatcher<S> {
+    fn watch(&self) {
         let path = self.path.clone();
+        let service = self.service.clone();
         
-        thread::spawn(move || {
-            let (tx, rx) = channel();
-            let mut watcher = notify::recommended_watcher(tx).unwrap();
-            watcher.watch(&path, RecursiveMode::Recursive).unwrap();
-
-            for res in rx {
-                match res {
-                    Ok(Event { kind: EventKind::Modify(_), .. }) => {
-                        on_change();
-                    },
-                    _ => {}
+        std::thread::spawn(move || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            
+            let mut watcher = RecommendedWatcher::new(tx, Config::default())
+                .expect("Failed to create watcher");
+                
+            watcher.watch(&path, RecursiveMode::Recursive)
+                .expect("Failed to watch path");
+                
+            loop {
+                match rx.recv() {
+                    Ok(Ok(event)) => {
+                        if matches!(event.kind, notify::EventKind::Modify(_)) {
+                            // Debounce: Wait for 100ms of silence
+                            while rx.recv_timeout(Duration::from_millis(100)).is_ok() {
+                                // Drain chatty events
+                            }
+                            service.notify_external_update();
+                        }
+                    }
+                    Ok(Err(e)) => tracing::error!("watch error: {:?}", e),
+                    Err(_) => break, // Channel closed
                 }
             }
         });

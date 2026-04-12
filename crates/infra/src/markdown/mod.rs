@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 
 use uuid::Uuid;
@@ -9,10 +8,10 @@ use walkdir::WalkDir;
 
 use domain::{
     models::{
-        block::{Block, Content, Metadata},
+        block::{Block, Content},
         workspace::{SaveWorkspaceError, Workspace, WorkspaceName},
     },
-    ports::WorkspaceRepository,
+    ports::{MetadataProvider, WorkspaceRepository},
 };
 
 use comrak::nodes::NodeValue;
@@ -67,6 +66,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
                 let content = fs::read_to_string(path)?;
+                tracing::debug!("Processing file: {:?}", path);
                 let arena = Arena::new();
                 let options = Options::default();
                 let root = parse_document(&arena, &content, &options);
@@ -90,27 +90,43 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                                 }
                             }
 
-                            if is_block_metadata {
-                                found_first_block = true;
-                                if let Some(id) = current_block_id.take() {
-                                    blocks.push(Block::new(
-                                        id,
-                                        Content::new(current_content.trim()),
-                                        Metadata::new(&current_metadata),
-                                    ));
-                                    new_index.insert(id, path.to_path_buf());
-                                    current_content.clear();
-                                    current_metadata.clear();
-                                }
-                                let text = html.literal.trim();
-                                if text.starts_with("<!--") && text.ends_with("-->") {
-                                    current_metadata = text
-                                        .trim_start_matches("<!--")
-                                        .trim_end_matches("-->")
-                                        .trim()
-                                        .to_string();
-                                }
-                            } else {
+                                if is_block_metadata {
+                                    found_first_block = true;
+                                    
+                                    let text = html.literal.trim();
+                                    if text.starts_with("<!--") && text.ends_with("-->") {
+                                        // A new metadata comment ALWAYS starts a new block
+                                        // A new metadata comment ALWAYS starts a new block
+                                        if let Some(id) = current_block_id.take() {
+                                            let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
+                                                .get_fields()
+                                                .unwrap_or_else(|e| {
+                                                    tracing::error!("Invalid metadata JSON for block {}: {}", id, e);
+                                                    domain::models::block::metadata::Fields::new()
+                                                });
+                                            
+                                            blocks.push(Block::new(
+                                                Content::new(current_content.trim()),
+                                                domain::models::block::metadata::Metadata::new(id, fields),
+                                            ));
+                                            new_index.insert(id, path.to_path_buf());
+                                            current_content.clear();
+                                            current_metadata.clear();
+                                        }
+
+                                        let raw_meta = text
+                                            .trim_start_matches("<!--")
+                                            .trim_end_matches("-->")
+                                            .trim()
+                                            .to_string();
+                                        current_metadata = raw_meta.clone();
+                                        
+                                        // Extract ID from metadata if present
+                                        if let Some(id) = crate::metadata::JsonMetadataProvider(raw_meta).get_id() {
+                                            current_block_id = Some(id);
+                                        }
+                                    }
+                                } else {
                                 let mut text = String::new();
                                 format_commonmark(node, &options, &mut text).unwrap_or_default();
                                 if current_block_id.is_some() {
@@ -122,26 +138,8 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                         }
                         NodeValue::Heading(h) if h.level == 2 => {
                             found_first_block = true;
-                            if let Some(id) = current_block_id.take() {
-                                blocks.push(Block::new(
-                                    id,
-                                    Content::new(current_content.trim()),
-                                    Metadata::new(&current_metadata),
-                                ));
-                                new_index.insert(id, path.to_path_buf());
-                                current_content.clear();
-                                current_metadata.clear();
-                            }
-
-                            let mut text = String::new();
-                            format_commonmark(node, &options, &mut text).unwrap_or_default();
-                            let s = text.replace("## ", "").trim().to_string();
-
-                            if let Ok(id) = Uuid::from_str(&s) {
-                                current_block_id = Some(id);
-                            } else {
-                                current_block_id = Some(Uuid::new_v4());
-                            }
+                            // Headings are now strictly TITLES, not ID sources.
+                            // We don't finalize here because we only finalize when we see the NEXT metadata block.
                         }
                         _ => {
                             let mut text = String::new();
@@ -157,10 +155,17 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                 }
 
                 if let Some(id) = current_block_id.take() {
+                    tracing::debug!("Finalizing block {} in file {:?}", id, path);
+                    let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
+                        .get_fields()
+                        .unwrap_or_else(|e| {
+                            tracing::error!("Invalid metadata JSON for block {}: {}", id, e);
+                            domain::models::block::metadata::Fields::new()
+                        });
+                    
                     blocks.push(Block::new(
-                        id,
                         Content::new(current_content.trim()),
-                        Metadata::new(&current_metadata),
+                        domain::models::block::metadata::Metadata::new(id, fields),
                     ));
                     new_index.insert(id, path.to_path_buf());
                 }
@@ -189,6 +194,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
         let ws_name = WorkspaceName::new(&workspace_name)
             .map_err(|e| anyhow::anyhow!("Name error: {}", e))?;
 
+        tracing::info!("Loaded {} blocks from workspace", blocks.len());
         Ok(Workspace::new(ws_id, ws_name, blocks))
     }
 
@@ -225,11 +231,10 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             }
 
             for block in blocks {
-                let meta = block.metadata().to_string();
-                if !meta.is_empty() {
-                    draft.push_str(&format!("<!-- {} -->\n", meta));
-                }
-                draft.push_str(&format!("## {}\n", block.id()));
+                let meta = crate::metadata::render_json(block.id(), block.metadata());
+                draft.push_str(&format!("<!-- {} -->\n", meta));
+                
+                draft.push_str("## Untitled\n");
                 draft.push_str(&format!("{}\n\n", block.content()));
             }
 

@@ -2,10 +2,9 @@ use uuid::Uuid;
 
 use crate::{
     models::{
-        block::{Block, CreateBlockError, CreateBlockRequest, UpdateBlockRequest, UpdateBlockError},
-        workspace::Workspace,
+        block::{Block, CreateBlockError, CreateBlockRequest, UpdateBlockError, UpdateBlockRequest}, workspace::Workspace
     },
-    ports::{BlockService, WorkspaceRepository, EventDispatcher},
+    ports::{BlockService, EventDispatcher, WorkspaceRepository},
 };
 
 #[derive(Debug, Clone)]
@@ -47,7 +46,8 @@ where
         })?;
 
         let id = Uuid::new_v4();
-        let new_block = Block::new(id, req.content().clone(), req.metadata().clone());
+        let metadata = crate::models::block::metadata::Metadata::new(id, req.fields().clone());
+        let new_block = Block::new(req.content().clone(), metadata);
 
         workspace.add_block(new_block.clone()).map_err(|e| {
             CreateBlockError::Unknown(anyhow::anyhow!("Validation error: {}", e))
@@ -67,5 +67,9 @@ where
         self.repo.save_workspace(&workspace).await?;
 
         Ok(())
+    }
+
+    fn notify_external_update(&self) {
+        self.dispatcher.dispatch_workspace_updated();
     }
 }
