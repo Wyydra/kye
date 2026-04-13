@@ -5,8 +5,8 @@ use thiserror::Error;
 use crate::models::block::metadata::{Metadata, Fields};
 
 pub mod metadata;
+pub mod schema;
 pub mod stdlib;
-pub mod type_def;
 pub mod type_registry;
 
 #[derive(Debug, Clone)]
@@ -34,6 +34,10 @@ impl Block {
 
     pub fn update_content(&mut self, new_content: Content) {
         self.content = new_content;
+    }
+
+    pub fn update_metadata(&mut self, new_fields: Fields) {
+        self.metadata = Metadata::new(*self.id(), new_fields);
     }
 }
 
@@ -72,18 +76,22 @@ impl CreateBlockRequest {
 
 pub struct UpdateBlockRequest {
     id: uuid::Uuid,
-    content: Content,
+    content: Option<Content>,
+    fields: Option<Fields>,
 }
 
 impl UpdateBlockRequest {
-    pub fn new(id: uuid::Uuid, content: Content) -> Self {
-        Self { id, content }
+    pub fn new(id: uuid::Uuid, content: Option<Content>, fields: Option<Fields>) -> Self {
+        Self { id, content, fields }
     }
     pub fn id(&self) -> uuid::Uuid {
         self.id
     }
-    pub fn content(&self) -> &Content {
-        &self.content
+    pub fn content(&self) -> Option<&Content> {
+        self.content.as_ref()
+    }
+    pub fn fields(&self) -> Option<&Fields> {
+        self.fields.as_ref()
     }
 }
 

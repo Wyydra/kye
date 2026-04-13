@@ -1,27 +1,9 @@
-<!-- {"id":"83ecacc2-57f5-495a-a5d2-49827b85f6c7","type":"image"} -->
+<!-- {"id":"e48d20b6-0f76-4c9a-99f6-6a2d0855b827","position":{"x":336.3852427484884,"y":-58.55019427614856}} -->
 
 ## Untitled
 
-![Test image](./photo.jpg)
+# Karina
 
-<!-- {"id":"7f33cb66-0749-443a-800c-ade3f350cbb4","type":"image"} -->
-
-## Untitled
-
-![Test image](https://altselection.ouest-france.fr/wp-content/uploads/2025/05/Karina-daespa-accusee-de-faire-passer-un-message-politique-a-cause-dune-veste-rouge-juste-avant-les-elections-presidentielles-en-Coree-du-Sud.jpg)
-
-<!-- {"id":"2ce8f966-6b2b-41ae-b87b-038b3440c560","type":"text"} -->
+<!-- {"id":"748ef4b2-3ce8-4977-ae98-4e53dcb27192","position":{"x":62.39913570869726,"y":169.11504576481727},"url":"./photo.jpg"} -->
 
 ## Untitled
-
-Clean test
-
-# titre
-
-- ok tout peut s'oublier hello
-
-- editer depuis le fichier
-
-- je fais des tests
-
-- foo

@@ -37,23 +37,28 @@ pub struct BlockDto {
     pub id: Uuid,
     pub content: String,
     pub metadata: String,
+    pub shapes: Vec<String>,
 }
 
-impl From<&domain::models::workspace::Workspace> for WorkspaceDto {
-    fn from(w: &domain::models::workspace::Workspace) -> Self {
+impl WorkspaceDto {
+    pub fn from_domain(
+        w: &domain::models::workspace::Workspace,
+        service: &Arc<Service<DirectoryWorkspaceRepository, TauriEventDispatcher>>,
+    ) -> Self {
         Self {
             name: w.name().to_string(),
-            blocks: w.blocks().iter().map(|b| b.into()).collect(),
+            blocks: w.blocks().iter().map(|b| (b, service).into()).collect(),
         }
     }
 }
 
-impl From<&domain::models::block::Block> for BlockDto {
-    fn from(b: &domain::models::block::Block) -> Self {
+impl From<(&domain::models::block::Block, &Arc<Service<DirectoryWorkspaceRepository, TauriEventDispatcher>>)> for BlockDto {
+    fn from((b, service): (&domain::models::block::Block, &Arc<Service<DirectoryWorkspaceRepository, TauriEventDispatcher>>)) -> Self {
         Self {
             id: *b.id(),
             content: b.content().to_string(),
             metadata: infra::metadata::render_json(b.id(), b.metadata()),
+            shapes: service.identify_block_shapes(b.metadata().fields()),
         }
     }
 }
@@ -71,7 +76,7 @@ async fn get_workspace(state: tauri::State<'_, AppState>) -> Result<WorkspaceDto
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok((&workspace).into())
+    Ok(WorkspaceDto::from_domain(&workspace, &state.service))
 }
 
 #[tauri::command]
@@ -79,43 +84,96 @@ async fn create_block(
     content: String,
     metadata: String,
     state: tauri::State<'_, AppState>,
-) -> Result<BlockDto, String> {
+) -> Result<(WorkspaceDto, Uuid), String> {
     let metadata_provider = infra::metadata::JsonMetadataProvider(metadata);
-    let fields = metadata_provider.get_fields().unwrap_or_else(|e| {
-        tracing::error!("Metadata error: {}", e);
-        domain::models::block::metadata::Fields::new()
-    });
+    let fields = metadata_provider.get_fields().map_err(|e| {
+        format!("Metadata error: {}", e)
+    })?;
     let req = CreateBlockRequest::new(Content::new(&content), fields);
 
-    let block = state
+    let (workspace, id) = state
         .service
         .create_block(&req)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Create error: {}", e))?;
 
-    Ok((&block).into())
+    Ok((WorkspaceDto::from_domain(&workspace, &state.service), id))
 }
 
 #[tauri::command]
 async fn update_block(
     id: Uuid,
-    content: String,
+    content: Option<String>,
+    metadata: Option<String>,
     state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    let req = UpdateBlockRequest::new(id, Content::new(&content));
+) -> Result<WorkspaceDto, String> {
+    let domain_content = content.map(|c| Content::new(&c));
+    let mut domain_fields = None;
 
-    state
+    if let Some(meta) = metadata {
+        let provider = infra::metadata::JsonMetadataProvider(meta);
+        domain_fields = Some(provider.get_fields().map_err(|e| e.to_string())?);
+    }
+
+    let req = UpdateBlockRequest::new(id, domain_content, domain_fields);
+
+    let workspace = state
         .service
         .update_block(&req)
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(())
+    Ok(WorkspaceDto::from_domain(&workspace, &state.service))
+}
+
+#[tauri::command]
+async fn delete_block(
+    id: Uuid,
+    state: tauri::State<'_, AppState>,
+) -> Result<WorkspaceDto, String> {
+    let workspace = state
+        .service
+        .delete_block(id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(WorkspaceDto::from_domain(&workspace, &state.service))
 }
 
 #[tauri::command]
 fn get_workspace_path(state: tauri::State<'_, AppState>) -> String {
     state.workspace_path.to_string_lossy().to_string()
+}
+
+#[tauri::command]
+fn get_block_types(state: tauri::State<'_, AppState>) -> Vec<String> {
+    state.service.get_block_types()
+}
+
+#[derive(Serialize)]
+pub struct TemplateDto {
+    pub name: String,
+    pub fields: String,
+}
+
+#[tauri::command]
+fn get_templates(state: tauri::State<'_, AppState>) -> Vec<TemplateDto> {
+    state.service.get_block_types().into_iter().map(|name| {
+        TemplateDto {
+            name,
+            fields: "{}".to_string(),
+        }
+    }).collect()
+}
+
+#[tauri::command]
+fn identify_block_shapes(
+    metadata: String,
+    state: tauri::State<'_, AppState>
+) -> Result<Vec<String>, String> {
+    let provider = infra::metadata::JsonMetadataProvider(metadata);
+    let fields = provider.get_fields().map_err(|e| e.to_string())?;
+    Ok(state.service.identify_block_shapes(&fields))
 }
 
 fn main() {
@@ -154,7 +212,11 @@ fn main() {
             get_workspace,
             create_block,
             update_block,
-            get_workspace_path
+            delete_block,
+            get_workspace_path,
+            get_block_types,
+            get_templates,
+            identify_block_shapes
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

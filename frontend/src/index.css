@@ -142,3 +142,136 @@ body {
 .tiptap code { background-color: var(--color-bg-base); padding: 0.2em 0.4em; border-radius: 4px; font-size: 0.9em; font-family: 'JetBrains Mono', monospace; }
 .tiptap pre { background-color: #1e293b; color: #f8fafc; padding: 1em; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; }
 .tiptap pre code { background: none; color: inherit; padding: 0; }
+
+/* Add Node Menu */
+.add-node-menu {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  padding: 8px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  animation: menu-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.image-edit-overlay input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Unified Editor & Property Grid */
+.unified-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: white;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.property-editor {
+  padding: 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.property-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.property-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.property-row label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.property-row input[type="text"],
+.property-row input[type="number"] {
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+}
+
+.property-row input:focus {
+  border-color: #3b82f6;
+}
+
+.property-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.editor-separator {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 0;
+}
+
+.property-editor.empty {
+  padding: 8px 12px;
+  font-style: italic;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+@keyframes menu-appear {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.add-node-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--color-text-main);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.add-node-menu-item:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.add-node-menu-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--type-color, var(--color-primary));
+}
+
+.add-node-menu-item.text { --type-color: var(--color-type-default); }
+.add-node-menu-item.image { --type-color: var(--color-type-image); }
+.add-node-menu-item.port { --type-color: var(--color-type-port); }
+.add-node-menu-item.concept { --type-color: var(--color-type-concept); }

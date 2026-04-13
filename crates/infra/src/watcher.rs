@@ -32,8 +32,8 @@ impl<S: BlockService> WorkspaceWatcher for FSWatcher<S> {
                 match rx.recv() {
                     Ok(Ok(event)) => {
                         if matches!(event.kind, notify::EventKind::Modify(_)) {
-                            // Debounce: Wait for 100ms of silence
-                            while rx.recv_timeout(Duration::from_millis(100)).is_ok() {
+                            // Debounce: Wait for 300ms of silence
+                            while rx.recv_timeout(Duration::from_millis(300)).is_ok() {
                                 // Drain chatty events
                             }
                             service.notify_external_update();

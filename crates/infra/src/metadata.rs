@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use domain::models::block::metadata::{Metadata, Fields, Value};
-use domain::models::block::type_def::FieldName;
+use domain::models::block::schema::FieldName;
 use domain::ports::MetadataProvider;
 use uuid::Uuid;
 
@@ -11,6 +11,7 @@ enum JsonValue {
     Null,
     Bool(bool),
     Int(i64),
+    Float(f64),
     String(String),
     Array(Vec<JsonValue>),
     Object(BTreeMap<String, JsonValue>),
@@ -79,6 +80,7 @@ fn map_to_domain(json_val: JsonValue) -> Value {
         JsonValue::Null => Value::None,
         JsonValue::Bool(b) => Value::Boolean(b),
         JsonValue::Int(i) => Value::Integer(i),
+        JsonValue::Float(f) => Value::Float(f),
         JsonValue::String(s) => Value::String(s),
         JsonValue::Array(arr) => {
             Value::Array(arr.into_iter().map(map_to_domain).collect())
@@ -98,6 +100,7 @@ fn map_to_json(value: &Value) -> JsonValue {
         Value::None => JsonValue::Null,
         Value::Boolean(b) => JsonValue::Bool(*b),
         Value::Integer(i) => JsonValue::Int(*i),
+        Value::Float(f) => JsonValue::Float(*f),
         Value::String(s) => JsonValue::String(s.clone()),
         Value::Array(arr) => {
             JsonValue::Array(arr.iter().map(map_to_json).collect())

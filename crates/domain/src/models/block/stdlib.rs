@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use crate::models::block::type_def::{FieldName, FieldType, TypeDefinition, TypeName};
+use crate::models::block::schema::{FieldName, FieldType, TypeDefinition, TypeName};
 use crate::models::block::type_registry::TypeRegistry;
 
 pub struct StandardLibrary;
@@ -15,9 +15,6 @@ impl StandardLibrary {
         // Image
         let mut image_fields = BTreeMap::new();
         image_fields.insert(FieldName::new("url"), FieldType::String);
-        image_fields.insert(FieldName::new("alt"), FieldType::String);
-        image_fields.insert(FieldName::new("width"), FieldType::Integer);
-        image_fields.insert(FieldName::new("height"), FieldType::Integer);
         registry.register(
             TypeName::new("image"),
             TypeDefinition::new(image_fields),

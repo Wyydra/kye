@@ -5,8 +5,11 @@ use uuid::Uuid;
 
 pub trait BlockService: Clone + Send + Sync + 'static {
     fn get_workspace(&self) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
-    fn create_block(&self, req: &CreateBlockRequest) -> impl Future<Output = Result<Block, CreateBlockError>> + Send;
-    fn update_block(&self, req: &UpdateBlockRequest) -> impl Future<Output = Result<(), UpdateBlockError>> + Send;
+    fn create_block(&self, req: &CreateBlockRequest) -> impl Future<Output = Result<(Workspace, Uuid), CreateBlockError>> + Send;
+    fn update_block(&self, req: &UpdateBlockRequest) -> impl Future<Output = Result<Workspace, UpdateBlockError>> + Send;
+    fn delete_block(&self, id: Uuid) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
+    fn get_block_types(&self) -> Vec<String>;
+    fn identify_block_shapes(&self, fields: &crate::models::block::metadata::Fields) -> Vec<String>;
     fn notify_external_update(&self);
 }
 

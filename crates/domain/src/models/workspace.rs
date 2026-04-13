@@ -32,13 +32,22 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn update_block_content(&mut self, id: Uuid, new_content: crate::models::block::Content) -> Result<(), crate::models::block::UpdateBlockError> {
-        if let Some(block) = self.blocks.iter_mut().find(|b| *b.id() == id) {
-            block.update_content(new_content);
+    pub fn update_block(&mut self, req: &crate::models::block::UpdateBlockRequest) -> Result<(), crate::models::block::UpdateBlockError> {
+        if let Some(block) = self.blocks.iter_mut().find(|b| *b.id() == req.id()) {
+            if let Some(content) = req.content() {
+                block.update_content(content.clone());
+            }
+            if let Some(fields) = req.fields() {
+                block.update_metadata(fields.clone());
+            }
             Ok(())
         } else {
-            Err(UpdateBlockError::NotFound(id))
+            Err(UpdateBlockError::NotFound(req.id()))
         }
+    }
+
+    pub fn remove_block(&mut self, id: Uuid) {
+        self.blocks.retain(|b| *b.id() != id);
     }
 }
 

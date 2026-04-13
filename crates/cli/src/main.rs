@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use domain::models::block::{
     Content, CreateBlockRequest, UpdateBlockRequest,
-    type_def::TypeName,
+    schema::TypeName,
     type_registry::TypeRegistry,
     stdlib::StandardLibrary,
 };
@@ -117,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
             let repo = DirectoryWorkspaceRepository::new(cli.workspace);
             let service = Service::new(repo, ());
 
-            let req = UpdateBlockRequest::new(id, Content::new(&content));
+            let req = UpdateBlockRequest::new(id, Some(Content::new(&content)), None);
             service.update_block(&req).await?;
 
             println!("Successfully updated block {}", id);

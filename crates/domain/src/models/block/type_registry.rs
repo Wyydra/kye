@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use crate::models::block::type_def::{TypeName, TypeDefinition};
+use crate::models::block::schema::{TypeName, TypeDefinition};
 
 #[derive(Clone, Debug, Default)]
 pub struct TypeRegistry {
