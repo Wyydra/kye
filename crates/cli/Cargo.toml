@@ -9,3 +9,6 @@ domain = { path = "../domain" }
 infra = { path = "../infra" }
 tokio = { version = "1.50.0", features = ["rt-multi-thread", "macros"] }
 anyhow = "1"
+uuid = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
