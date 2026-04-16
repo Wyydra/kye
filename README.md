@@ -2,11 +2,6 @@
 Un outil de modélisation de connaissances. local-first.
 Un concept = Un fichier.
 
-## Problèmes
-- l'adatper watcher n'implémente pas EventDispatcher donc rien à faire dans infra soit le bouger soit adapter et retirer l'adapter tauri dans gui/main.rs
-- le service demande un event dispatcher mais cli en a pas besoin par exemple
-- dans le fichier md l'id du block est dans les metadata mais pas dans la struct Metadata mais dans la struct block
-
 ## Philosophie & Principes
 - Markdown comme modèle, le fichier texte est la source de vérité, le modèle.
 - Multi-vues: un meme jeu de données peut etre projeté de différente manière.
