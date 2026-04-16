@@ -1,8 +1,10 @@
 use std::fmt::Display;
 
 use thiserror::Error;
+use uuid::Uuid;
 
-use crate::models::block::metadata::{Metadata, Fields};
+use crate::models::block::metadata::{Fields, Metadata};
+
 
 pub mod metadata;
 pub mod schema;
@@ -17,10 +19,7 @@ pub struct Block {
 
 impl Block {
     pub fn new(content: Content, metadata: Metadata) -> Self {
-        Self {
-            content,
-            metadata,
-        }
+        Self { content, metadata }
     }
     pub fn id(&self) -> &uuid::Uuid {
         self.metadata.id()
@@ -48,6 +47,10 @@ impl Content {
     pub fn new(raw: &str) -> Self {
         let trimmed = raw.trim();
         Self(trimmed.to_string())
+    }
+
+    pub fn raw(s: &str) -> Self {
+        Self(s.to_string())
     }
 }
 
@@ -95,11 +98,15 @@ impl UpdateBlockRequest {
     }
 }
 
+// ── Errors ────────────────────────────────────────────────────────────────────
+
 #[derive(Debug, Error)]
 pub enum CreateBlockError {
-    #[error("Storage error")]
+    #[error("Block with ID {0} already exists")]
+    DuplicateId(Uuid),
+    #[error(transparent)]
     Storage(#[from] crate::models::workspace::SaveWorkspaceError),
-    #[error("Unknown error")]
+    #[error(transparent)]
     Unknown(#[from] anyhow::Error),
 }
 
@@ -107,8 +114,18 @@ pub enum CreateBlockError {
 pub enum UpdateBlockError {
     #[error("Block {0} not found")]
     NotFound(uuid::Uuid),
-    #[error("Storage error")]
+    #[error(transparent)]
     Storage(#[from] crate::models::workspace::SaveWorkspaceError),
-    #[error("Unknown error")]
+    #[error(transparent)]
+    Unknown(#[from] anyhow::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum DeleteBlockError {
+    #[error("Block {0} not found")]
+    NotFound(Uuid),
+    #[error(transparent)]
+    Storage(#[from] crate::models::workspace::SaveWorkspaceError),
+    #[error(transparent)]
     Unknown(#[from] anyhow::Error),
 }

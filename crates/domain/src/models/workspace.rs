@@ -2,8 +2,10 @@ use std::fmt::Display;
 use thiserror::Error;
 use uuid::Uuid;
 use crate::models::block::Block;
-use crate::models::block::UpdateBlockError;
+use crate::models::block::{UpdateBlockError, UpdateBlockRequest};
 
+
+#[derive(Clone)]
 pub struct Workspace {
     id: Uuid,
     name: WorkspaceName,
@@ -32,7 +34,7 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn update_block(&mut self, req: &crate::models::block::UpdateBlockRequest) -> Result<(), crate::models::block::UpdateBlockError> {
+    pub fn update_block(&mut self, req: &UpdateBlockRequest) -> Result<(), UpdateBlockError> {
         if let Some(block) = self.blocks.iter_mut().find(|b| *b.id() == req.id()) {
             if let Some(content) = req.content() {
                 block.update_content(content.clone());
@@ -46,10 +48,18 @@ impl Workspace {
         }
     }
 
-    pub fn remove_block(&mut self, id: Uuid) {
+    pub fn remove_block(&mut self, id: Uuid) -> Result<(), RemoveBlockError> {
+        let before = self.blocks.len();
         self.blocks.retain(|b| *b.id() != id);
+        if self.blocks.len() == before {
+            Err(RemoveBlockError::NotFound(id))
+        } else {
+            Ok(())
+        }
     }
 }
+
+// ── Errors ────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Error)]
 pub enum AddBlockError {
@@ -57,7 +67,15 @@ pub enum AddBlockError {
     DuplicateId(Uuid),
 }
 
+#[derive(Debug, Error)]
+pub enum RemoveBlockError {
+    #[error("Block {0} not found")]
+    NotFound(Uuid),
+}
+
+#[derive(Clone)]
 pub struct WorkspaceName(String);
+
 
 #[derive(Clone, Debug, Error)]
 #[error("Workspace name cannot be empty")]

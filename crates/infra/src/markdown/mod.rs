@@ -11,8 +11,9 @@ use domain::{
         block::{Block, Content},
         workspace::{SaveWorkspaceError, Workspace, WorkspaceName},
     },
-    ports::{MetadataProvider, WorkspaceRepository},
+    ports::WorkspaceRepository,
 };
+use crate::workspace_identity::WorkspaceIdentity;
 
 use comrak::nodes::NodeValue;
 use comrak::{Arena, Options, format_commonmark, parse_document};
@@ -74,6 +75,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                 let mut current_block_id: Option<Uuid> = None;
                 let mut current_metadata = String::new();
                 let mut current_content = String::new();
+                let mut current_title: Option<String> = None;
                 let mut prefix_draft = String::new();
                 let mut found_first_block = false;
 
@@ -96,14 +98,19 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                                     let text = html.literal.trim();
                                     if text.starts_with("<!--") && text.ends_with("-->") {
                                         // A new metadata comment ALWAYS starts a new block
-                                        // A new metadata comment ALWAYS starts a new block
                                         if let Some(id) = current_block_id.take() {
-                                            let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
+                                            let mut fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
                                                 .get_fields()
                                                 .unwrap_or_else(|e| {
                                                     tracing::error!("Invalid metadata JSON for block {}: {}", id, e);
                                                     domain::models::block::metadata::Fields::new()
                                                 });
+                                                
+                                            if let Some(t) = current_title.take() {
+                                                if !fields.contains_key(&domain::models::block::schema::FieldName::new("title")) {
+                                                    fields.insert(domain::models::block::schema::FieldName::new("title"), domain::models::block::metadata::Value::String(t));
+                                                }
+                                            }
                                             
                                             blocks.push(Block::new(
                                                 Content::new(current_content.trim()),
@@ -138,6 +145,9 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                         }
                         NodeValue::Heading(h) if h.level == 2 => {
                             found_first_block = true;
+                            let mut text = String::new();
+                            format_commonmark(node, &options, &mut text).unwrap_or_default();
+                            current_title = Some(text.trim().trim_start_matches("##").trim().to_string());
                             // Headings are now strictly TITLES, not ID sources.
                             // We don't finalize here because we only finalize when we see the NEXT metadata block.
                         }
@@ -156,12 +166,18 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
 
                 if let Some(id) = current_block_id.take() {
                     tracing::debug!("Finalizing block {} in file {:?}", id, path);
-                    let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
+                    let mut fields = crate::metadata::JsonMetadataProvider(current_metadata.clone())
                         .get_fields()
                         .unwrap_or_else(|e| {
                             tracing::error!("Invalid metadata JSON for block {}: {}", id, e);
                             domain::models::block::metadata::Fields::new()
                         });
+                        
+                    if let Some(t) = current_title.take() {
+                        if !fields.contains_key(&domain::models::block::schema::FieldName::new("title")) {
+                            fields.insert(domain::models::block::schema::FieldName::new("title"), domain::models::block::metadata::Value::String(t));
+                        }
+                    }
                     
                     blocks.push(Block::new(
                         Content::new(current_content.trim()),
@@ -190,7 +206,8 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             *pref_guard = new_prefixes;
         }
 
-        let ws_id = Uuid::new_v4();
+        let ws_id = WorkspaceIdentity::get_or_create(&self.dir_path)
+            .map_err(|e| anyhow::anyhow!("Identity error: {}", e))?;
         let ws_name = WorkspaceName::new(&workspace_name)
             .map_err(|e| anyhow::anyhow!("Name error: {}", e))?;
 
@@ -233,8 +250,10 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             for block in blocks {
                 let meta = crate::metadata::render_json(block.id(), block.metadata());
                 draft.push_str(&format!("<!-- {} -->\n", meta));
-                
-                draft.push_str("## Untitled\n");
+                let title = block.metadata().fields().get(&domain::models::block::schema::FieldName::new("title"))
+                    .and_then(|v| if let domain::models::block::metadata::Value::String(s) = v { Some(s.as_str()) } else { None })
+                    .unwrap_or("Untitled");
+                draft.push_str(&format!("## {}\n", title));
                 draft.push_str(&format!("{}\n\n", block.content()));
             }
 

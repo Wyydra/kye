@@ -38,14 +38,14 @@ export const KyeNodeComponent = memo(function KyeNodeComponent({ id, data, selec
         setEditing={setEditing}
       >
         <div className="unified-editor">
-          <PropertyEditor 
-            metadata={metadata || {}} 
-            onMetadataChange={(newMeta) => onMetadataChange(id, newMeta)} 
+          <PropertyEditor
+            blockType={primaryType}
+            metadata={metadata || {}}
+            onMetadataChange={(newMeta) => onMetadataChange(id, newMeta)}
           />
           <div className="editor-separator" />
           <div 
             className="tiptap-container" 
-            style={{ height: '200px', cursor: 'text' }}
             onKeyDown={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}

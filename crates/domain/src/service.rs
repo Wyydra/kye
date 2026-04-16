@@ -1,15 +1,27 @@
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
 use uuid::Uuid;
-use crate::models::block::metadata::Fields;
 
 use crate::{
     models::{
-        block::{Block, CreateBlockError, CreateBlockRequest, UpdateBlockError, UpdateBlockRequest, type_registry::TypeRegistry, stdlib::StandardLibrary}, workspace::Workspace
+        block::{
+            Block, CreateBlockError, CreateBlockRequest,
+            DeleteBlockError, UpdateBlockError, UpdateBlockRequest,
+            metadata::{Fields, Metadata},
+            schema::{TypeDefinition, TypeName},
+            stdlib::StandardLibrary,
+            type_registry::TypeRegistry,
+        },
+        workspace::{AddBlockError, RemoveBlockError, SaveWorkspaceError, Workspace},
     },
-    ports::{BlockService, EventDispatcher, WorkspaceRepository},
+    ports::{
+        EventDispatcher, ExternalEventHandler,
+        TypeInspector, WorkspaceRepository, WorkspaceUseCase,
+    },
 };
 
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+// ── Service ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct Service<R, E>
@@ -31,11 +43,11 @@ where
     pub fn new(repo: R, dispatcher: E) -> Self {
         let mut registry = TypeRegistry::new();
         StandardLibrary::init(&mut registry);
-        Self { 
-            repo, 
-            dispatcher, 
-            registry, 
-            last_internal_save: Arc::new(Mutex::new(None)) 
+        Self {
+            repo,
+            dispatcher,
+            registry,
+            last_internal_save: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -45,31 +57,21 @@ where
         }
     }
 
-    async fn mutate_workspace<T, F>(&self, f: F) -> anyhow::Result<(Workspace, T)>
+    async fn mutate_workspace<T, Err, F>(&self, f: F) -> Result<(Workspace, T), Err>
     where
-        F: FnOnce(&mut Workspace) -> anyhow::Result<T>,
+        Err: From<anyhow::Error> + From<SaveWorkspaceError>,
+        F: FnOnce(&mut Workspace) -> Result<T, Err>,
     {
-        let mut workspace = self.repo.load_workspace().await?;
+        let mut workspace = self.repo.load_workspace().await.map_err(Err::from)?;
         let result = f(&mut workspace)?;
-        self.repo.save_workspace(&workspace).await?;
+        self.repo.save_workspace(&workspace).await.map_err(Err::from)?;
         self.record_internal_save();
         Ok((workspace, result))
     }
-
-    pub fn notify_external_update(&self) {
-        if let Ok(guard) = self.last_internal_save.lock() {
-            if let Some(last_save) = *guard {
-                if last_save.elapsed() < Duration::from_millis(1000) {
-                    tracing::debug!("Ignoring external update within silence window");
-                    return;
-                }
-            }
-        }
-        self.dispatcher.dispatch_workspace_updated();
-    }
 }
 
-impl<R, E> BlockService for Service<R, E>
+
+impl<R, E> WorkspaceUseCase for Service<R, E>
 where
     R: WorkspaceRepository,
     E: EventDispatcher,
@@ -78,55 +80,88 @@ where
         self.repo.load_workspace().await
     }
 
-    async fn create_block(&self, req: &CreateBlockRequest) -> Result<(Workspace, Uuid), CreateBlockError> {
-        self.mutate_workspace(|workspace| {
+    async fn create_block(
+        &self,
+        req: &CreateBlockRequest,
+    ) -> Result<(Workspace, Uuid), CreateBlockError> {
+        self.mutate_workspace(|workspace| -> Result<Uuid, CreateBlockError> {
             let id = Uuid::new_v4();
-            let metadata = crate::models::block::metadata::Metadata::new(id, req.fields().clone());
+            let metadata = Metadata::new(id, req.fields().clone());
             let new_block = Block::new(req.content().clone(), metadata);
-
-            workspace.add_block(new_block.clone()).map_err(|e| {
-                anyhow::anyhow!("Validation error: {}", e)
+            workspace.add_block(new_block).map_err(|e| match e {
+                AddBlockError::DuplicateId(id) => CreateBlockError::DuplicateId(id),
             })?;
-
             Ok(id)
         })
         .await
-        .map_err(|e| CreateBlockError::Unknown(e))
     }
 
-    async fn update_block(&self, req: &UpdateBlockRequest) -> Result<Workspace, UpdateBlockError> {
+    async fn update_block(
+        &self,
+        req: &UpdateBlockRequest,
+    ) -> Result<Workspace, UpdateBlockError> {
+        self.mutate_workspace(|workspace| workspace.update_block(req))
+            .await
+            .map(|(ws, _)| ws)
+    }
+
+    async fn delete_block(&self, id: Uuid) -> Result<Workspace, DeleteBlockError> {
         self.mutate_workspace(|workspace| {
-            workspace.update_block(req).map_err(|e| anyhow::anyhow!(e))
+            workspace.remove_block(id).map_err(|e| match e {
+                RemoveBlockError::NotFound(rid) => DeleteBlockError::NotFound(rid),
+            })
         })
         .await
         .map(|(ws, _)| ws)
-        .map_err(|e| UpdateBlockError::Unknown(e))
     }
+}
 
-    async fn delete_block(&self, id: Uuid) -> Result<Workspace, anyhow::Error> {
-        self.mutate_workspace(|workspace| {
-            workspace.remove_block(id);
-            Ok(())
-        })
-        .await
-        .map(|(ws, _)| ws)
-    }
 
+impl<R, E> TypeInspector for Service<R, E>
+where
+    R: WorkspaceRepository,
+    E: EventDispatcher,
+{
     fn get_block_types(&self) -> Vec<String> {
         self.registry.types().keys().map(|k| k.to_string()).collect()
     }
 
     fn identify_block_shapes(&self, fields: &Fields) -> Vec<String> {
-        let mut matching_shapes = Vec::new();
-        for (name, definition) in self.registry.types() {
-            if fields.satisfies(definition) {
-                matching_shapes.push(name.to_string());
-            }
-        }
-        matching_shapes
+        self.registry
+            .types()
+            .iter()
+            .filter_map(|(name, definition)| {
+                if fields.satisfies(definition, &self.registry) {
+                    Some(name.to_string())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
-    fn notify_external_update(&self) {
-        Service::notify_external_update(self);
+    fn get_type_definition(&self, type_name: &str) -> Option<TypeDefinition> {
+        self.registry.get(&TypeName::new(type_name)).cloned()
+    }
+}
+
+
+impl<R, E> ExternalEventHandler for Service<R, E>
+where
+    R: WorkspaceRepository,
+    E: EventDispatcher,
+{
+    fn on_workspace_file_changed(&self) {
+        if let Ok(guard) = self.last_internal_save.lock() {
+            if let Some(last_save) = *guard {
+                if last_save.elapsed() < Duration::from_millis(1000) {
+                    tracing::debug!(
+                        "Changement externe ignoré (fenêtre de silence active)"
+                    );
+                    return;
+                }
+            }
+        }
+        self.dispatcher.dispatch_workspace_updated();
     }
 }

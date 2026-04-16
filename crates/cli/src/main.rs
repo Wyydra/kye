@@ -2,11 +2,8 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use domain::models::block::{
     Content, CreateBlockRequest, UpdateBlockRequest,
-    schema::TypeName,
-    type_registry::TypeRegistry,
-    stdlib::StandardLibrary,
 };
-use domain::ports::{BlockService, MetadataProvider};
+use domain::ports::{WorkspaceUseCase, TypeInspector};
 use domain::service::Service;
 use uuid::Uuid;
 use infra::markdown::DirectoryWorkspaceRepository;
@@ -54,7 +51,6 @@ enum Commands {
     },
 }
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
@@ -63,22 +59,15 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-
-    // Initialize Registry & Stdlib
-    let mut registry = TypeRegistry::new();
-    StandardLibrary::init(&mut registry);
+    let repo = DirectoryWorkspaceRepository::new(cli.workspace.clone());
+    let service = Service::new(repo, ()); // Le Unit type `()` implémente EventDispatcher no-op
 
     match cli.command {
         Commands::Add { content, type_name } => {
-            let tn = TypeName::new(&type_name);
-            if registry.get(&tn).is_none() {
+            if service.get_type_definition(&type_name).is_none() {
                 anyhow::bail!("Unknown block type: {}", type_name);
             }
 
-            let repo = DirectoryWorkspaceRepository::new(cli.workspace);
-            let service = Service::new(repo, ());
-
-            
             // Construct metadata with the requested type
             let metadata_json = format!(r#"{{"type": "{}"}}"#, type_name);
             let metadata_provider = infra::metadata::JsonMetadataProvider(metadata_json);
@@ -87,20 +76,17 @@ async fn main() -> anyhow::Result<()> {
                 domain::models::block::metadata::Fields::new()
             });
             let req = CreateBlockRequest::new(Content::new(&content), fields);
-            let block = service.create_block(&req).await?;
+            let (_workspace, block_id) = service.create_block(&req).await?;
 
-            println!("Successfully created block {} of type '{}'", block.id(), type_name);
+            println!("Successfully created block {} of type '{}'", block_id, type_name);
         }
         Commands::Types => {
             println!("Available block types:");
-            for name in registry.types().keys() {
+            for name in service.get_block_types() {
                 println!("- {}", name);
             }
         }
         Commands::List => {
-            let repo = DirectoryWorkspaceRepository::new(cli.workspace);
-            let service = Service::new(repo, ());
-
             let workspace = service.get_workspace().await?;
             println!("Blocks in workspace '{}' ({}):", workspace.name(), workspace.id());
             for block in workspace.blocks() {
@@ -114,18 +100,11 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         Commands::Update { id, content } => {
-            let repo = DirectoryWorkspaceRepository::new(cli.workspace);
-            let service = Service::new(repo, ());
-
             let req = UpdateBlockRequest::new(id, Some(Content::new(&content)), None);
             service.update_block(&req).await?;
-
             println!("Successfully updated block {}", id);
         }
         Commands::Show { id } => {
-            let repo = DirectoryWorkspaceRepository::new(cli.workspace);
-            let service = Service::new(repo, ());
-
             let workspace = service.get_workspace().await?;
             if let Some(block) = workspace.blocks().iter().find(|b| *b.id() == id) {
                 println!("Block ID: {}", block.id());

@@ -1,5 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc, ops::{Deref, DerefMut}, fmt::Display};
-use uuid::Uuid;
+
+use crate::models::block::type_registry::TypeRegistry;
+
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -22,8 +24,9 @@ impl Fields {
     pub fn insert(&mut self, name: FieldName, value: Value) {
         self.0.insert(name, value);
     }
-    pub fn satisfies(&self, definition: &TypeDefinition) -> bool {
-        definition.matches(self)
+
+    pub fn satisfies(&self, definition: &TypeDefinition, registry: &TypeRegistry) -> bool {
+        definition.matches(self, registry)
     }
 }
 
@@ -83,15 +86,14 @@ impl TypeDefinition {
         Self { fields }
     }
     pub fn empty() -> Self {
-        Self {
-            fields: BTreeMap::new(),
-        }
+        Self { fields: BTreeMap::new() }
     }
-    pub fn matches(&self, fields: &Fields) -> bool {
+
+    pub fn matches(&self, fields: &Fields, registry: &TypeRegistry) -> bool {
         for (name, field_type) in &self.fields {
             match fields.get(name) {
                 Some(value) => {
-                    if !field_type.matches_value(value) {
+                    if !field_type.matches_value(value, registry) {
                         return false;
                     }
                 }
@@ -144,15 +146,21 @@ pub enum FieldType {
 }
 
 impl FieldType {
-    pub fn matches_value(&self, value: &Value) -> bool {
+    pub fn matches_value(&self, value: &Value, registry: &TypeRegistry) -> bool {
         match (self, value) {
             (FieldType::Boolean, Value::Boolean(_)) => true,
             (FieldType::Integer, Value::Integer(_)) => true,
             (FieldType::Float, Value::Float(_)) => true,
             (FieldType::String, Value::String(_)) => true,
-            (FieldType::Record(def), Value::Object(fields)) => def.matches(fields),
+            (FieldType::Record(def), Value::Object(fields)) => def.matches(fields, registry),
             (FieldType::List(inner), Value::Array(values)) => {
-                values.iter().all(|v| inner.matches_value(v))
+                values.iter().all(|v| inner.matches_value(v, registry))
+            }
+            (FieldType::Named(type_name), Value::Object(fields)) => {
+                registry
+                    .get(type_name)
+                    .map(|def| def.matches(fields, registry))
+                    .unwrap_or(false)
             }
             _ => false,
         }

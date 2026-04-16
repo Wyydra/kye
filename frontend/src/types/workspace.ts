@@ -11,3 +11,13 @@ export interface Workspace {
 }
 
 export type Metadata = Record<string, any>;
+
+export interface FieldDefinitionDto {
+  name: string;
+  field_type: string;
+}
+
+export interface TemplateDto {
+  name: string;
+  fields: FieldDefinitionDto[];
+}

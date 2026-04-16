@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use domain::models::block::metadata::{Metadata, Fields, Value};
 use domain::models::block::schema::FieldName;
-use domain::ports::MetadataProvider;
 use uuid::Uuid;
+
 
 #[derive(Deserialize, Serialize, Debug)]
 #[serde(untagged)]
@@ -35,20 +35,14 @@ impl JsonMetadataProvider {
         let result: Result<BTreeMap<String, JsonValue>, _> = serde_json::from_str(&self.0);
         result.ok()?.get("id")?.as_str().and_then(|s| Uuid::from_str(s).ok())
     }
-}
 
-impl MetadataProvider for JsonMetadataProvider {
-    fn get_id(&self) -> Option<Uuid> {
-        self.get_id()
-    }
-
-    fn get_fields(&self) -> Result<Fields, String> {
+    pub fn get_fields(&self) -> Result<Fields, String> {
         if self.0.trim().is_empty() {
             return Ok(Fields::new());
         }
 
         let result: Result<BTreeMap<String, JsonValue>, serde_json::Error> = serde_json::from_str(&self.0);
-        
+
         match result {
             Ok(obj) => {
                 let mut fields = Fields::new();

@@ -28,3 +28,6 @@ infra = { path = "../infra" }
 uuid = { version = "1.20.0", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+anyhow = "1.0.102"
