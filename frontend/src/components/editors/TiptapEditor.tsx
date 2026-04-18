@@ -26,7 +26,7 @@ export function TiptapEditor({ initialValue, onChange, readOnly = false, clickCo
         editable: !readOnly,
         autofocus: true,
         onUpdate: ({ editor }: { editor: Editor }) => {
-            const markdown = editor.storage.markdown.getMarkdown();
+            const markdown = (editor.storage as any).markdown.getMarkdown();
             onChangeRef.current?.(markdown);
         },
     });
@@ -40,7 +40,7 @@ export function TiptapEditor({ initialValue, onChange, readOnly = false, clickCo
     useEffect(() => {
         if (!editor || editor.isDestroyed) return;
         
-        const currentMarkdown = editor.storage.markdown.getMarkdown();
+        const currentMarkdown = (editor.storage as any).markdown.getMarkdown();
         if (initialValue !== currentMarkdown && !editor.isFocused) {
             editor.commands.setContent(initialValue);
         }

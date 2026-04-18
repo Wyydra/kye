@@ -1,49 +1,56 @@
-import { memo, useMemo, useState } from 'react';
-import type { Node, NodeProps } from '@xyflow/react';
-import { BaseBlockNode } from './BaseBlockNode';
-import { registry } from './NodeRendererRegistry';
-import { PropertyEditor } from '../editors/PropertyEditor';
+import { memo } from 'react';
+import type { Node } from '@antv/x6';
 import { TiptapEditor } from '../editors/TiptapEditor';
+import { useWorkspace } from '../../context/WorkspaceContext';
+import { LucideIcon, Brain, FileText, Settings, HelpCircle, X } from 'lucide-react';
 
-export type KyeNodeData = {
-  markdown: string;
-  metadata?: Record<string, any>;
-  shapes: string[];
-  isEditing: boolean;
-  onMarkdownChange: (id: string, newMarkdown: string) => void;
-  onMetadataChange: (id: string, newMetadata: Record<string, any>) => void;
-  setEditing: (editing: boolean) => void;
-  [key: string]: unknown;
-};
+export interface KyeNodeProps {
+  node: Node;
+  updateBlock?: (id: string, markdown: string | null, metadata: Record<string, any> | null) => Promise<void>;
+}
 
-export type KyeNode = Node<KyeNodeData, 'kye-node'>;
+export const KyeNodeComponent = memo(function KyeNodeComponent({ node, updateBlock: updateBlockProp }: KyeNodeProps) {
+  const data = node.getData();
+  const { shapes = ['text'], markdown = '', metadata = {} } = data;
+  const isEditing = data.isEditing || false;
+  
+  const { updateBlock: workspaceUpdateBlock } = useWorkspace() || {};
+  const updateBlock = updateBlockProp || workspaceUpdateBlock;
 
-export const KyeNodeComponent = memo(function KyeNodeComponent({ id, data, selected }: NodeProps<KyeNode>) {
-  const { shapes, isEditing, markdown, metadata, onMarkdownChange, onMetadataChange, setEditing } = data;
-  const [clickCoords] = useState<{ x: number, y: number } | null>(null);
+  // Determine Icon based on primary shape
+  const primaryType = shapes.find((s: string) => s !== 'text') || 'text';
+  const Icon = primaryType === 'llm' ? Brain : (primaryType === 'code' ? Settings : FileText);
 
-  // Find the renderer based on shapes for VIEW mode
-  const renderer = useMemo(() => registry.getRenderer(shapes), [shapes]);
+  const setEditing = (editing: boolean) => {
+    node.setData({ isEditing: editing });
+  };
 
-  // Determine the primary type for display/badges
-  const primaryType = shapes.find(s => s !== 'text') || 'text';
+  const onDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    node.remove();
+  };
 
-  if (isEditing) {
-    return (
-      <BaseBlockNode 
-        id={id} 
-        type={primaryType} 
-        selected={selected} 
-        isEditing={true} 
-        setEditing={setEditing}
-      >
-        <div className="unified-editor">
-          <PropertyEditor
-            blockType={primaryType}
-            metadata={metadata || {}}
-            onMetadataChange={(newMeta) => onMetadataChange(id, newMeta)}
-          />
-          <div className="editor-separator" />
+  return (
+    <div className={`agent-card ${primaryType} ${isEditing ? 'is-editing' : ''}`}>
+      <div className="header">
+        <div className="icon">
+          <Icon size={16} />
+        </div>
+        <div className="title">
+          {metadata.title || primaryType.toUpperCase()}
+        </div>
+        <div className="actions">
+          <span className="op" onClick={() => setEditing(!isEditing)} title="Edit">
+            {isEditing ? '✓' : '✎'}
+          </span>
+          <span className="op" onClick={onDelete} title="Delete">
+            <X size={14} />
+          </span>
+        </div>
+      </div>
+
+      <div className="body-content" style={{ flexGrow: 1, overflow: 'hidden' }}>
+        {isEditing ? (
           <div 
             className="tiptap-container" 
             onKeyDown={(e) => e.stopPropagation()}
@@ -52,38 +59,17 @@ export const KyeNodeComponent = memo(function KyeNodeComponent({ id, data, selec
           >
             <TiptapEditor
               initialValue={markdown}
-              onChange={(newMd) => onMarkdownChange(id, newMd)}
+              onChange={(newMd) => updateBlock?.(node.id, newMd, null)}
               readOnly={false}
-              clickCoords={clickCoords}
+              clickCoords={null}
             />
           </div>
-        </div>
-      </BaseBlockNode>
-    );
-  }
-
-  // View Mode
-  if (!renderer) {
-    return (
-      <BaseBlockNode id={id} type="unknown" selected={selected} isEditing={false} setEditing={() => {}}>
-        <div style={{ padding: '20px', color: '#ef4444' }}>Unknown Node Type: {shapes.join(', ')}</div>
-      </BaseBlockNode>
-    );
-  }
-
-  return (
-    <BaseBlockNode 
-      id={id} 
-      type={primaryType} 
-      selected={selected} 
-      isEditing={false} 
-      setEditing={setEditing}
-    >
-      <renderer.view
-        id={id}
-        markdown={markdown}
-        metadata={metadata}
-      />
-    </BaseBlockNode>
+        ) : (
+          <div className="desc" onDoubleClick={() => setEditing(true)}>
+             {markdown || "No content..."}
+          </div>
+        )}
+      </div>
+    </div>
   );
 });

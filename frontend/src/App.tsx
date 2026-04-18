@@ -1,145 +1,52 @@
-import React, { useState, useCallback } from 'react'
-import {
-  ReactFlow,
-  Background,
-  ConnectionMode,
-  useReactFlow,
-  ReactFlowProvider,
-} from '@xyflow/react'
-import type { Node } from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
-
-import { KyeNodeComponent } from './components/nodes/KyeNode'
-import './components/nodes/TextNode' // Register Text renderer
-import './components/nodes/ImageNode' // Register Image renderer
+import { useState, useEffect, useCallback } from 'react'
+import { X6Graph } from './components/X6Graph'
 import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext'
-import { useNodesSync } from './hooks/useNodesSync'
 import type { TemplateDto } from './types/workspace'
-
-const nodeTypes = {
-  'kye-node': KyeNodeComponent,
-}
-
-/** Generates a default empty fields object from the Rust TemplateDto */
-function scaffoldFromTemplate(template: TemplateDto, position: { x: number; y: number }): Record<string, any> {
-  const fields: Record<string, any> = { position };
-  for (const field of template.fields) {
-    // Ignore internal fields
-    if (['id', 'position', 'title'].includes(field.name)) continue;
-    switch (field.field_type) {
-      case 'Boolean':  fields[field.name] = false; break;
-      case 'Integer':
-      case 'Float':    fields[field.name] = 0; break;
-      case 'String':   fields[field.name] = ''; break;
-      case 'Record':   fields[field.name] = {}; break;
-      case 'List':     fields[field.name] = []; break;
-      default:
-        if (field.field_type.startsWith('Named:')) fields[field.name] = null;
-        break;
-    }
-  }
-  return fields;
-}
 
 function Flow() {
   const {
-    workspace,
     templates,
-    updateBlock,
     createBlock,
-    deleteBlock,
     workspacePath,
     setWorkspacePath,
     selectWorkspace,
   } = useWorkspace()
 
-  const [menu, setMenu] = useState<{ x: number; y: number; flowX: number; flowY: number } | null>(null)
-  const [editingNode, setEditingNode] = useState<string | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; graphX: number; graphY: number } | null>(null)
 
-  const { screenToFlowPosition } = useReactFlow()
-
-  const onMarkdownChange = useCallback((id: string, newMarkdown: string) => {
-    updateBlock(id, newMarkdown, null)
-  }, [updateBlock])
-
-  const onMetadataChange = useCallback((id: string, newMetadata: Record<string, any>) => {
-    updateBlock(id, null, newMetadata)
-  }, [updateBlock])
-
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    onEdgesChange,
-    onConnect,
-  } = useNodesSync({
-    workspace,
-    editingNode,
-    setEditingNode,
-    onMarkdownChange,
-    onMetadataChange,
-  })
-
-  const onNodesDelete = useCallback(async (deletedNodes: Node[]) => {
-    for (const node of deletedNodes) {
-      try {
-        await deleteBlock(node.id)
-      } catch {
-      }
-    }
-  }, [deleteBlock])
-
-  const onPaneClick = useCallback((event: React.MouseEvent) => {
-    if (event.detail === 2) { // Double click
-      const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY })
+  useEffect(() => {
+    const handleDblClick = (e: any) => {
       setMenu({
-        x: event.clientX,
-        y: event.clientY,
-        flowX: flowPos.x,
-        flowY: flowPos.y,
-      })
-    } else {
-      setMenu(null)
-    }
-  }, [screenToFlowPosition])
+        x: e.detail.x,
+        y: e.detail.y,
+        graphX: e.detail.graphX,
+        graphY: e.detail.graphY,
+      });
+    };
 
-  const handleCreateBlock = async (template: TemplateDto) => {
+    window.addEventListener('x6:blank:dblclick', handleDblClick);
+    return () => window.removeEventListener('x6:blank:dblclick', handleDblClick);
+  }, []);
+
+  const handleCreateBlock = async (_template: TemplateDto) => {
     if (!menu) return;
     try {
-      const fields = scaffoldFromTemplate(template, { x: menu.flowX, y: menu.flowY });
-      const newBlockId = await createBlock('', fields);
-      setEditingNode(newBlockId);
+      // Create block with position from the graph
+      await createBlock('', { 
+        position: { x: menu.graphX, y: menu.graphY } 
+      });
       setMenu(null);
-    } catch {
+    } catch (err) {
+      console.error("Failed to create block", err);
       setMenu(null);
     }
   }
 
-  const onNodeDragStop = useCallback((_event: React.MouseEvent, node: Node) => {
-    onMetadataChange(node.id, {
-      ...(node.data?.metadata || {}),
-      position: { x: node.position.x, y: node.position.y },
-    });
-  }, [onMetadataChange]);
+  const closeMenu = useCallback(() => setMenu(null), []);
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodesDelete={onNodesDelete}
-        onNodeDragStop={onNodeDragStop}
-        onConnect={onConnect}
-        onPaneClick={onPaneClick}
-        connectionMode={ConnectionMode.Loose}
-        nodeTypes={nodeTypes}
-        zoomOnDoubleClick={false}
-        fitView
-      >
-        <Background />
-      </ReactFlow>
+    <div style={{ width: '100vw', height: '100vh' }} onClick={closeMenu}>
+      <X6Graph />
 
       {menu && (
         <div
@@ -201,10 +108,8 @@ function Flow() {
 
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <WorkspaceProvider>
-        <Flow />
-      </WorkspaceProvider>
-    </ReactFlowProvider>
+    <WorkspaceProvider>
+      <Flow />
+    </WorkspaceProvider>
   )
 }

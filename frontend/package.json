@@ -10,11 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@antv/x6": "^3.1.7",
+    "@antv/x6-react-shape": "^3.0.1",
     "@tauri-apps/api": "^2.0.0",
     "@tiptap/pm": "^3.22.2",
     "@tiptap/react": "^3.22.2",
     "@tiptap/starter-kit": "^3.22.2",
-    "@xyflow/react": "^12.10.1",
+    "lucide-react": "^1.8.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
