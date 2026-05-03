@@ -69,13 +69,17 @@ export const KyeNode = memo(function KyeNode({ node }: KyeNodeProps) {
             metadata={metadata}
             onMetadataChange={setMetadata}
           />
-          <CodeMirror
-            value={content}
-            extensions={[markdown()]}
-            theme={oneDark}
-            basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: true }}
-            onChange={setContent}
-          />
+          <div style={{ flex: 1, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <CodeMirror
+              value={content}
+              height="100%"
+              extensions={[markdown()]}
+              theme={oneDark}
+              basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: true }}
+              onChange={setContent}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+            />
+          </div>
         </>
       ) : renderer ? (
         <renderer.view id={block.id} markdown={content} metadata={metadata} />

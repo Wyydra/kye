@@ -1,6 +1,7 @@
 import "./App.css";
 import Canvas from "./components/Canvas";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { MainLayout } from "./components/MainLayout";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { WorkspaceContext } from "./context/WorkspaceContext";
 
@@ -9,12 +10,13 @@ function App() {
 
   return (
     <WorkspaceContext.Provider value={{ workspacePath, templates }}>
-      <main style={{ margin: 0, padding: 0, width: "100vw", height: "100vh", display: "flex" }}>
-        {noWorkspace
-          ? <WelcomeScreen onSelectWorkspace={selectWorkspace} />
-          : <Canvas workspace={workspace} />
-        }
-      </main>
+      {noWorkspace ? (
+        <WelcomeScreen onSelectWorkspace={selectWorkspace} />
+      ) : (
+        <MainLayout onSelectWorkspace={selectWorkspace}>
+          <Canvas workspace={workspace} />
+        </MainLayout>
+      )}
     </WorkspaceContext.Provider>
   );
 }

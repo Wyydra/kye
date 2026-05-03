@@ -14,6 +14,42 @@ use infra::watcher::FSWatcher;
 
 use crate::state::{AppState, TauriEventDispatcher};
 
+pub mod folder_picker {
+    use tauri::{plugin::{Builder, TauriPlugin, PluginHandle}, Runtime, Manager};
+    
+    pub struct FolderPicker<R: Runtime>(pub(crate) PluginHandle<R>);
+
+    impl<R: Runtime> FolderPicker<R> {
+        #[allow(dead_code)]
+        pub fn pick_folder(&self) -> Result<crate::commands::workspace::FolderPickResult, String> {
+            #[cfg(mobile)]
+            {
+                self.0.run_mobile_plugin("pickFolder", ())
+                    .map_err(|e| e.to_string())
+            }
+            #[cfg(not(mobile))]
+            {
+                Err("Not on mobile".to_string())
+            }
+        }
+    }
+
+    pub fn init<R: Runtime>() -> TauriPlugin<R> {
+        Builder::new("folderPicker")
+            .setup(|app, api| {
+                #[cfg(target_os = "android")]
+                {
+                    let handle = api.register_android_plugin("dev.wydry.kye", "FolderPickerPlugin")?;
+                    app.manage(FolderPicker(handle));
+                }
+                let _ = api;
+                let _ = app;
+                Ok(())
+            })
+            .build()
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -21,6 +57,7 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        .plugin(folder_picker::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
