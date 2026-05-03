@@ -1,5 +1,4 @@
-import "./App.css";
-import Canvas from "./components/Canvas";
+import { KyeCanvas } from "./components/KyeCanvas";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { MainLayout } from "./components/MainLayout";
 import { useWorkspace } from "./hooks/useWorkspace";
@@ -14,7 +13,7 @@ function App() {
         <WelcomeScreen onSelectWorkspace={selectWorkspace} />
       ) : (
         <MainLayout onSelectWorkspace={selectWorkspace}>
-          <Canvas workspace={workspace} />
+          <KyeCanvas workspace={workspace} />
         </MainLayout>
       )}
     </WorkspaceContext.Provider>

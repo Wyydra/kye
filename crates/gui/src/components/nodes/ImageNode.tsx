@@ -38,4 +38,6 @@ const ImageViewer = memo(function ImageViewer({ metadata }: NodeRendererProps) {
   );
 });
 
+export const ImageNode = ImageViewer;
+
 registry.register('image', { view: ImageViewer });

@@ -20,4 +20,6 @@ const TextViewer = memo(function TextViewer({ markdown }: NodeRendererProps) {
   );
 });
 
+export const TextNode = TextViewer;
+
 registry.register('text', { view: TextViewer });

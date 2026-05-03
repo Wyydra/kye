@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styles from './MainLayout.module.css';
 import { ChevronLeftIcon } from './Icons';
+import { eventBus } from '../lib/eventBus';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, onSelectWorksp
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!isSidebarCollapsed);
+    // Wait for the animation to finish before notifying the editor
+    setTimeout(() => {
+      eventBus.emit('layout:resize');
+    }, 300); // 300ms is the transition duration
   };
 
   return (
