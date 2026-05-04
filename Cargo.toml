@@ -3,7 +3,7 @@ members = [
 "crates/domain",
 "crates/infra",
 "crates/cli",
-"crates/gui",
+"crates/gui/src-tauri",
 ]
 
 resolver = "2"

@@ -3,30 +3,22 @@ use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::time::Duration;
 
-pub struct FSWatcher<H: ExternalEventHandler> {
-    path: PathBuf,
-    handler: H,
+pub struct FSWatcher {
+    _watcher: RecommendedWatcher,
 }
 
-impl<H: ExternalEventHandler> FSWatcher<H> {
-    pub fn new(path: PathBuf, handler: H) -> Self {
-        Self { path, handler }
-    }
+impl FSWatcher {
+    pub fn new<H: ExternalEventHandler + Send + 'static>(path: PathBuf, handler: H) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
 
-    pub fn watch(&self) {
-        let path = self.path.clone();
-        let handler = self.handler.clone();
+        let mut watcher = RecommendedWatcher::new(tx, Config::default())
+            .expect("Failed to create watcher");
+
+        if let Err(e) = watcher.watch(&path, RecursiveMode::Recursive) {
+            tracing::warn!("Failed to watch path {:?}: {}", path, e);
+        }
 
         std::thread::spawn(move || {
-            let (tx, rx) = std::sync::mpsc::channel();
-
-            let mut watcher = RecommendedWatcher::new(tx, Config::default())
-                .expect("Failed to create watcher");
-
-            watcher
-                .watch(&path, RecursiveMode::Recursive)
-                .expect("Failed to watch path");
-
             loop {
                 match rx.recv() {
                     Ok(Ok(event)) => {
@@ -36,15 +28,19 @@ impl<H: ExternalEventHandler> FSWatcher<H> {
                                 | notify::EventKind::Create(_)
                                 | notify::EventKind::Remove(_)
                         ) {
-                            while rx.recv_timeout(Duration::from_millis(300)).is_ok() {
-                            }
+                            while rx.recv_timeout(Duration::from_millis(300)).is_ok() {}
                             handler.on_workspace_file_changed();
                         }
                     }
                     Ok(Err(e)) => tracing::error!("watch error: {:?}", e),
-                    Err(_) => break,
+                    Err(_) => {
+                        tracing::info!("FSWatcher thread shutting down cleanly");
+                        break;
+                    }
                 }
             }
         });
+
+        Self { _watcher: watcher }
     }
 }
