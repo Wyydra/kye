@@ -62,12 +62,12 @@ const EditorChrome = ({
 }) => (
   <div 
     className={cn(
-      "border-2 border-primary overflow-hidden flex flex-col animate-in zoom-in-95 duration-200",
-      isPopup ? "relative w-full max-w-3xl h-full max-h-[600px] rounded-xl shadow-[0_30px_100px_rgba(0,0,0,0.4)]" : "absolute z-[200] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.2)]",
+      "border-2 border-primary overflow-hidden flex flex-col",
+      isPopup ? "relative w-full max-w-3xl h-full max-h-[600px] rounded-xl shadow-[0_30px_100px_rgba(0,0,0,0.4)] animate-in zoom-in-95 duration-200" : "absolute z-[200] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.2)]",
       className
     )}
     style={{
-      backgroundColor: '#ffffff', // Force clean white
+      backgroundColor: '#ffffff',
       color: '#000000',
       border: '2px solid var(--primary)',
       ...style

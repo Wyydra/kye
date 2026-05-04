@@ -12,6 +12,15 @@ impl StandardLibrary {
             TypeDefinition::empty(),
         );
 
+        // Link (A connection between two blocks)
+        let mut link_fields = BTreeMap::new();
+        link_fields.insert(FieldName::new("from"), FieldType::String); // Link source ID
+        link_fields.insert(FieldName::new("to"), FieldType::String);   // Link target ID
+        registry.register(
+            TypeName::new("link"),
+            TypeDefinition::new(link_fields),
+        );
+
         // Image
         let mut image_fields = BTreeMap::new();
         image_fields.insert(FieldName::new("url"), FieldType::String);

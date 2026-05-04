@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState, useEffect } from 'react';
 import { Block } from '../../types/workspace';
 import { useBlock } from '../../hooks/useBlock';
 import { blockRegistry } from './renderers/BlockRegistry';
@@ -36,12 +36,19 @@ export const KyeBlock = memo(function KyeBlock({ block, layer, zoom, onRefresh }
     return state ? { x: state.x, y: state.y, width: state.width, height: state.height } : null;
   }, [isLink, state, sourceState, targetState]);
 
-  // Determine if we should use a popup based on space or type
-  const isPopup = useMemo(() => {
-    if (!anchor) return false;
-    // Always popup for links (too small) or if the card is very small
-    return isLink || anchor.width < 200 || anchor.height < 150;
-  }, [isLink, anchor]);
+  // Determine editor mode (Fixed once editing starts to prevent jumping during resize)
+  const [activeEditingMode, setActiveEditingMode] = useState<'popup' | 'inline' | null>(null);
+  
+  useEffect(() => {
+    if (blockLogic.isEditing && !activeEditingMode) {
+      const mode = (isLink || (state && (state.width < 150 || state.height < 100))) ? 'popup' : 'inline';
+      setActiveEditingMode(mode);
+    } else if (!blockLogic.isEditing) {
+      setActiveEditingMode(null);
+    }
+  }, [blockLogic.isEditing, isLink, state?.width, state?.height, activeEditingMode]);
+
+  const isPopup = activeEditingMode === 'popup';
 
   if (layer === 'html' && blockLogic.isEditing) {
     console.log('[KyeBlock] Rendering Editor for:', block.id, { isPopup, anchor });

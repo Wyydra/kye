@@ -1,9 +1,10 @@
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useMemo } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import type { FieldDefinitionDto } from '../../types/workspace';
 import { cn } from '../../lib/utils';
 
-const IGNORED_FIELDS = new Set(['id', 'position', 'size', 'width', 'height', 'type', 'title']);
+// We only ignore internal metadata that shouldn't be edited directly as a "property"
+const SYSTEM_FIELDS = new Set(['id', 'title']);
 
 interface PropertyEditorProps {
   blockType?: string;
@@ -16,21 +17,24 @@ interface FieldRowProps {
   name: string;
   value: unknown;
   onChange: (value: unknown) => void;
+  level?: number;
 }
 
-function resolveInputKind(fieldDef?: FieldDefinitionDto, jsValue?: unknown): 'checkbox' | 'number' | 'text' {
+function resolveInputKind(fieldDef?: FieldDefinitionDto, jsValue?: unknown): 'checkbox' | 'number' | 'text' | 'object' {
   if (fieldDef) {
     const ft = fieldDef.field_type;
     if (ft === 'Boolean') return 'checkbox';
     if (ft === 'Integer' || ft === 'Float') return 'number';
+    if (ft === 'Record' || ft.startsWith('Named:')) return 'object';
     return 'text';
   }
   if (typeof jsValue === 'boolean') return 'checkbox';
   if (typeof jsValue === 'number') return 'number';
+  if (typeof jsValue === 'object' && jsValue !== null && !Array.isArray(jsValue)) return 'object';
   return 'text';
 }
 
-const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: FieldRowProps) {
+const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange, level = 0 }: FieldRowProps) {
   const [localValue, setLocalValue] = useState(value ?? '');
 
   useEffect(() => {
@@ -39,37 +43,53 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
 
   const kind = resolveInputKind(fieldDef, value);
 
-  const inputClasses = "w-full bg-background border border-border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-ring outline-none transition-all";
+  // Recursive rendering for nested objects (Records)
+  if (kind === 'object') {
+    return (
+      <div className="col-span-2 pl-4 border-l border-border/50 ml-2 py-2 flex flex-col gap-2">
+        <PropertyEditor 
+          metadata={(value as Record<string, unknown>) ?? {}} 
+          onMetadataChange={onChange}
+        />
+      </div>
+    );
+  }
+
+  const inputClasses = "w-full bg-background border border-border/50 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/30";
 
   if (kind === 'checkbox') {
     return (
-      <input
-        id={`prop-${name}`}
-        type="checkbox"
-        checked={!!localValue}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
-      />
+      <div className="flex items-center h-8">
+        <input
+          id={`prop-${name}-${level}`}
+          type="checkbox"
+          checked={!!localValue}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary cursor-pointer"
+        />
+      </div>
     );
   }
 
   if (kind === 'number') {
     return (
-      <input
-        id={`prop-${name}`}
-        type="number"
-        step={fieldDef?.field_type === 'Float' ? 'any' : '1'}
-        value={String(localValue)}
-        onChange={(e) => {
-          const val = fieldDef?.field_type === 'Float'
-            ? parseFloat(e.target.value)
-            : parseInt(e.target.value, 10);
-          const safe = isNaN(val) ? 0 : val;
-          setLocalValue(safe);
-          onChange(safe);
-        }}
-        className={inputClasses}
-      />
+      <div className="flex items-center h-8">
+        <input
+          id={`prop-${name}-${level}`}
+          type="number"
+          step={fieldDef?.field_type === 'Float' ? 'any' : '1'}
+          value={String(localValue)}
+          onChange={(e) => {
+            const val = fieldDef?.field_type === 'Float'
+              ? parseFloat(e.target.value)
+              : parseInt(e.target.value, 10);
+            const safe = isNaN(val) ? 0 : val;
+            setLocalValue(safe);
+            onChange(safe);
+          }}
+          className={inputClasses}
+        />
+      </div>
     );
   }
 
@@ -77,17 +97,19 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
     v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
 
   return (
-    <input
-      id={`prop-${name}`}
-      type="text"
-      value={safeStr(localValue)}
-      onChange={(e) => {
-        setLocalValue(e.target.value);
-        onChange(e.target.value);
-      }}
-      placeholder={`Value for ${name}`}
-      className={inputClasses}
-    />
+    <div className="flex items-center h-8">
+      <input
+        id={`prop-${name}-${level}`}
+        type="text"
+        value={safeStr(localValue)}
+        onChange={(e) => {
+          setLocalValue(e.target.value);
+          onChange(e.target.value);
+        }}
+        placeholder={`Value for ${name}`}
+        className={inputClasses}
+      />
+    </div>
   );
 });
 
@@ -98,58 +120,81 @@ export const PropertyEditor = memo(function PropertyEditor({
 }: PropertyEditorProps) {
   const { templates } = useWorkspace();
 
-  const templateDef = blockType ? templates.find(t => t.name === blockType) : undefined;
+  // Find template for this block type
+  const templateDef = useMemo(() => 
+    blockType ? templates.find(t => t.name === blockType) : undefined
+  , [blockType, templates]);
 
   const handleFieldChange = (key: string, value: unknown) => {
     onMetadataChange({ ...metadata, [key]: value });
   };
 
-  const templateFields = templateDef?.fields.filter(f => !IGNORED_FIELDS.has(f.name)) ?? [];
-  const templateFieldNames = new Set(templateFields.map(f => f.name));
-  const orphanFields = Object.keys(metadata).filter(k => !IGNORED_FIELDS.has(k) && !templateFieldNames.has(k));
+  // 1. Identify fields from the template (Schema)
+  const templateFields = useMemo(() => 
+    templateDef?.fields.filter(f => !SYSTEM_FIELDS.has(f.name)) ?? []
+  , [templateDef]);
 
-  if (templateFields.length === 0 && orphanFields.length === 0) return null;
+  const templateFieldNames = useMemo(() => 
+    new Set(templateFields.map(f => f.name))
+  , [templateFields]);
+
+  // 2. Identify "Orphan" fields (present in metadata but not in template)
+  const orphanFields = useMemo(() => 
+    Object.keys(metadata).filter(k => 
+      !SYSTEM_FIELDS.has(k) && !templateFieldNames.has(k)
+    )
+  , [metadata, templateFieldNames]);
+
+  if (templateFields.length === 0 && orphanFields.length === 0) {
+    return (
+      <div className="p-4 text-[10px] text-muted-foreground/40 italic text-center uppercase tracking-widest">
+        No properties
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="grid grid-cols-[100px_1fr] items-center gap-x-4 gap-y-3">
+    <div className="flex flex-col gap-1 p-4 overflow-y-auto max-h-[300px]">
+      <div className="grid grid-cols-[100px_1fr] items-start gap-x-4 gap-y-2">
+        {/* Schema-defined fields (Primary) */}
         {templateFields.map((fieldDef) => (
           <div key={fieldDef.name} className="contents">
             <label 
-              htmlFor={`prop-${fieldDef.name}`} 
-              className="text-xs font-medium text-muted-foreground truncate"
+              htmlFor={`prop-${fieldDef.name}-0`} 
+              className="text-[11px] font-bold text-foreground/70 h-8 flex items-center truncate"
             >
               {fieldDef.name}
             </label>
-            <div className="flex items-center h-8">
-              <FieldRow
-                fieldDef={fieldDef}
-                name={fieldDef.name}
-                value={metadata[fieldDef.name]}
-                onChange={(val) => handleFieldChange(fieldDef.name, val)}
-              />
-            </div>
+            <FieldRow
+              fieldDef={fieldDef}
+              name={fieldDef.name}
+              value={metadata[fieldDef.name]}
+              onChange={(val) => handleFieldChange(fieldDef.name, val)}
+            />
           </div>
         ))}
 
-        {orphanFields.map((key) => (
-          <div key={key} className="contents opacity-70">
-            <label 
-              htmlFor={`prop-${key}`} 
-              className="text-xs font-medium text-muted-foreground truncate italic" 
-              title="Out-of-schema field"
-            >
-              {key} *
-            </label>
-            <div className="flex items-center h-8">
-              <FieldRow
-                name={key}
-                value={metadata[key]}
-                onChange={(val) => handleFieldChange(key, val)}
-              />
-            </div>
-          </div>
-        ))}
+        {/* Dynamic/Orphan fields (Secondary) */}
+        {orphanFields.length > 0 && (
+          <>
+            {orphanFields.map((key) => (
+              <div key={key} className="contents">
+                <label 
+                  htmlFor={`prop-${key}-0`} 
+                  className="text-[11px] font-medium text-muted-foreground/50 h-8 flex items-center truncate italic" 
+                  title="Dynamic field (not in schema)"
+                >
+                  {key}*
+                </label>
+                <FieldRow
+                  name={key}
+                  value={metadata[key]}
+                  onChange={(val) => handleFieldChange(key, val)}
+                />
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
