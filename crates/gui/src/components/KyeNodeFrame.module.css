@@ -50,7 +50,7 @@
 
 .content {
   flex: 1;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   background: #121212;
   border-bottom-left-radius: 8px;

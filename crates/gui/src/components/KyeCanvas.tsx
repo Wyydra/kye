@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useMemo } from 'react';
 import { useCanvasEngine } from '../hooks/useCanvasEngine';
 import { GridBackground } from './GridBackground';
 import { Workspace } from '../types/workspace';
@@ -14,7 +14,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Sync viewport state to React for components that need it (like Grid)
+  // Sync viewport state to React for components that need it (like Grid & Virtualization)
   useEffect(() => {
     let frame: number;
     const sync = () => {
@@ -28,6 +28,34 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
     frame = requestAnimationFrame(sync);
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Virtualization: Filter blocks to only render those in the viewport
+  const visibleBlocks = useMemo(() => {
+    if (!workspace) return [];
+    
+    const container = containerRef.current;
+    if (!container) return workspace.blocks;
+
+    const vX1 = -viewport.x / viewport.zoom;
+    const vY1 = -viewport.y / viewport.zoom;
+    const vX2 = vX1 + container.clientWidth / viewport.zoom;
+    const vY2 = vY1 + container.clientHeight / viewport.zoom;
+
+    // Buffer for smoother panning
+    const buffer = 100;
+
+    return workspace.blocks.filter(block => {
+      let meta;
+      try { meta = JSON.parse(block.metadata); } catch { return true; }
+      
+      const bX1 = meta.x ?? 0;
+      const bY1 = meta.y ?? 0;
+      const bX2 = bX1 + (meta.width ?? 300);
+      const bY2 = bY1 + (meta.height ?? 200);
+
+      return !(bX2 < vX1 - buffer || bX1 > vX2 + buffer || bY2 < vY1 - buffer || bY1 > vY2 + buffer);
+    });
+  }, [workspace, viewport]);
 
   return (
     <div 
@@ -60,7 +88,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
           willChange: 'transform',
         }}
       >
-        {workspace?.blocks.map((block) => (
+        {visibleBlocks.map((block) => (
           <KyeNode 
             key={block.id} 
             block={block} 

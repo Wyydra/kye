@@ -1,143 +1,83 @@
 import { memo, useMemo, useState, useEffect, useRef } from 'react';
-import AceEditor from 'react-ace';
-import { Ace } from 'ace-builds';
-import 'ace-builds/src-noconflict/mode-markdown';
-import 'ace-builds/src-noconflict/theme-one_dark';
-import 'ace-builds/src-noconflict/ext-language_tools';
+import CodeMirror from '@uiw/react-codemirror';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView } from '@codemirror/view';
 
-import { invoke } from '@tauri-apps/api/core';
 import { Block } from '../../types/workspace';
 import { registry } from './NodeRendererRegistry';
 import { PropertyEditor } from '../editors/PropertyEditor';
-import { eventBus } from '../../lib/eventBus';
 
 interface KyeNodeContentProps {
   block: Block;
+  isEditing: boolean;
+  onEditToggle: () => void;
+  content: string;
+  setContent: (content: string) => void;
+  metadata: Record<string, unknown>;
+  onMetadataChange: (meta: Record<string, unknown>) => void;
 }
 
-export const KyeNodeContent = memo(function KyeNodeContent({ block }: KyeNodeContentProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [content, setContent] = useState(block?.content ?? '');
-  const [metadata, setMetadata] = useState<Record<string, unknown>>({});
-  const editorRef = useRef<Ace.Editor | null>(null);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (editorRef.current) {
-        editorRef.current.resize();
-      }
-    };
-
-    eventBus.on('layout:resize', handleResize);
-    return () => {
-      eventBus.off('layout:resize', handleResize);
-    };
-  }, []);
-
-  // Parse metadata JSON string once, sync when block changes
-  useEffect(() => {
-    try { setMetadata(JSON.parse(block?.metadata ?? '{}')); } catch { setMetadata({}); }
-  }, [block?.metadata]);
-
-  // Sync content from external file watcher updates (only when not actively editing)
-  useEffect(() => {
-    if (!isEditing) setContent(block?.content ?? '');
-  }, [block?.content, isEditing]);
-
+export const KyeNodeContent = memo(function KyeNodeContent({ 
+  block, 
+  isEditing, 
+  onEditToggle,
+  content,
+  setContent,
+  metadata,
+  onMetadataChange
+}: KyeNodeContentProps) {
   const renderer = useMemo(() => registry.getRenderer(block?.shapes ?? []), [block?.shapes]);
   const primaryType = block?.shapes.find(s => s !== 'text') ?? block?.shapes[0] ?? 'text';
-
-  const handleEditToggle = async () => {
-    if (isEditing) {
-      setIsEditing(false);
-      if (!block) return;
-      const contentChanged = content !== block.content;
-      const metaChanged = JSON.stringify(metadata) !== block.metadata;
-      if (contentChanged || metaChanged) {
-        try {
-          await invoke('update_block', {
-            id: block.id,
-            content: contentChanged ? content : null,
-            metadata: metaChanged ? JSON.stringify(metadata) : null,
-          });
-        } catch (e) {
-          console.error('Failed to save block:', e);
-        }
-      }
-    } else {
-      setIsEditing(true);
-    }
-  };
 
   if (!block) return null;
 
   return (
     <div 
       style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
-      onDoubleClick={() => !isEditing && handleEditToggle()}
+      onDoubleClick={(e) => {
+        if (!isEditing) {
+          e.stopPropagation();
+          onEditToggle();
+        }
+      }}
     >
       {isEditing ? (
         <>
           <PropertyEditor
             blockType={primaryType}
             metadata={metadata}
-            onMetadataChange={setMetadata}
+            onMetadataChange={onMetadataChange}
           />
           <div style={{ flex: 1, position: 'relative', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <AceEditor
-              onLoad={(editor) => {
-                editorRef.current = editor;
-              }}
-              mode="markdown"
-              theme="one_dark"
+            <CodeMirror
               value={content}
-              onChange={setContent}
-              name={`kye_editor_${block.id}`}
-              editorProps={{ $blockScrolling: true }}
-              width="100%"
               height="100%"
-              showPrintMargin={false}
-              showGutter={false}
-              highlightActiveLine={true}
-              setOptions={{
-                enableBasicAutocompletion: true,
-                enableLiveAutocompletion: true,
-                enableSnippets: true,
-                showLineNumbers: false,
-                tabSize: 2,
+              theme={oneDark}
+              extensions={[
+                markdown({ base: markdownLanguage, codeLanguages: languages }),
+                EditorView.lineWrapping,
+                EditorView.theme({
+                  "&": { height: "100%" },
+                  ".cm-scroller": { overflow: "auto" },
+                  ".cm-content": { 
+                    padding: "10px 0",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: "13px"
+                  },
+                  "&.cm-focused": { outline: "none" }
+                })
+              ]}
+              onChange={(value) => setContent(value)}
+              basicSetup={{
+                lineNumbers: false,
+                foldGutter: false,
+                highlightActiveLine: true,
+                autocompletion: true,
               }}
             />
           </div>
-          <button 
-            onClick={handleEditToggle}
-            style={{ 
-              position: 'absolute', 
-              top: -30, 
-              right: 10, 
-              zIndex: 20,
-              background: 'rgba(95, 149, 255, 0.15)',
-              border: '1px solid rgba(95, 149, 255, 0.3)',
-              borderRadius: '4px',
-              color: '#5f95ff',
-              padding: '2px 8px',
-              fontSize: '10px',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(95, 149, 255, 0.25)';
-              e.currentTarget.style.borderColor = 'rgba(95, 149, 255, 0.5)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(95, 149, 255, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(95, 149, 255, 0.3)';
-            }}
-          >
-            Save
-          </button>
         </>
       ) : renderer ? (
         <renderer.view id={block.id} markdown={content} metadata={metadata} />
