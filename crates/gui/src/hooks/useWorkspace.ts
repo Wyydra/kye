@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { workspaceService } from '../services/WorkspaceService';
 import { Workspace, TemplateDto } from '../types/workspace';
+import { UnlistenFn } from '@tauri-apps/api/event';
 
 export type WorkspaceError = 'NO_WORKSPACE' | 'FETCH_ERROR' | null;
 
@@ -15,9 +15,9 @@ export function useWorkspace() {
   const fetchWorkspace = useCallback(async () => {
     try {
       const [data, path, tmpl] = await Promise.all([
-        invoke<Workspace>('get_workspace'),
-        invoke<string>('get_workspace_path'),
-        invoke<TemplateDto[]>('get_templates'),
+        workspaceService.getWorkspace(),
+        workspaceService.getWorkspacePath(),
+        workspaceService.getTemplates(),
       ]);
       setWorkspace(data);
       setWorkspacePath(path);
@@ -34,7 +34,7 @@ export function useWorkspace() {
 
   const selectWorkspace = useCallback(async () => {
     try {
-      await invoke('select_workspace_folder');
+      await workspaceService.selectWorkspaceFolder();
       await fetchWorkspace();
     } catch (e) {
       console.error('Failed to select workspace:', e);
@@ -45,7 +45,7 @@ export function useWorkspace() {
     fetchWorkspace();
 
     let unlisten: UnlistenFn | undefined;
-    listen('workspace_updated', fetchWorkspace).then(fn => { unlisten = fn; });
+    workspaceService.onWorkspaceUpdated(fetchWorkspace).then(fn => { unlisten = fn; });
 
     return () => { unlisten?.(); };
   }, [fetchWorkspace]);

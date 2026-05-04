@@ -4,7 +4,7 @@ import { KyeNodeContent } from './KyeNodeContent';
 import styles from './KyeNodeFrame.module.css';
 import { useDraggable } from '../../hooks/useDraggable';
 import { useResizable, HandleType } from '../../hooks/useResizable';
-import { invoke } from '@tauri-apps/api/core';
+import { workspaceService } from '../../services/WorkspaceService';
 
 interface KyeNodeProps {
   block: Block;
@@ -52,11 +52,11 @@ export const KyeNode = memo(function KyeNode({ block, zoom, isSelected, onSelect
 
     if (contentChanged || metaChanged) {
       try {
-        await invoke('update_block', {
-          id: block.id,
-          content: contentChanged ? finalContent : null,
-          metadata: metaChanged ? metaStr : null,
-        });
+        await workspaceService.updateBlock(
+          block.id,
+          contentChanged ? finalContent : null,
+          metaChanged ? metaStr : null
+        );
       } catch (e) {
         console.error('Failed to save block:', e);
       }

@@ -1,16 +1,19 @@
-import React, { memo, useMemo, useRef } from 'react';
+import React, { memo, useMemo, useRef, useState, useCallback } from 'react';
 import { useCanvasStore } from '../../hooks/useCanvasStore';
 import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
-import { Workspace } from '../../types/workspace';
+import { Workspace, TemplateDto } from '../../types/workspace';
 import { KyeNode } from '../nodes/KyeNode';
+import { CanvasMenu } from './CanvasMenu';
 import '../nodes';
 
 interface KyeCanvasProps {
   workspace: Workspace | null;
+  templates: TemplateDto[];
+  onRefresh: () => void;
 }
 
-export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) {
+export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefresh }: KyeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   
@@ -19,6 +22,22 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
   
   // Selection state from store
   const { selectedNodeId, setSelectedNodeId } = useCanvasStore();
+
+  // Menu state
+  const [menu, setMenu] = useState<{ x: number, y: number, worldX: number, worldY: number } | null>(null);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (e.target !== containerRef.current) return;
+
+    const rect = containerRef.current!.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const worldX = (mouseX - viewport.x) / viewport.zoom;
+    const worldY = (mouseY - viewport.y) / viewport.zoom;
+
+    setMenu({ x: mouseX, y: mouseY, worldX, worldY });
+  }, [viewport]);
 
   // Virtualization: Filter blocks to only render those in the viewport
   const visibleBlocks = useMemo(() => {
@@ -63,8 +82,10 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
       onPointerDown={(e) => {
         if (e.target === containerRef.current) {
           setSelectedNodeId(null);
+          setMenu(null);
         }
       }}
+      onDoubleClick={handleDoubleClick}
     >
       <GridBackground x={viewport.x} y={viewport.y} zoom={viewport.zoom} />
       
@@ -89,6 +110,18 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
           />
         ))}
       </div>
+
+      {menu && (
+        <CanvasMenu 
+          x={menu.x} 
+          y={menu.y} 
+          worldX={menu.worldX} 
+          worldY={menu.worldY} 
+          templates={templates}
+          onClose={() => setMenu(null)}
+          onCreated={onRefresh}
+        />
+      )}
     </div>
   );
 });

@@ -21,6 +21,10 @@ class RendererRegistry {
     const specificShape = shapes.find(s => s !== 'text' && this.renderers.has(s));
     return this.renderers.get(specificShape ?? 'text');
   }
+
+  getRegisteredShapes(): string[] {
+    return Array.from(this.renderers.keys());
+  }
 }
 
 export const registry = new RendererRegistry();
