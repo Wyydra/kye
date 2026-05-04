@@ -15,7 +15,7 @@ use infra::watcher::FSWatcher;
 use crate::state::{AppState, TauriEventDispatcher};
 
 pub mod folder_picker {
-    use tauri::{plugin::{Builder, TauriPlugin, PluginHandle}, Runtime, Manager};
+    use tauri::{plugin::{Builder, TauriPlugin, PluginHandle}, Runtime};
     
     pub struct FolderPicker<R: Runtime>(pub(crate) PluginHandle<R>);
 

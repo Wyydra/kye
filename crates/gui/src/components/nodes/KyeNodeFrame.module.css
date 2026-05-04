@@ -48,6 +48,26 @@
   opacity: 0.8;
 }
 
+.saveButton {
+  margin-left: auto;
+  background: rgba(95, 149, 255, 0.15);
+  border: 1px solid rgba(95, 149, 255, 0.3);
+  border-radius: 4px;
+  color: #5f95ff;
+  padding: 2px 8px;
+  fontSize: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.saveButton:hover {
+  background: rgba(95, 149, 255, 0.25);
+  border-color: rgba(95, 149, 255, 0.5);
+}
+
 .content {
   flex: 1;
   overflow: hidden;

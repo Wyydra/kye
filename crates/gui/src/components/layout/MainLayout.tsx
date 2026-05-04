@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styles from './MainLayout.module.css';
-import { ChevronLeftIcon } from './Icons';
-import { eventBus } from '../lib/eventBus';
+import { ChevronLeftIcon } from '../canvas/Icons';
+import { eventBus } from '../../lib/eventBus';
 
 interface MainLayoutProps {
   children: React.ReactNode;

@@ -1,6 +1,6 @@
-import { KyeCanvas } from "./components/KyeCanvas";
-import { WelcomeScreen } from "./components/WelcomeScreen";
-import { MainLayout } from "./components/MainLayout";
+import { KyeCanvas } from "./components/canvas/KyeCanvas";
+import { WelcomeScreen } from "./components/layout/WelcomeScreen";
+import { MainLayout } from "./components/layout/MainLayout";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { WorkspaceContext } from "./context/WorkspaceContext";
 

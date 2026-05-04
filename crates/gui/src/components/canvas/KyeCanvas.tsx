@@ -1,33 +1,24 @@
-import React, { memo, useState, useEffect, useMemo } from 'react';
-import { useCanvasEngine } from '../hooks/useCanvasEngine';
+import React, { memo, useMemo, useRef } from 'react';
+import { useCanvasStore } from '../../hooks/useCanvasStore';
+import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
-import { Workspace } from '../types/workspace';
-import { KyeNode } from './KyeNode';
-import './nodes';
+import { Workspace } from '../../types/workspace';
+import { KyeNode } from '../nodes/KyeNode';
+import '../nodes';
 
 interface KyeCanvasProps {
   workspace: Workspace | null;
 }
 
 export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) {
-  const { containerRef, layerRef, viewportRef } = useCanvasEngine();
-  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-  // Sync viewport state to React for components that need it (like Grid & Virtualization)
-  useEffect(() => {
-    let frame: number;
-    const sync = () => {
-      const { x, y, zoom } = viewportRef.current;
-      setViewport(prev => {
-        if (prev.x === x && prev.y === y && prev.zoom === zoom) return prev;
-        return { x, y, zoom };
-      });
-      frame = requestAnimationFrame(sync);
-    };
-    frame = requestAnimationFrame(sync);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const layerRef = useRef<HTMLDivElement>(null);
+  
+  // High-performance camera logic (pan/zoom)
+  const { viewport } = useCamera(containerRef, layerRef);
+  
+  // Selection state from store
+  const { selectedNodeId, setSelectedNodeId } = useCanvasStore();
 
   // Virtualization: Filter blocks to only render those in the viewport
   const visibleBlocks = useMemo(() => {
@@ -36,13 +27,13 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace }: KyeCanvasProps) 
     const container = containerRef.current;
     if (!container) return workspace.blocks;
 
+    // Use current camera ref values for bounds calculation
     const vX1 = -viewport.x / viewport.zoom;
     const vY1 = -viewport.y / viewport.zoom;
     const vX2 = vX1 + container.clientWidth / viewport.zoom;
     const vY2 = vY1 + container.clientHeight / viewport.zoom;
 
-    // Buffer for smoother panning
-    const buffer = 100;
+    const buffer = 150; // Increased buffer for smoother rapid panning
 
     return workspace.blocks.filter(block => {
       let meta;
