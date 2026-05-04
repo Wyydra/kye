@@ -28,7 +28,7 @@ export const GridBackground = memo(function GridBackground({ zoom, x, y }: GridB
             patternUnits="userSpaceOnUse"
             patternTransform={`translate(${x % size}, ${y % size})`}
           >
-            <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.07)" />
+            <circle cx="1" cy="1" r="1" fill="rgba(0,0,0,0.1)" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#dotGrid)" />

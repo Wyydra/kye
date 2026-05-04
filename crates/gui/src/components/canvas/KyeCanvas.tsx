@@ -74,7 +74,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
         width: '100%', 
         height: '100%', 
         position: 'relative', 
-        background: '#121212', 
+        background: 'var(--background)', 
         overflow: 'hidden',
         cursor: 'default',
         touchAction: 'none',

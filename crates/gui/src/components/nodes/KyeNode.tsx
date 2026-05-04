@@ -122,7 +122,7 @@ export const KyeNode = memo(function KyeNode({ block, zoom, isSelected, onSelect
         }
       }}
     >
-      <div className="node-header flex items-center justify-between border-b bg-muted/50 px-3 py-1 cursor-grab active:cursor-grabbing">
+      <div className="node-header flex items-center justify-between border-b px-3 py-1 bg-muted/30 cursor-grab active:cursor-grabbing">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           {block.shapes[0] || 'Node'}
         </span>

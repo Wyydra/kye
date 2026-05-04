@@ -2,7 +2,7 @@ import { memo, useMemo, useState, useEffect, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
-import { oneDark } from '@codemirror/theme-one-dark';
+
 import { EditorView } from '@codemirror/view';
 
 import { Block } from '../../types/workspace';
@@ -54,17 +54,26 @@ export const KyeNodeContent = memo(function KyeNodeContent({
             <CodeMirror
               value={content}
               height="100%"
-              theme={oneDark}
               extensions={[
                 markdown({ base: markdownLanguage, codeLanguages: languages }),
                 EditorView.lineWrapping,
                 EditorView.theme({
-                  "&": { height: "100%" },
+                  "&": { 
+                    height: "100%",
+                    backgroundColor: "var(--background)",
+                    color: "var(--foreground)"
+                  },
                   ".cm-scroller": { overflow: "auto" },
                   ".cm-content": { 
-                    padding: "10px 0",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: "13px"
+                    padding: "10px 16px",
+                    fontFamily: "Inter, system-ui, sans-serif",
+                    fontSize: "14px",
+                    lineHeight: "1.6"
+                  },
+                  ".cm-gutters": {
+                    backgroundColor: "var(--background)",
+                    border: "none",
+                    color: "var(--muted-foreground)"
                   },
                   "&.cm-focused": { outline: "none" }
                 })

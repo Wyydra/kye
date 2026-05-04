@@ -4,7 +4,7 @@ import { useWorkspacePath } from '../../context/WorkspaceContext';
 import { registry } from './NodeRendererRegistry';
 import type { NodeRendererProps } from './NodeRendererRegistry';
 
-const PLACEHOLDER = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%231e1e2a'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%236b6b9a' font-family='sans-serif' font-size='16'>Image</text></svg>`;
+const PLACEHOLDER = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f5f5f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23a0a0a0' font-family='sans-serif' font-size='16'>Image</text></svg>`;
 
 function resolveImageUrl(metadata: Record<string, unknown> | undefined, workspacePath: string): string {
   const raw = metadata?.url;
