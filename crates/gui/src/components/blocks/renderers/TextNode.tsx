@@ -1,10 +1,10 @@
 import { memo } from 'react';
-import type { NodeRendererProps } from './NodeRendererRegistry';
-import { registry } from './NodeRendererRegistry';
+import type { ContentRendererProps } from './ContentRegistry';
+import { contentRegistry } from './ContentRegistry';
 
 // Simple markdown viewer - renders raw content with whitespace preserved.
 // Swap this for react-markdown or any renderer without touching KyeNode.
-const TextViewer = memo(function TextViewer({ markdown }: NodeRendererProps) {
+const TextViewer = memo(function TextViewer({ markdown }: ContentRendererProps) {
   return (
     <div style={{
       padding: '8px 10px',
@@ -22,4 +22,4 @@ const TextViewer = memo(function TextViewer({ markdown }: NodeRendererProps) {
 
 export const TextNode = TextViewer;
 
-registry.register('text', { view: TextViewer });
+contentRegistry.register('text', { view: TextViewer });

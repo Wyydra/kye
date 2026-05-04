@@ -1,23 +1,23 @@
 import React from 'react';
 
-export interface NodeRendererProps {
+export interface ContentRendererProps {
   id: string;
   markdown: string;
   metadata?: Record<string, unknown>;
 }
 
-export interface NodeRenderer {
-  view: React.ComponentType<NodeRendererProps>;
+export interface ContentRenderer {
+  view: React.ComponentType<ContentRendererProps>;
 }
 
-class RendererRegistry {
-  private renderers: Map<string, NodeRenderer> = new Map();
+class ContentRegistry {
+  private renderers: Map<string, ContentRenderer> = new Map();
 
-  register(shape: string, renderer: NodeRenderer) {
+  register(shape: string, renderer: ContentRenderer) {
     this.renderers.set(shape, renderer);
   }
 
-  getRenderer(shapes: string[]): NodeRenderer | undefined {
+  getRenderer(shapes: string[]): ContentRenderer | undefined {
     const specificShape = shapes.find(s => s !== 'text' && this.renderers.has(s));
     return this.renderers.get(specificShape ?? 'text');
   }
@@ -27,4 +27,4 @@ class RendererRegistry {
   }
 }
 
-export const registry = new RendererRegistry();
+export const contentRegistry = new ContentRegistry();

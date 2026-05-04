@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { useWorkspacePath } from '../../context/WorkspaceContext';
-import { registry } from './NodeRendererRegistry';
-import type { NodeRendererProps } from './NodeRendererRegistry';
+import { useWorkspacePath } from '../../../context/WorkspaceContext';
+import { contentRegistry } from './ContentRegistry';
+import type { ContentRendererProps } from './ContentRegistry';
 
 const PLACEHOLDER = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f5f5f5'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23a0a0a0' font-family='sans-serif' font-size='16'>Image</text></svg>`;
 
@@ -21,7 +21,7 @@ function resolveImageUrl(metadata: Record<string, unknown> | undefined, workspac
   return PLACEHOLDER;
 }
 
-const ImageViewer = memo(function ImageViewer({ metadata }: NodeRendererProps) {
+const ImageViewer = memo(function ImageViewer({ metadata }: ContentRendererProps) {
   const workspacePath = useWorkspacePath();
   const src = resolveImageUrl(metadata, workspacePath);
 
@@ -40,4 +40,4 @@ const ImageViewer = memo(function ImageViewer({ metadata }: NodeRendererProps) {
 
 export const ImageNode = ImageViewer;
 
-registry.register('image', { view: ImageViewer });
+contentRegistry.register('image', { view: ImageViewer });

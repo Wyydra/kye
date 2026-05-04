@@ -3,12 +3,11 @@ import { useCanvasStore } from '../../hooks/useCanvasStore';
 import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
 import { Workspace, TemplateDto } from '../../types/workspace';
-import { KyeNode } from '../nodes/KyeNode';
-import { KyeEdge } from './KyeEdge';
+import { KyeBlock } from '../blocks/KyeBlock';
 import { CanvasMenu } from './CanvasMenu';
 import { eventBus } from '../../lib/eventBus';
 import { workspaceService } from '../../services/WorkspaceService';
-import '../nodes';
+import '../blocks/renderers';
 
 interface KyeCanvasProps {
   workspace: Workspace | null;
@@ -23,15 +22,15 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
   // High-performance camera logic (pan/zoom)
   const { viewport } = useCamera(containerRef, layerRef);
   
-  // Selection and Node states from store
-  const { 
-    selectedNodeId, 
-    setSelectedNodeId, 
-    nodeStates, 
-    connectionDraft, 
-    setConnectionDraft,
-    updateConnectionMouse 
-  } = useCanvasStore();
+  // Atomic selectors for actions only (stable)
+  const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
+  const setConnectionDraft = useCanvasStore(state => state.setConnectionDraft);
+  const updateConnectionMouse = useCanvasStore(state => state.updateConnectionMouse);
+  const setAllNodeStates = useCanvasStore(state => state.setAllNodeStates);
+  
+  // Selection and connection states (selective subscription)
+  const selectedNodeId = useCanvasStore(state => state.selectedNodeId);
+  const connectionDraft = useCanvasStore(state => state.connectionDraft);
 
   // Menu state
   const [menu, setMenu] = useState<{ x: number, y: number, worldX: number, worldY: number } | null>(null);
@@ -51,6 +50,28 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     });
     return unsub;
   }, [openMenuAt]);
+  
+  // Initialize all node states from workspace metadata (even off-screen nodes)
+  useEffect(() => {
+    if (!workspace) return;
+    
+    const states: Record<string, any> = {};
+    workspace.blocks.forEach(block => {
+      try {
+        const meta = JSON.parse(block.metadata);
+        if (meta.x !== undefined && meta.y !== undefined) {
+          states[block.id] = {
+            x: meta.x,
+            y: meta.y,
+            width: meta.width ?? 300,
+            height: meta.height ?? 200
+          };
+        }
+      } catch {}
+    });
+    
+    setAllNodeStates(states);
+  }, [workspace, setAllNodeStates]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (e.target !== containerRef.current) return;
@@ -215,45 +236,24 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
             </marker>
           </defs>
           <g transform="translate(50000, 50000)">
-            {edges.map((edge) => {
-              const sourceState = nodeStates[edge.source];
-              const targetState = nodeStates[edge.target];
-              if (!sourceState || !targetState) return null;
-              return (
-                <KyeEdge 
-                  key={edge.id} 
-                  id={edge.id} 
-                  source={sourceState} 
-                  target={targetState}
-                  content={edge.content}
-                />
-              );
-            })}
-
-            {/* Phantom connection line while drafting */}
-            {connectionDraft && (
-              <KyeEdge 
-                id="phantom"
-                source={nodeStates[connectionDraft.sourceId]}
-                target={{ 
-                  x: connectionDraft.mouseX - 5, 
-                  y: connectionDraft.mouseY - 5, 
-                  width: 10, 
-                  height: 10 
-                } as any}
-                content=""
+            {workspace?.blocks.map((block) => (
+              <KyeBlock 
+                key={block.id} 
+                block={block} 
+                layer="svg"
+                onRefresh={onRefresh}
               />
-            )}
+            ))}
           </g>
         </svg>
 
-        {visibleNodes.map((block) => (
-          <KyeNode 
+        {workspace?.blocks.map((block) => (
+          <KyeBlock 
             key={block.id} 
             block={block} 
+            layer="html"
             zoom={viewport.zoom}
-            isSelected={selectedNodeId === block.id}
-            onSelect={() => setSelectedNodeId(block.id)}
+            onRefresh={onRefresh}
           />
         ))}
       </div>
