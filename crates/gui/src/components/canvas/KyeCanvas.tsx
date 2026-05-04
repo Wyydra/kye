@@ -4,6 +4,7 @@ import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
 import { Workspace, TemplateDto } from '../../types/workspace';
 import { KyeNode } from '../nodes/KyeNode';
+import { KyeEdge } from './KyeEdge';
 import { CanvasMenu } from './CanvasMenu';
 import { eventBus } from '../../lib/eventBus';
 import { workspaceService } from '../../services/WorkspaceService';
@@ -22,8 +23,15 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
   // High-performance camera logic (pan/zoom)
   const { viewport } = useCamera(containerRef, layerRef);
   
-  // Selection state from store
-  const { selectedNodeId, setSelectedNodeId } = useCanvasStore();
+  // Selection and Node states from store
+  const { 
+    selectedNodeId, 
+    setSelectedNodeId, 
+    nodeStates, 
+    connectionDraft, 
+    setConnectionDraft,
+    updateConnectionMouse 
+  } = useCanvasStore();
 
   // Menu state
   const [menu, setMenu] = useState<{ x: number, y: number, worldX: number, worldY: number } | null>(null);
@@ -50,22 +58,46 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     openMenuAt(e.clientX - rect.left, e.clientY - rect.top);
   }, [openMenuAt]);
 
-  // Virtualization: Filter blocks to only render those in the viewport
-  const visibleBlocks = useMemo(() => {
-    if (!workspace) return [];
+  // Split blocks into nodes and edges (and ports)
+  const { nodes, edges } = useMemo(() => {
+    const nodes: Block[] = [];
+    const edges: Array<{ id: string, source: string, target: string, content: string }> = [];
     
-    const container = containerRef.current;
-    if (!container) return workspace.blocks;
+    workspace?.blocks.forEach(block => {
+      try {
+        const meta = JSON.parse(block.metadata);
+        if (meta.from && meta.to) {
+          edges.push({
+            id: block.id,
+            source: meta.from,
+            target: meta.to,
+            content: block.content,
+          });
+        } else if (!meta.parent) {
+          // If it has no parent and no from/to, it's a top-level visual node
+          nodes.push(block);
+        }
+      } catch {
+        nodes.push(block);
+      }
+    });
+    
+    return { nodes, edges };
+  }, [workspace]);
 
-    // Use current camera ref values for bounds calculation
+  // Virtualization: Filter nodes to only render those in the viewport
+  const visibleNodes = useMemo(() => {
+    const container = containerRef.current;
+    if (!container) return nodes;
+
     const vX1 = -viewport.x / viewport.zoom;
     const vY1 = -viewport.y / viewport.zoom;
     const vX2 = vX1 + container.clientWidth / viewport.zoom;
     const vY2 = vY1 + container.clientHeight / viewport.zoom;
 
-    const buffer = 150; // Increased buffer for smoother rapid panning
+    const buffer = 150;
 
-    return workspace.blocks.filter(block => {
+    return nodes.filter(block => {
       let meta;
       try { meta = JSON.parse(block.metadata); } catch { return true; }
       
@@ -76,7 +108,52 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
 
       return !(bX2 < vX1 - buffer || bX1 > vX2 + buffer || bY2 < vY1 - buffer || bY1 > vY2 + buffer);
     });
-  }, [workspace, viewport]);
+  }, [nodes, viewport]);
+
+  // Global listeners for connection drafting - Stable Listener Pattern
+  useEffect(() => {
+    if (!connectionDraft) return;
+
+    const onMove = (e: PointerEvent) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
+      const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
+      updateConnectionMouse(x, y);
+    };
+
+    const onUp = async (e: PointerEvent) => {
+      try {
+        // Find the node under the cursor
+        const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+        const nodeEl = element?.closest('[data-node-id]');
+        const targetId = nodeEl?.getAttribute('data-node-id');
+
+        // Access the current sourceId from the store state (to avoid stale closures)
+        const currentSourceId = useCanvasStore.getState().connectionDraft?.sourceId;
+
+        if (targetId && currentSourceId && targetId !== currentSourceId) {
+          await workspaceService.createBlock(
+            "", 
+            JSON.stringify({ from: currentSourceId, to: targetId })
+          );
+          onRefresh();
+        }
+      } catch (err) {
+        console.error("Failed to create connection:", err);
+      } finally {
+        setConnectionDraft(null);
+      }
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    // Note: We only re-run when the connection starts/stops, not on mouse move
+  }, [!!connectionDraft, viewport.x, viewport.y, viewport.zoom, updateConnectionMouse, setConnectionDraft, onRefresh]);
 
   return (
     <div 
@@ -111,7 +188,66 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
           willChange: 'transform',
         }}
       >
-        {visibleBlocks.map((block) => (
+        {/* SVG Layer for Edges */}
+        <svg 
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            width: '100000px', // Large enough to cover the world
+            height: '100000px',
+            transform: 'translate(-50000px, -50000px)', // Center the large SVG
+            pointerEvents: 'none',
+            overflow: 'visible',
+            zIndex: 0,
+          }}
+        >
+          <defs>
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="9"
+              refY="3.5"
+              orient="auto"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--primary))" fillOpacity="0.8" />
+            </marker>
+          </defs>
+          <g transform="translate(50000, 50000)">
+            {edges.map((edge) => {
+              const sourceState = nodeStates[edge.source];
+              const targetState = nodeStates[edge.target];
+              if (!sourceState || !targetState) return null;
+              return (
+                <KyeEdge 
+                  key={edge.id} 
+                  id={edge.id} 
+                  source={sourceState} 
+                  target={targetState}
+                  content={edge.content}
+                />
+              );
+            })}
+
+            {/* Phantom connection line while drafting */}
+            {connectionDraft && (
+              <KyeEdge 
+                id="phantom"
+                source={nodeStates[connectionDraft.sourceId]}
+                target={{ 
+                  x: connectionDraft.mouseX - 5, 
+                  y: connectionDraft.mouseY - 5, 
+                  width: 10, 
+                  height: 10 
+                } as any}
+                content=""
+              />
+            )}
+          </g>
+        </svg>
+
+        {visibleNodes.map((block) => (
           <KyeNode 
             key={block.id} 
             block={block} 
