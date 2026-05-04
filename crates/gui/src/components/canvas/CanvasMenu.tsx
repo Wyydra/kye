@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { workspaceService } from '../../services/WorkspaceService';
-import styles from './CanvasMenu.module.css';
 import { TemplateDto } from '../../types/workspace';
-import { Icons } from './Icons';
+import { Search } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface CanvasMenuProps {
   x: number;
@@ -45,7 +45,6 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
         height: 200,
       };
 
-      // Add default values for required fields from template
       template.fields.forEach(field => {
         if (!(field.name in initialFields)) {
           initialFields[field.name] = getDefaultValue(field.field_type);
@@ -53,7 +52,6 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
       });
 
       const metadata = JSON.stringify(initialFields);
-
       await workspaceService.createBlock('', metadata);
       
       onCreated();
@@ -66,41 +64,46 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
   return (
     <div 
       ref={menuRef}
-      className={styles.menu} 
+      className="absolute z-50 w-64 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl animate-in fade-in zoom-in-95 duration-200" 
       style={{ left: x, top: y }}
     >
-      <input 
-        autoFocus
-        className={styles.search}
-        placeholder="Search node types..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose();
-          if (e.key === 'Enter' && filteredTemplates.length > 0) {
-            handleSelect(filteredTemplates[0]);
-          }
-        }}
-      />
-      <div className={styles.list}>
+      <div className="relative flex items-center border-b px-3">
+        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+        <input 
+          autoFocus
+          className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          placeholder="Search node types..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onClose();
+            if (e.key === 'Enter' && filteredTemplates.length > 0) {
+              handleSelect(filteredTemplates[0]);
+            }
+          }}
+        />
+      </div>
+      <div className="max-h-[300px] overflow-y-auto p-1">
         {filteredTemplates.map(template => (
-          <div 
+          <button 
             key={template.name} 
-            className={styles.item}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleSelect(template)}
           >
-            <div className={styles.itemIcon}>
+            <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted text-lg">
               {getIconForType(template.name)}
             </div>
-            <div className={styles.itemName}>
-              {template.name.charAt(0).toUpperCase() + template.name.slice(1)}
+            <div className="flex flex-col">
+              <span className="font-semibold leading-none">
+                {template.name.charAt(0).toUpperCase() + template.name.slice(1)}
+              </span>
+              <span className="text-xs text-muted-foreground">Node</span>
             </div>
-            <div className={styles.itemType}>Node</div>
-          </div>
+          </button>
         ))}
         {filteredTemplates.length === 0 && (
-          <div className={styles.item} style={{ opacity: 0.5, cursor: 'default' }}>
-            No results
+          <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+            No results found.
           </div>
         )}
       </div>

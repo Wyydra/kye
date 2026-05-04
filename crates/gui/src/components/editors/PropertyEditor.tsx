@@ -1,7 +1,7 @@
 import { memo, useState, useEffect } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import type { FieldDefinitionDto } from '../../types/workspace';
-import styles from './PropertyEditor.module.css';
+import { cn } from '../../lib/utils';
 
 const IGNORED_FIELDS = new Set(['id', 'position', 'size', 'width', 'height', 'type', 'title']);
 
@@ -39,6 +39,8 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
 
   const kind = resolveInputKind(fieldDef, value);
 
+  const inputClasses = "w-full bg-background border border-border rounded px-2 py-1 text-sm focus:ring-1 focus:ring-ring outline-none transition-all";
+
   if (kind === 'checkbox') {
     return (
       <input
@@ -46,6 +48,7 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
         type="checkbox"
         checked={!!localValue}
         onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
       />
     );
   }
@@ -65,6 +68,7 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
           setLocalValue(safe);
           onChange(safe);
         }}
+        className={inputClasses}
       />
     );
   }
@@ -82,6 +86,7 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange }: Fie
         onChange(e.target.value);
       }}
       placeholder={`Value for ${name}`}
+      className={inputClasses}
     />
   );
 });
@@ -106,28 +111,43 @@ export const PropertyEditor = memo(function PropertyEditor({
   if (templateFields.length === 0 && orphanFields.length === 0) return null;
 
   return (
-    <div className={styles.editor}>
-      <div className={styles.grid}>
+    <div className="flex flex-col gap-4 p-4">
+      <div className="grid grid-cols-[100px_1fr] items-center gap-x-4 gap-y-3">
         {templateFields.map((fieldDef) => (
-          <div key={fieldDef.name} className={styles.row}>
-            <label htmlFor={`prop-${fieldDef.name}`} className={styles.label}>{fieldDef.name}</label>
-            <FieldRow
-              fieldDef={fieldDef}
-              name={fieldDef.name}
-              value={metadata[fieldDef.name]}
-              onChange={(val) => handleFieldChange(fieldDef.name, val)}
-            />
+          <div key={fieldDef.name} className="contents">
+            <label 
+              htmlFor={`prop-${fieldDef.name}`} 
+              className="text-xs font-medium text-muted-foreground truncate"
+            >
+              {fieldDef.name}
+            </label>
+            <div className="flex items-center h-8">
+              <FieldRow
+                fieldDef={fieldDef}
+                name={fieldDef.name}
+                value={metadata[fieldDef.name]}
+                onChange={(val) => handleFieldChange(fieldDef.name, val)}
+              />
+            </div>
           </div>
         ))}
 
         {orphanFields.map((key) => (
-          <div key={key} className={`${styles.row} ${styles.orphan}`}>
-            <label htmlFor={`prop-${key}`} className={styles.label} title="Out-of-schema field">{key} *</label>
-            <FieldRow
-              name={key}
-              value={metadata[key]}
-              onChange={(val) => handleFieldChange(key, val)}
-            />
+          <div key={key} className="contents opacity-70">
+            <label 
+              htmlFor={`prop-${key}`} 
+              className="text-xs font-medium text-muted-foreground truncate italic" 
+              title="Out-of-schema field"
+            >
+              {key} *
+            </label>
+            <div className="flex items-center h-8">
+              <FieldRow
+                name={key}
+                value={metadata[key]}
+                onChange={(val) => handleFieldChange(key, val)}
+              />
+            </div>
           </div>
         ))}
       </div>
