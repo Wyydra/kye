@@ -1,10 +1,12 @@
-import React, { memo, useMemo, useRef, useState, useCallback } from 'react';
+import React, { memo, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useCanvasStore } from '../../hooks/useCanvasStore';
 import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
 import { Workspace, TemplateDto } from '../../types/workspace';
 import { KyeNode } from '../nodes/KyeNode';
 import { CanvasMenu } from './CanvasMenu';
+import { eventBus } from '../../lib/eventBus';
+import { workspaceService } from '../../services/WorkspaceService';
 import '../nodes';
 
 interface KyeCanvasProps {
@@ -26,18 +28,27 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
   // Menu state
   const [menu, setMenu] = useState<{ x: number, y: number, worldX: number, worldY: number } | null>(null);
 
+  // Menu logic
+  const openMenuAt = useCallback((screenX: number, screenY: number) => {
+    const worldX = (screenX - viewport.x) / viewport.zoom;
+    const worldY = (screenY - viewport.y) / viewport.zoom;
+    setMenu({ x: screenX, y: screenY, worldX, worldY });
+  }, [viewport]);
+
+  useEffect(() => {
+    const unsub = eventBus.on('canvas:menu:open', () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      openMenuAt(rect.width / 2, rect.height / 2);
+    });
+    return unsub;
+  }, [openMenuAt]);
+
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     if (e.target !== containerRef.current) return;
-
     const rect = containerRef.current!.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const worldX = (mouseX - viewport.x) / viewport.zoom;
-    const worldY = (mouseY - viewport.y) / viewport.zoom;
-
-    setMenu({ x: mouseX, y: mouseY, worldX, worldY });
-  }, [viewport]);
+    openMenuAt(e.clientX - rect.left, e.clientY - rect.top);
+  }, [openMenuAt]);
 
   // Virtualization: Filter blocks to only render those in the viewport
   const visibleBlocks = useMemo(() => {

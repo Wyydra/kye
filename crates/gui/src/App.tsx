@@ -12,7 +12,7 @@ function App() {
       {noWorkspace ? (
         <WelcomeScreen onSelectWorkspace={selectWorkspace} />
       ) : (
-        <MainLayout onSelectWorkspace={selectWorkspace}>
+        <MainLayout onSelectWorkspace={selectWorkspace} onRefresh={refresh}>
           <KyeCanvas workspace={workspace} templates={templates} onRefresh={refresh} />
         </MainLayout>
       )}
