@@ -74,7 +74,10 @@ pub fn get_templates(state: tauri::State<'_, AppState>) -> Vec<TemplateDto> {
             name: fname.to_string(),
             field_type: field_type_to_str(ftype),
         }).collect();
-        Some(TemplateDto { name, fields })
+        Some(TemplateDto { 
+            name, 
+            fields, 
+        })
     }).collect()
 }
 

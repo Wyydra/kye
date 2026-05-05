@@ -20,6 +20,7 @@ interface RegisteredBlock {
   match: (block: Block, meta: any) => boolean;
   priority: number;
   getAnchor?: (block: Block, meta: any, nodeStates: Record<string, any>) => { x: number, y: number, width: number, height: number } | null;
+  editorMode?: 'popup' | 'inline' | 'auto';
 }
 
 class BlockRegistry {
@@ -56,6 +57,23 @@ class BlockRegistry {
     if (state) return { x: state.x, y: state.y, width: state.width, height: state.height };
     
     return null;
+  }
+
+  getEditorMode(block: Block, nodeStates: Record<string, any>): 'popup' | 'inline' {
+    let meta = {};
+    try { meta = JSON.parse(block.metadata); } catch {}
+    
+    const found = this.findConfig(block, meta);
+    const mode = found?.editorMode ?? 'auto';
+
+    if (mode === 'popup') return 'popup';
+    if (mode === 'inline') return 'inline';
+
+    // Auto logic
+    const anchor = this.getAnchor(block, nodeStates);
+    if (!anchor || anchor.width < 150 || anchor.height < 100) return 'popup';
+    
+    return 'inline';
   }
 }
 

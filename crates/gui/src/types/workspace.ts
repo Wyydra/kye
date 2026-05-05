@@ -12,7 +12,7 @@ export interface Workspace {
 
 export interface FieldDefinitionDto {
   name: string;
-  field_type: 'Text' | 'Integer' | 'Float' | 'Boolean' | string;
+  field_type: 'String' | 'Integer' | 'Float' | 'Boolean' | 'Markdown' | 'Url' | 'Color' | 'BlockId' | string;
 }
 
 export interface TemplateDto {

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc, ops::{Deref, DerefMut}, fmt::Display
 use crate::models::block::type_registry::TypeRegistry;
 
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     None,
     Boolean(bool),
@@ -14,7 +14,7 @@ pub enum Value {
     Array(Vec<Value>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Fields(BTreeMap<FieldName, Value>);
 
 impl Fields {
@@ -85,6 +85,7 @@ impl TypeDefinition {
     pub fn new(fields: BTreeMap<FieldName, FieldType>) -> Self {
         Self { fields }
     }
+    
     pub fn empty() -> Self {
         Self { fields: BTreeMap::new() }
     }
@@ -140,6 +141,10 @@ pub enum FieldType {
     Integer,
     Float,
     String,
+    Markdown,
+    Url,
+    Color,
+    BlockId,
     Record(TypeDefinition),
     List(Arc<FieldType>),
     Named(TypeName),
@@ -152,6 +157,10 @@ impl FieldType {
             (FieldType::Integer, Value::Integer(_)) => true,
             (FieldType::Float, Value::Float(_)) => true,
             (FieldType::String, Value::String(_)) => true,
+            (FieldType::Markdown, Value::String(_)) => true,
+            (FieldType::Url, Value::String(_)) => true,
+            (FieldType::Color, Value::String(_)) => true,
+            (FieldType::BlockId, Value::String(_)) => true,
             (FieldType::Record(def), Value::Object(fields)) => def.matches(fields, registry),
             (FieldType::List(inner), Value::Array(values)) => {
                 values.iter().all(|v| inner.matches_value(v, registry))

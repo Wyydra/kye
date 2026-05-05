@@ -20,11 +20,13 @@ interface FieldRowProps {
   level?: number;
 }
 
-function resolveInputKind(fieldDef?: FieldDefinitionDto, jsValue?: unknown): 'checkbox' | 'number' | 'text' | 'object' {
+function resolveInputKind(fieldDef?: FieldDefinitionDto, jsValue?: unknown): 'checkbox' | 'number' | 'text' | 'object' | 'color' | 'id' {
   if (fieldDef) {
     const ft = fieldDef.field_type;
     if (ft === 'Boolean') return 'checkbox';
     if (ft === 'Integer' || ft === 'Float') return 'number';
+    if (ft === 'Color') return 'color';
+    if (ft === 'BlockId') return 'id';
     if (ft === 'Record' || ft.startsWith('Named:')) return 'object';
     return 'text';
   }
@@ -88,6 +90,39 @@ const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange, level
             onChange(safe);
           }}
           className={inputClasses}
+        />
+      </div>
+    );
+  }
+
+  if (kind === 'color') {
+    return (
+      <div className="flex items-center h-8 gap-2">
+        <input
+          id={`prop-${name}-${level}`}
+          type="color"
+          value={String(localValue || '#000000')}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+            onChange(e.target.value);
+          }}
+          className="h-6 w-10 bg-transparent border-none cursor-pointer"
+        />
+        <span className="text-[10px] font-mono opacity-50 uppercase">{String(localValue)}</span>
+      </div>
+    );
+  }
+
+  if (kind === 'id') {
+    return (
+      <div className="flex items-center h-8">
+        <input
+          id={`prop-${name}-${level}`}
+          type="text"
+          value={String(localValue)}
+          readOnly
+          className={cn(inputClasses, "font-mono text-[10px] bg-muted/30 border-dashed cursor-default")}
+          title="Reference ID (Read-only)"
         />
       </div>
     );

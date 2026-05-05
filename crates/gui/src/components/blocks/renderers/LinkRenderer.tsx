@@ -147,6 +147,7 @@ blockRegistry.register({
   priority: 10,
   match: (_, meta) => !!(meta.from && meta.to),
   svg: LinkRenderer,
+  editorMode: 'popup',
   getAnchor: (block, meta, nodeStates) => {
     const s = nodeStates[meta.from];
     const t = nodeStates[meta.to];
