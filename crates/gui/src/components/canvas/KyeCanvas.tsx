@@ -2,9 +2,10 @@ import React, { memo, useMemo, useRef, useState, useCallback, useEffect } from '
 import { useCanvasStore } from '../../hooks/useCanvasStore';
 import { useCamera } from '../../hooks/useCamera';
 import { GridBackground } from './GridBackground';
-import { Workspace, TemplateDto } from '../../types/workspace';
+import { Workspace, TemplateDto, Block } from '../../types/workspace';
 import { KyeBlock } from '../blocks/KyeBlock';
 import { CanvasMenu } from './CanvasMenu';
+import { DraftLink } from './DraftLink';
 import { eventBus } from '../../lib/eventBus';
 import { workspaceService } from '../../services/WorkspaceService';
 import '../blocks/renderers';
@@ -26,11 +27,11 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
   const setConnectionDraft = useCanvasStore(state => state.setConnectionDraft);
   const updateConnectionMouse = useCanvasStore(state => state.updateConnectionMouse);
+  const setHoveredNodeId = useCanvasStore(state => state.setHoveredNodeId);
   const setAllNodeStates = useCanvasStore(state => state.setAllNodeStates);
   
   // Selection and connection states (selective subscription)
-  const selectedNodeId = useCanvasStore(state => state.selectedNodeId);
-  const connectionDraft = useCanvasStore(state => state.connectionDraft);
+  const isConnecting = useCanvasStore(state => !!state.connectionDraft);
 
   // Menu state
   const [menu, setMenu] = useState<{ x: number, y: number, worldX: number, worldY: number } | null>(null);
@@ -79,7 +80,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     openMenuAt(e.clientX - rect.left, e.clientY - rect.top);
   }, [openMenuAt]);
 
-  // Split blocks into nodes and edges (and ports)
+  // Split blocks into nodes and edges
   const { nodes, edges } = useMemo(() => {
     const nodes: Block[] = [];
     const edges: Array<{ id: string, source: string, target: string, content: string }> = [];
@@ -95,7 +96,6 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
             content: block.content,
           });
         } else if (!meta.parent) {
-          // If it has no parent and no from/to, it's a top-level visual node
           nodes.push(block);
         }
       } catch {
@@ -106,34 +106,9 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     return { nodes, edges };
   }, [workspace]);
 
-  // Virtualization: Filter nodes to only render those in the viewport
-  const visibleNodes = useMemo(() => {
-    const container = containerRef.current;
-    if (!container) return nodes;
-
-    const vX1 = -viewport.x / viewport.zoom;
-    const vY1 = -viewport.y / viewport.zoom;
-    const vX2 = vX1 + container.clientWidth / viewport.zoom;
-    const vY2 = vY1 + container.clientHeight / viewport.zoom;
-
-    const buffer = 150;
-
-    return nodes.filter(block => {
-      let meta;
-      try { meta = JSON.parse(block.metadata); } catch { return true; }
-      
-      const bX1 = meta.x ?? 0;
-      const bY1 = meta.y ?? 0;
-      const bX2 = bX1 + (meta.width ?? 300);
-      const bY2 = bY1 + (meta.height ?? 200);
-
-      return !(bX2 < vX1 - buffer || bX1 > vX2 + buffer || bY2 < vY1 - buffer || bY1 > vY2 + buffer);
-    });
-  }, [nodes, viewport]);
-
-  // Global listeners for connection drafting - Stable Listener Pattern
+  // Global listeners for connection drafting
   useEffect(() => {
-    if (!connectionDraft) return;
+    if (!isConnecting) return;
 
     const onMove = (e: PointerEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -141,16 +116,19 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
       const x = (e.clientX - rect.left - viewport.x) / viewport.zoom;
       const y = (e.clientY - rect.top - viewport.y) / viewport.zoom;
       updateConnectionMouse(x, y);
+
+      // Target highlighting
+      const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
+      const nodeEl = element?.closest('[data-node-id]');
+      const targetId = nodeEl?.getAttribute('data-node-id');
+      setHoveredNodeId(targetId || null);
     };
 
     const onUp = async (e: PointerEvent) => {
       try {
-        // Find the node under the cursor
         const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
         const nodeEl = element?.closest('[data-node-id]');
         const targetId = nodeEl?.getAttribute('data-node-id');
-
-        // Access the current sourceId from the store state (to avoid stale closures)
         const currentSourceId = useCanvasStore.getState().connectionDraft?.sourceId;
 
         if (targetId && currentSourceId && targetId !== currentSourceId) {
@@ -164,6 +142,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
         console.error("Failed to create connection:", err);
       } finally {
         setConnectionDraft(null);
+        setHoveredNodeId(null);
       }
     };
 
@@ -173,8 +152,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-    // Note: We only re-run when the connection starts/stops, not on mouse move
-  }, [!!connectionDraft, viewport.x, viewport.y, viewport.zoom, updateConnectionMouse, setConnectionDraft, onRefresh]);
+  }, [isConnecting, viewport.x, viewport.y, viewport.zoom, updateConnectionMouse, setConnectionDraft, setHoveredNodeId, onRefresh]);
 
   return (
     <div 
@@ -209,15 +187,14 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
           willChange: 'transform',
         }}
       >
-        {/* SVG Layer for Edges */}
         <svg 
           style={{ 
             position: 'absolute', 
             top: 0, 
             left: 0, 
-            width: '100000px', // Large enough to cover the world
+            width: '100000px',
             height: '100000px',
-            transform: 'translate(-50000px, -50000px)', // Center the large SVG
+            transform: 'translate(-50000px, -50000px)',
             pointerEvents: 'none',
             overflow: 'visible',
             zIndex: 0,
@@ -244,6 +221,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
                 onRefresh={onRefresh}
               />
             ))}
+            <DraftLink />
           </g>
         </svg>
 

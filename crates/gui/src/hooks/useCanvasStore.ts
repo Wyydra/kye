@@ -25,6 +25,7 @@ interface CanvasState {
   editingBlockId: string | null;
   nodeStates: Record<string, NodeState>;
   connectionDraft: ConnectionDraft | null;
+  hoveredNodeId: string | null;
   
   // Actions
   setViewport: (viewport: Partial<Viewport>) => void;
@@ -36,6 +37,7 @@ interface CanvasState {
   
   setConnectionDraft: (draft: ConnectionDraft | null) => void;
   updateConnectionMouse: (x: number, y: number) => void;
+  setHoveredNodeId: (id: string | null) => void;
   
   resetViewport: () => void;
 }
@@ -46,6 +48,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   editingBlockId: null,
   nodeStates: {},
   connectionDraft: null,
+  hoveredNodeId: null,
 
   setViewport: (v) => set((state) => ({ 
     viewport: { ...state.viewport, ...v } 
@@ -71,6 +74,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   updateConnectionMouse: (x, y) => set((state) => ({
     connectionDraft: state.connectionDraft ? { ...state.connectionDraft, mouseX: x, mouseY: y } : null
   })),
+
+  setHoveredNodeId: (id) => set({ hoveredNodeId: id }),
   
   resetViewport: () => set({ viewport: { x: 0, y: 0, zoom: 1 } }),
 }));

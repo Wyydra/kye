@@ -1,50 +1,7 @@
 import React, { useMemo } from 'react';
 import { useCanvasStore } from '../../../hooks/useCanvasStore';
 import { blockRegistry, BlockRendererProps } from './BlockRegistry';
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface NodeRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-// We use the unified BlockRendererProps for consistency
-
-/**
- * Calculates the point on the rectangle boundary that is on the line between source and target centers.
- */
-function getEdgePoint(source: NodeRect, target: NodeRect): Point {
-  const sc = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
-  const tc = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-  
-  const dx = tc.x - sc.x;
-  const dy = tc.y - sc.y;
-  
-  if (dx === 0 && dy === 0) return sc;
-
-  const widthHalf = source.width / 2;
-  const heightHalf = source.height / 2;
-
-  // Slope
-  const m = dy / dx;
-
-  // We check which side of the rectangle the line intersects
-  if (Math.abs(m) <= heightHalf / widthHalf) {
-    // Intersects left or right side
-    const x = dx > 0 ? widthHalf : -widthHalf;
-    return { x: sc.x + x, y: sc.y + x * m };
-  } else {
-    // Intersects top or bottom side
-    const y = dy > 0 ? heightHalf : -heightHalf;
-    return { x: sc.x + y / m, y: sc.y + y };
-  }
-}
+import { getBezierPath, getEdgePoint, getBezierMidpoint } from '../../../lib/geometry';
 
 export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEditing, onSelect, onRefresh }: BlockRendererProps) => {
   const nodeStates = useCanvasStore(state => state.nodeStates);
@@ -62,20 +19,13 @@ export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEdi
     const p1 = getEdgePoint(source, target);
     const p2 = getEdgePoint(target, source);
 
-    const dx = Math.abs(p2.x - p1.x);
-    const curvature = Math.max(dx * 0.5, 40);
-    
-    const cp1x = p1.x + (p2.x > p1.x ? curvature : -curvature);
-    const cp2x = p2.x - (p2.x > p1.x ? curvature : -curvature);
-
-    const midX = (p1.x + cp1x + cp2x + p2.x) / 4;
-    const midY = (p1.y + p1.y + p2.y + p2.y) / 4;
-
     return {
-      pathData: `M ${p1.x} ${p1.y} C ${cp1x} ${p1.y}, ${cp2x} ${p2.y}, ${p2.x} ${p2.y}`,
-      midPoint: { x: midX, y: midY }
+      pathData: getBezierPath(p1, p2),
+      midPoint: getBezierMidpoint(p1, p2)
     };
   }, [source, target]);
+
+  if (!pathData) return null;
 
   return (
     <g 
@@ -102,7 +52,7 @@ export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEdi
         strokeWidth={isSelected ? "3" : "2"}
         strokeOpacity={isSelected ? "1" : "0.5"}
         markerEnd="url(#arrowhead)"
-        className="transition-all"
+        className={cn("transition-all", isSelected && "drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]")}
         style={{ pointerEvents: 'none' }}
       />
 
@@ -125,14 +75,13 @@ export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEdi
           className="shadow-sm transition-all"
         />
         
-        {/* Standard Label View (always shown when not editing, or always shown with the editor on top) */}
         {!isEditing && (
           <text
             textAnchor="middle"
             dominantBaseline="middle"
             fill="hsl(var(--foreground))"
             className="select-none pointer-events-none"
-            style={{ fontSize: '11px', fontWeight: isSelected ? 'bold' : 'normal' }}
+            style={{ fontSize: '10px', fontWeight: isSelected ? 'bold' : 'normal' }}
           >
             {block.content || 'Add label...'}
           </text>
@@ -141,6 +90,11 @@ export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEdi
     </g>
   );
 });
+
+// Helper for classNames (simple version since we don't have clsx in this file scope if not imported)
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(' ');
+}
 
 // Auto-registration
 blockRegistry.register({
@@ -152,9 +106,12 @@ blockRegistry.register({
     const s = nodeStates[meta.from];
     const t = nodeStates[meta.to];
     if (!s || !t) return null;
+    const p1 = getEdgePoint(s, t);
+    const p2 = getEdgePoint(t, s);
+    const mid = getBezierMidpoint(p1, p2);
     return { 
-      x: (s.x + s.width/2 + t.x + t.width/2) / 2 - 50, 
-      y: (s.y + s.height/2 + t.y + t.height/2) / 2 - 12,
+      x: mid.x - 50, 
+      y: mid.y - 12,
       width: 100,
       height: 24
     };
