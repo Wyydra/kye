@@ -25,6 +25,14 @@ pub trait WorkspaceUseCase: Clone + Send + Sync + 'static {
     ) -> impl Future<Output = Result<Workspace, DeleteBlockError>> + Send;
 }
 
+pub trait TypeManagementUseCase: Clone + Send + Sync + 'static {
+    fn register_type(
+        &self,
+        name: &str,
+        definition: TypeDefinition,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
+}
+
 pub trait TypeInspector: Clone + Send + Sync + 'static {
     fn get_block_types(&self) -> Vec<String>;
     fn identify_block_shapes(&self, fields: &Fields) -> Vec<String>;
@@ -42,13 +50,17 @@ pub trait WorkspaceRepository: Send + Sync + Clone + 'static {
         workspace: &Workspace,
         registry: &crate::models::block::type_registry::TypeRegistry,
     ) -> impl Future<Output = Result<(), SaveWorkspaceError>> + Send;
-    fn render_block_source(&self, block: &crate::models::block::Block, registry: &crate::models::block::type_registry::TypeRegistry) -> String;
 }
 
 pub trait TypeRepository: Send + Sync + Clone + 'static {
     fn load_types(
         &self,
     ) -> impl Future<Output = Result<std::collections::BTreeMap<crate::models::block::schema::TypeName, crate::models::block::schema::TypeDefinition>, anyhow::Error>> + Send;
+    fn save_type(
+        &self,
+        name: &crate::models::block::schema::TypeName,
+        definition: &crate::models::block::schema::TypeDefinition,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
 }
 
 pub trait EventDispatcher: Clone + Send + Sync + 'static {

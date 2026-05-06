@@ -215,7 +215,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
           <g transform="translate(50000, 50000)">
             {workspace?.blocks.map((block) => (
               <KyeBlock 
-                key={block.id} 
+                key={`${block.id}-svg`} 
                 block={block} 
                 layer="svg"
                 onRefresh={onRefresh}
@@ -227,7 +227,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
 
         {workspace?.blocks.map((block) => (
           <KyeBlock 
-            key={block.id} 
+            key={`${block.id}-html`} 
             block={block} 
             layer="html"
             zoom={viewport.zoom}

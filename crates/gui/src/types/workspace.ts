@@ -3,7 +3,6 @@ export interface Block {
   content: string;
   metadata: string;
   shapes: string[];
-  source: string;
 }
 
 export interface Workspace {
@@ -11,29 +10,29 @@ export interface Workspace {
   blocks: Block[];
 }
 
+export type FieldType = 'boolean' | 'integer' | 'float' | 'string' | 'markdown' | 'url' | 'color' | 'blockid';
+
 export interface FieldDefinitionDto {
   name: string;
-  field_type: 'String' | 'Integer' | 'Float' | 'Boolean' | 'Markdown' | 'Url' | 'Color' | 'BlockId' | string;
+  field_type: FieldType | string;
 }
 
-export interface InteractionAction {
-  type: 'update_field';
-  field: string;
-  value: any;
-}
+export type InteractionAction = 
+  | { type: 'update_field', field: string, value: any }
+  | { type: 'navigate_to', block_id: string };
 
 export interface WidgetBlueprint {
-  type: 'stack' | 'grid' | 'markdown' | 'text' | 'button' | 'flipCard' | 'link';
-  direction?: 'vertical' | 'horizontal';
-  columns?: number;
-  bind?: string;
-  value?: string;
-  style?: string;
-  label?: string;
-  onClick?: InteractionAction;
-  children?: WidgetBlueprint[];
-  front?: WidgetBlueprint;
-  back?: WidgetBlueprint;
+  type: string;
+  props: Record<string, any>;
+  bindings: Record<string, string>;
+  actions: Record<string, InteractionAction>;
+  slots: Record<string, WidgetBlueprint>;
+  children: WidgetBlueprint[];
+}
+
+export interface TypeDefinitionDto {
+  fields: Record<string, FieldType>;
+  layout?: WidgetBlueprint;
 }
 
 export interface TemplateDto {

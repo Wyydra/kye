@@ -1,10 +1,10 @@
 use uuid::Uuid;
 use domain::models::block::{CreateBlockRequest, UpdateBlockRequest};
-use domain::ports::{WorkspaceUseCase, TypeInspector};
-
 use crate::state::AppState;
 use crate::dto::{WorkspaceDto, TemplateDto, FieldDefinitionDto, field_type_to_str};
 use crate::error::{AppError, AppResult};
+use domain::ports::{WorkspaceUseCase, TypeInspector, TypeManagementUseCase};
+use infra::types::dto::TypeDefinitionDto;
 
 #[tauri::command]
 pub async fn create_block(
@@ -33,30 +33,20 @@ pub async fn update_block(
     id: Uuid,
     content: Option<String>,
     metadata: Option<String>,
-    is_full_source: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<WorkspaceDto> {
     let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
     
-    let fields = if is_full_source.unwrap_or(false) {
-        if let Some(source) = content {
-            infra::markdown::parse_markdown_to_fields(&source)
-        } else {
-            return Err(AppError::InternalError("Missing content for full_source update".into()));
-        }
+    let mut fields = if let Some(meta) = metadata {
+        let provider = infra::metadata::JsonMetadataProvider(meta);
+        provider.get_fields().map_err(|e| e.to_string())?
     } else {
-        let mut fields = if let Some(meta) = metadata {
-            let provider = infra::metadata::JsonMetadataProvider(meta);
-            provider.get_fields().map_err(|e| e.to_string())?
-        } else {
-            domain::models::block::schema::Fields::new()
-        };
-
-        if let Some(c) = content {
-            fields.insert(domain::models::block::schema::FieldName::new("body"), domain::models::block::schema::Value::String(c));
-        }
-        fields
+        domain::models::block::schema::Fields::new()
     };
+
+    if let Some(c) = content {
+        fields.insert(domain::models::block::schema::FieldName::new("body"), domain::models::block::schema::Value::String(c));
+    }
 
     let req = UpdateBlockRequest::new(id, fields);
     let workspace = service.update_block(&req).await?;
@@ -109,4 +99,17 @@ pub fn identify_block_shapes(
     let provider = infra::metadata::JsonMetadataProvider(metadata);
     let fields = provider.get_fields().map_err(|e| e.to_string())?;
     Ok(service.identify_block_shapes(&fields))
+}
+
+#[tauri::command]
+pub async fn register_type(
+    name: String,
+    definition: TypeDefinitionDto,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
+    
+    service.register_type(&name, definition.to_domain()).await?;
+    
+    Ok(())
 }

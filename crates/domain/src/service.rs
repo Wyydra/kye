@@ -17,6 +17,7 @@ use crate::{
     ports::{
         EventDispatcher, ExternalEventHandler,
         TypeInspector, WorkspaceRepository, TypeRepository, WorkspaceUseCase,
+        TypeManagementUseCase,
     },
 };
 
@@ -89,11 +90,6 @@ where
         Ok((workspace, result))
     }
 
-    pub fn render_block_source(&self, block: &Block) -> String {
-        let registry = self.registry.read().unwrap();
-        self.repo.render_block_source(block, &registry)
-    }
-
     pub fn get_type_registry(&self) -> TypeRegistry {
         self.registry.read().unwrap().clone()
     }
@@ -158,6 +154,34 @@ where
         })
         .await
         .map(|(ws, _): (Workspace, ())| ws)
+    }
+}
+
+
+impl<R, T, E> TypeManagementUseCase for Service<R, T, E>
+where
+    R: WorkspaceRepository,
+    T: TypeRepository,
+    E: EventDispatcher,
+{
+    async fn register_type(
+        &self,
+        name: &str,
+        definition: TypeDefinition,
+    ) -> Result<(), anyhow::Error> {
+        let type_name = TypeName::new(name);
+        self.type_repo.save_type(&type_name, &definition).await?;
+        
+        // Update registry
+        {
+            let mut registry = self.registry.write().map_err(|_| anyhow::anyhow!("Poison error"))?;
+            registry.register(type_name, definition);
+        }
+        
+        // Notify GUI
+        self.dispatcher.dispatch_workspace_updated();
+        
+        Ok(())
     }
 }
 

@@ -47,7 +47,7 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement>, layerRe
         
         cameraRef.current = { x: newX, y: newY, zoom: newZoom };
       } else {
-        // Pan
+        // Pan with wheel
         cameraRef.current = { 
           x: x - e.deltaX, 
           y: y - e.deltaY, 
@@ -56,12 +56,48 @@ export function useCamera(containerRef: React.RefObject<HTMLDivElement>, layerRe
       }
       
       updateTransform();
-      // Sync to store (debounced or on end is better, but let's do it for virtualization)
       setViewport(cameraRef.current);
     };
 
+    const handlePointerDown = (e: PointerEvent) => {
+      // Only pan if clicking the container itself (the background)
+      if (e.target !== container) return;
+      if (e.button !== 0 && e.button !== 1) return; // Left or Middle click
+      
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const { x: camX, y: camY } = cameraRef.current;
+
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        
+        cameraRef.current = { 
+          ...cameraRef.current, 
+          x: camX + dx, 
+          y: camY + dy 
+        };
+        
+        updateTransform();
+        setViewport(cameraRef.current);
+      };
+
+      const onPointerUp = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+      };
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+    };
+
     container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
+    container.addEventListener('pointerdown', handlePointerDown);
+    
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('pointerdown', handlePointerDown);
+    };
   }, [containerRef, updateTransform, setViewport]);
 
   // Initial transform

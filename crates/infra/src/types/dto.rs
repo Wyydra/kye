@@ -1,17 +1,17 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use domain::models::block::schema::{
-    FieldName, FieldType, TypeDefinition, InterfaceIntent, 
-    LayoutDirection, InteractionEffect, Value
+    FieldName, FieldType, TypeDefinition, View, ViewKind,
+    LayoutDirection, Action, Value
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TypeDefinitionDto {
     pub fields: BTreeMap<String, FieldTypeDto>,
-    pub layout: Option<InterfaceIntentDto>,
+    pub layout: Option<ViewDto>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldTypeDto {
     Boolean,
@@ -22,62 +22,55 @@ pub enum FieldTypeDto {
     Url,
     Color,
     BlockId,
-    // For recursive or named types, we might need more logic
-    // but let's stick to the basics first.
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum InterfaceIntentDto {
-    Stack {
-        direction: LayoutDirectionDto,
-        children: Vec<InterfaceIntentDto>,
-    },
-    Grid {
-        columns: u32,
-        children: Vec<InterfaceIntentDto>,
-    },
-    Markdown {
-        bind: Option<String>,
-    },
-    Image {
-        bind: Option<String>,
-    },
-    Text {
-        value: String,
-        style: Option<String>,
-    },
-    Button {
-        label: String,
-        on_click: Option<InteractionEffectDto>,
-    },
-    FlipCard {
-        front: Box<InterfaceIntentDto>,
-        back: Box<InterfaceIntentDto>,
-    },
-    Link {
-        label: String,
-        bind: Option<String>,
-    },
+#[derive(Deserialize, Serialize)]
+pub struct ViewDto {
+    #[serde(rename = "type")]
+    pub kind: String,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direction: Option<LayoutDirectionDto>,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub columns: Option<u32>,
+    
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub bindings: BTreeMap<String, String>,
+    
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub props: BTreeMap<String, ValueDto>,
+    
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub actions: BTreeMap<String, ActionDto>,
+    
+    #[serde(skip_serializing_if = "BTreeMap::is_empty", default)]
+    pub slots: BTreeMap<String, ViewDto>,
+    
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub children: Vec<ViewDto>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum LayoutDirectionDto {
     Vertical,
     Horizontal,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum InteractionEffectDto {
+pub enum ActionDto {
     UpdateField {
         field: String,
-        value: ValueDto, // We need a Value DTO since Value is in Domain without Serde
+        value: ValueDto,
+    },
+    NavigateTo {
+        block_id: String,
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ValueDto {
     None,
@@ -99,6 +92,17 @@ impl TypeDefinitionDto {
             self.layout.map(|l| l.to_domain())
         )
     }
+
+    pub fn from_domain(definition: &TypeDefinition) -> Self {
+        let mut fields = BTreeMap::new();
+        for (name, ftype) in &definition.fields {
+            fields.insert(name.to_string(), FieldTypeDto::from_domain(ftype));
+        }
+        Self {
+            fields,
+            layout: definition.layout.as_ref().map(ViewDto::from_domain),
+        }
+    }
 }
 
 
@@ -115,38 +119,101 @@ impl FieldTypeDto {
             FieldTypeDto::BlockId => FieldType::BlockId,
         }
     }
+
+    pub fn from_domain(ftype: &FieldType) -> Self {
+        match ftype {
+            FieldType::Boolean => FieldTypeDto::Boolean,
+            FieldType::Integer => FieldTypeDto::Integer,
+            FieldType::Float => FieldTypeDto::Float,
+            FieldType::String => FieldTypeDto::String,
+            FieldType::Markdown => FieldTypeDto::Markdown,
+            FieldType::Url => FieldTypeDto::Url,
+            FieldType::Color => FieldTypeDto::Color,
+            FieldType::BlockId => FieldTypeDto::BlockId,
+            _ => FieldTypeDto::String, 
+        }
+    }
 }
 
-impl InterfaceIntentDto {
-    pub fn to_domain(self) -> InterfaceIntent {
-        match self {
-            InterfaceIntentDto::Stack { direction, children } => InterfaceIntent::Stack {
-                direction: direction.to_domain(),
-                children: children.into_iter().map(|c| c.to_domain()).collect(),
-            },
-            InterfaceIntentDto::Grid { columns, children } => InterfaceIntent::Grid {
-                columns,
-                children: children.into_iter().map(|c| c.to_domain()).collect(),
-            },
-            InterfaceIntentDto::Markdown { bind } => InterfaceIntent::Markdown {
-                bind: bind.map(|b| FieldName::new(&b)),
-            },
-            InterfaceIntentDto::Image { bind } => InterfaceIntent::Image {
-                bind: bind.map(|b| FieldName::new(&b)),
-            },
-            InterfaceIntentDto::Text { value, style } => InterfaceIntent::Text { value, style },
-            InterfaceIntentDto::Button { label, on_click } => InterfaceIntent::Button {
-                label,
-                on_click: on_click.map(|o| o.to_domain()),
-            },
-            InterfaceIntentDto::Link { label, bind } => InterfaceIntent::Link {
-                label,
-                bind: bind.map(|b| FieldName::new(&b)),
-            },
-            InterfaceIntentDto::FlipCard { front, back } => InterfaceIntent::FlipCard {
-                front: Box::new(front.to_domain()),
-                back: Box::new(back.to_domain()),
-            },
+impl ViewDto {
+    pub fn to_domain(self) -> View {
+        let kind = match self.kind.as_str() {
+            "stack" => ViewKind::Stack(self.direction.map(|d| d.to_domain()).unwrap_or(LayoutDirection::Vertical)),
+            "grid" => ViewKind::Grid { columns: self.columns.unwrap_or(1) },
+            _ => ViewKind::Component(self.kind),
+        };
+
+        let mut bindings = BTreeMap::new();
+        for (k, v) in self.bindings {
+            bindings.insert(k, FieldName::new(&v));
+        }
+        
+        let mut props = BTreeMap::new();
+        for (k, v) in self.props {
+            props.insert(k, v.to_domain());
+        }
+        
+        let mut slots = BTreeMap::new();
+        for (k, v) in self.slots {
+            slots.insert(k, v.to_domain());
+        }
+
+        let mut actions = BTreeMap::new();
+        for (k, v) in self.actions {
+            actions.insert(k, v.to_domain());
+        }
+
+        let mut children = Vec::new();
+        for c in self.children {
+            children.push(c.to_domain());
+        }
+
+        View {
+            kind,
+            props,
+            bindings,
+            actions,
+            slots,
+            children,
+        }
+    }
+
+    pub fn from_domain(view: &View) -> Self {
+        let (kind, direction, columns) = match &view.kind {
+            ViewKind::Stack(d) => ("stack".to_string(), Some(LayoutDirectionDto::from_domain(d)), None),
+            ViewKind::Grid { columns } => ("grid".to_string(), None, Some(*columns)),
+            ViewKind::Component(name) => (name.clone(), None, None),
+        };
+
+        let mut bindings = BTreeMap::new();
+        for (k, v) in &view.bindings {
+            bindings.insert(k.clone(), v.to_string());
+        }
+
+        let mut props = BTreeMap::new();
+        for (k, v) in &view.props {
+            props.insert(k.clone(), ValueDto::from_domain(v));
+        }
+
+        let mut actions = BTreeMap::new();
+        for (k, v) in &view.actions {
+            actions.insert(k.clone(), ActionDto::from_domain(v));
+        }
+
+        let mut slots = BTreeMap::new();
+        for (k, v) in &view.slots {
+            slots.insert(k.clone(), ViewDto::from_domain(v));
+        }
+
+        Self {
+            kind,
+            direction,
+            columns,
+            bindings,
+            props,
+            actions,
+            slots,
+            children: view.children.iter().map(ViewDto::from_domain).collect(),
         }
     }
 }
@@ -158,14 +225,36 @@ impl LayoutDirectionDto {
             LayoutDirectionDto::Horizontal => LayoutDirection::Horizontal,
         }
     }
+
+    pub fn from_domain(direction: &LayoutDirection) -> Self {
+        match direction {
+            LayoutDirection::Vertical => LayoutDirectionDto::Vertical,
+            LayoutDirection::Horizontal => LayoutDirectionDto::Horizontal,
+        }
+    }
 }
 
-impl InteractionEffectDto {
-    pub fn to_domain(self) -> InteractionEffect {
+impl ActionDto {
+    pub fn to_domain(self) -> Action {
         match self {
-            InteractionEffectDto::UpdateField { field, value } => InteractionEffect::UpdateField {
+            ActionDto::UpdateField { field, value } => Action::UpdateField {
                 field: FieldName::new(&field),
                 value: value.to_domain(),
+            },
+            ActionDto::NavigateTo { block_id } => Action::NavigateTo {
+                block_id,
+            },
+        }
+    }
+
+    pub fn from_domain(action: &Action) -> Self {
+        match action {
+            Action::UpdateField { field, value } => ActionDto::UpdateField {
+                field: field.to_string(),
+                value: ValueDto::from_domain(value),
+            },
+            Action::NavigateTo { block_id } => ActionDto::NavigateTo {
+                block_id: block_id.clone(),
             },
         }
     }
@@ -179,6 +268,17 @@ impl ValueDto {
             ValueDto::Integer(i) => Value::Integer(i),
             ValueDto::Float(f) => Value::Float(f),
             ValueDto::String(s) => Value::String(s),
+        }
+    }
+
+    pub fn from_domain(value: &Value) -> Self {
+        match value {
+            Value::None => ValueDto::None,
+            Value::Boolean(b) => ValueDto::Boolean(*b),
+            Value::Integer(i) => ValueDto::Integer(*i),
+            Value::Float(f) => ValueDto::Float(*f),
+            Value::String(s) => ValueDto::String(s.clone()),
+            _ => ValueDto::None, 
         }
     }
 }

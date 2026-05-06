@@ -1,9 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import CodeMirror from '@uiw/react-codemirror';
-import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
-import { languages } from '@codemirror/language-data';
-import { EditorView } from '@codemirror/view';
 import { Block } from '../../types/workspace';
 import { workspaceService } from '../../services/WorkspaceService';
 import { PropertyEditor } from '../editors/PropertyEditor';
@@ -18,7 +14,7 @@ interface KyeBlockEditorProps {
 }
 
 /**
- * Atomic Sub-components for better maintainability
+ * Atomic Sub-components
  */
 
 const EditorHeader = ({ onSave, isPopup }: { onSave: () => void, isPopup?: boolean }) => (
@@ -86,25 +82,17 @@ export const KyeBlockEditor = ({ block, anchor, isPopup, onClose, onRefresh }: K
     block.shapes.find(s => s !== 'text') ?? block.shapes[0] ?? 'text'
   , [block.shapes]);
 
-  const [showSource, setShowSource] = useState(primaryType === 'text');
-  
-  // Content state depends on whether we are in Source view or not
-  // Actually, we need to track both or just use one. 
-  // If we want 'intuitive', editing Source should update Properties and vice-versa.
-  // But for now, let's keep them independent for simplicity, prioritizing the current view on save.
-  const [content, setContent] = useState(showSource ? block.source : block.content);
-  
   const [metadata, setMetadata] = useState(() => {
     try { return JSON.parse(block.metadata); } catch { return {}; }
   });
 
   const handleSave = useCallback(async () => {
     const metaStr = JSON.stringify(metadata);
-    // If we are in Source view, we send the content as the full source
-    await workspaceService.updateBlock(block.id, content, metaStr, showSource);
+    // We only update via structured properties now
+    await workspaceService.updateBlock(block.id, null, metaStr);
     onRefresh();
     onClose();
-  }, [block.id, content, metadata, onRefresh, onClose, showSource]);
+  }, [block.id, metadata, onRefresh, onClose]);
 
   // Global Keyboard Shortcuts
   React.useEffect(() => {
@@ -116,20 +104,6 @@ export const KyeBlockEditor = ({ block, anchor, isPopup, onClose, onRefresh }: K
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave]);
-
-  const cmExtensions = useMemo(() => [
-    markdown({ base: markdownLanguage, codeLanguages: languages }),
-    EditorView.lineWrapping,
-    EditorView.theme({
-      "&": { height: "100%", backgroundColor: "transparent" },
-      ".cm-content": { 
-        padding: isPopup ? "24px" : "12px", 
-        fontSize: isPopup ? "16px" : "14px", 
-        lineHeight: isPopup ? "1.7" : "1.6" 
-      },
-      "&.cm-focused": { outline: "none" }
-    })
-  ], [isPopup]);
 
   const editor = (
     <EditorChrome 
@@ -143,46 +117,12 @@ export const KyeBlockEditor = ({ block, anchor, isPopup, onClose, onRefresh }: K
       } : undefined}
     >
       <div className="flex flex-col h-full bg-card">
-        {/* View Toggle */}
-        <div className="px-4 py-2 border-b bg-muted/20 flex gap-4">
-          <button 
-            onClick={() => setShowSource(false)}
-            className={cn(
-              "text-[10px] font-bold tracking-widest uppercase transition-all",
-              !showSource ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Properties
-          </button>
-          <button 
-            onClick={() => setShowSource(true)}
-            className={cn(
-              "text-[10px] font-bold tracking-widest uppercase transition-all",
-              showSource ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Source
-          </button>
-        </div>
-
         <div className="flex-1 overflow-auto flex flex-col">
-          {!showSource ? (
-            <PropertyEditor
-              blockType={primaryType}
-              metadata={metadata}
-              onMetadataChange={setMetadata}
-            />
-          ) : (
-            <div className="flex-1 overflow-hidden min-h-[200px]">
-              <CodeMirror
-                value={content}
-                height="100%"
-                autoFocus
-                extensions={cmExtensions}
-                onChange={setContent}
-              />
-            </div>
-          )}
+          <PropertyEditor
+            blockType={primaryType}
+            metadata={metadata}
+            onMetadataChange={setMetadata}
+          />
         </div>
       </div>
     </EditorChrome>

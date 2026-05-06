@@ -9,6 +9,7 @@ import { UniversalRenderer } from './renderers/UniversalRenderer';
 import { SelectionFrame } from './renderers/SelectionFrame';
 import { cn } from '../../lib/utils';
 import { useResizable } from '../../hooks/useResizable';
+import { useDraggable } from '../../hooks/useDraggable';
 
 interface KyeBlockProps {
   block: Block;
@@ -31,6 +32,14 @@ export const KyeBlock = memo(function KyeBlock({ block, layer, zoom = 1, onRefre
     { x: nodeStates[block.id]?.x || 0, y: nodeStates[block.id]?.y || 0 },
     (pos) => useCanvasStore.getState().updateNodeState(block.id, pos),
     (finalPos, finalSize) => blockLogic.save(undefined, { ...finalPos, ...finalSize })
+  );
+
+  const { startDragging } = useDraggable(
+    zoom,
+    { x: nodeStates[block.id]?.x || 0, y: nodeStates[block.id]?.y || 0 },
+    (pos) => useCanvasStore.getState().updateNodeState(block.id, pos),
+    blockLogic.select,
+    (finalPos) => blockLogic.save(undefined, finalPos)
   );
 
   const onConnectStart = useCallback((e: React.PointerEvent) => {
@@ -86,8 +95,10 @@ export const KyeBlock = memo(function KyeBlock({ block, layer, zoom = 1, onRefre
               width: anchor?.width || 300,
               height: anchor?.height || 200,
               zIndex: blockLogic.isSelected ? 10 : 1,
+              touchAction: 'none'
             }}
             data-node-id={block.id}
+            onPointerDown={startDragging}
           >
             <Renderer 
               block={block}

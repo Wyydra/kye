@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Workspace, TemplateDto } from '../types/workspace';
+import type { Workspace, TemplateDto, TypeDefinitionDto } from '../types/workspace';
 
 export interface WorkspaceService {
   getWorkspace(): Promise<Workspace>;
@@ -9,10 +9,11 @@ export interface WorkspaceService {
   getTemplates(): Promise<TemplateDto[]>;
   identifyBlockShapes(metadata: string): Promise<string[]>;
   createBlock(content: string, metadata: string): Promise<[Workspace, string]>;
-  updateBlock(id: string, content: string | null, metadata: string | null, isFullSource?: boolean): Promise<Workspace>;
+  updateBlock(id: string, content: string | null, metadata: string | null): Promise<Workspace>;
   deleteBlock(id: string): Promise<Workspace>;
   onWorkspaceUpdated(callback: () => void): Promise<() => void>;
   selectWorkspaceFolder(): Promise<string>;
+  registerType(name: string, definition: TypeDefinitionDto): Promise<void>;
 }
 
 export const workspaceService: WorkspaceService = {
@@ -40,8 +41,8 @@ export const workspaceService: WorkspaceService = {
     return await invoke<[Workspace, string]>('create_block', { content, metadata });
   },
 
-  async updateBlock(id: string, content: string | null, metadata: string | null, isFullSource?: boolean) {
-    return await invoke<Workspace>('update_block', { id, content, metadata, isFullSource });
+  async updateBlock(id: string, content: string | null, metadata: string | null) {
+    return await invoke<Workspace>('update_block', { id, content, metadata });
   },
 
   async deleteBlock(id: string) {
@@ -54,5 +55,9 @@ export const workspaceService: WorkspaceService = {
 
   async selectWorkspaceFolder() {
     return await invoke<string>('select_workspace_folder');
+  },
+
+  async registerType(name: string, definition: TypeDefinitionDto) {
+    return await invoke<void>('register_type', { name, definition });
   }
 };

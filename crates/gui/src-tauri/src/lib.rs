@@ -114,7 +114,8 @@ pub fn run() {
             commands::get_block_types,
             commands::get_templates,
             commands::identify_block_shapes,
-            commands::select_workspace_folder
+            commands::select_workspace_folder,
+            commands::register_type
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

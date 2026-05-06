@@ -6,10 +6,12 @@ import {
   Settings, 
   Plus, 
   LayoutGrid,
-  FolderOpen
+  FolderOpen,
+  Database
 } from 'lucide-react';
 import { eventBus } from '../../lib/eventBus';
 import { cn } from '../../lib/utils';
+import { TypeCreator } from '../editors/TypeCreator';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -19,6 +21,7 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, onSelectWorkspace, onRefresh }) => {
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isTypeCreatorOpen, setTypeCreatorOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!isSidebarCollapsed);
@@ -78,6 +81,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, onSelectWorksp
               </h3>
             )}
             <NavItem icon={LayoutGrid} label="All Blocks" onClick={onRefresh} active={true} />
+            <NavItem icon={Database} label="New Type" onClick={() => setTypeCreatorOpen(true)} />
             <NavItem icon={FolderOpen} label="Open Folder" onClick={onSelectWorkspace} />
           </div>
         </div>
@@ -112,6 +116,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, onSelectWorksp
       <main className="flex-1 overflow-hidden relative">
         {children}
       </main>
+
+      {isTypeCreatorOpen && (
+        <TypeCreator 
+          onClose={() => setTypeCreatorOpen(false)} 
+          onSuccess={() => {
+            onRefresh();
+            // Optional: show a toast or notification
+          }} 
+        />
+      )}
     </div>
   );
 };

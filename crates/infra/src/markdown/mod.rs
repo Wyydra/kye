@@ -181,7 +181,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             .unwrap_or("Sans titre")
             .to_string();
 
-        let mut blocks = Vec::new();
+        let mut blocks_map: HashMap<Uuid, domain::models::block::Block> = HashMap::new();
         let mut new_index = HashMap::new();
         let mut new_prefixes = HashMap::new();
 
@@ -219,7 +219,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                                     let fields = self.map_from_markdown(fields, body, sections);
                                     
                                     let block = domain::models::block::Block::new(id, fields);
-                                    blocks.push(block);
+                                    blocks_map.insert(id, block);
                                     new_index.insert(id, path.to_path_buf());
                                     current_content.clear();
                                 }
@@ -249,7 +249,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                     let (body, sections) = self.parse_markdown_segments(&current_content);
                     let fields = self.map_from_markdown(fields, body, sections);
                     let block = domain::models::block::Block::new(id, fields);
-                    blocks.push(block);
+                    blocks_map.insert(id, block);
                     new_index.insert(id, path.to_path_buf());
                 }
                 new_prefixes.insert(path.to_path_buf(), prefix_draft);
@@ -263,6 +263,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             *pref_guard = new_prefixes;
         }
 
+        let blocks: Vec<_> = blocks_map.into_values().collect();
         let name = domain::models::workspace::WorkspaceName::new(&workspace_name).unwrap_or_else(|_| domain::models::workspace::WorkspaceName::new("Sans titre").unwrap());
         Ok(domain::models::workspace::Workspace::new(Uuid::new_v4(), name, blocks))
     }
@@ -302,34 +303,28 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
 
         Ok(())
     }
-
-
-    fn render_block_source(&self, block: &domain::models::block::Block, registry: &domain::models::block::type_registry::TypeRegistry) -> String {
-        self.render_block_to_markdown(block, registry)
-    }
 }
-
 
 impl domain::ports::TypeRepository for DirectoryWorkspaceRepository {
     async fn load_types(&self) -> Result<std::collections::BTreeMap<domain::models::block::schema::TypeName, domain::models::block::schema::TypeDefinition>, anyhow::Error> {
         crate::types::TypeLoader::load_from_dir(&self.dir_path)
     }
-}
 
-pub fn parse_markdown_to_fields(source: &str) -> domain::models::block::schema::Fields {
-    let repo = DirectoryWorkspaceRepository::new(std::path::PathBuf::new());
-    let mut content_str = source;
-    let mut fields = domain::models::block::schema::Fields::new();
-
-    if let Some(start) = content_str.find("<!--") {
-        if let Some(end) = content_str[start..].find("-->") {
-            let end_idx = start + end + 3;
-            let raw_meta = content_str[start + 4..start + end].trim().to_string();
-            fields = crate::metadata::JsonMetadataProvider(raw_meta).get_fields().unwrap_or_default();
-            content_str = &content_str[end_idx..];
+    async fn save_type(
+        &self,
+        name: &domain::models::block::schema::TypeName,
+        definition: &domain::models::block::schema::TypeDefinition,
+    ) -> Result<(), anyhow::Error> {
+        let types_dir = self.dir_path.join(domain::KYE_DIR).join("types");
+        if !types_dir.exists() {
+            fs::create_dir_all(&types_dir)?;
         }
-    }
 
-    let (body, sections) = repo.parse_markdown_segments(content_str);
-    repo.map_from_markdown(fields, body, sections)
+        let file_path = types_dir.join(format!("{}.json", name));
+        let dto = crate::types::dto::TypeDefinitionDto::from_domain(definition);
+        let content = serde_json::to_string_pretty(&dto)?;
+        fs::write(file_path, content)?;
+        
+        Ok(())
+    }
 }

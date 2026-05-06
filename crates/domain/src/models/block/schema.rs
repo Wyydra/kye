@@ -111,13 +111,13 @@ impl Display for Value {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TypeDefinition {
     pub fields: BTreeMap<FieldName, FieldType>,
-    pub layout: Option<InterfaceIntent>,
+    pub layout: Option<View>,
 }
 
 impl TypeDefinition {
     pub fn new(
         fields: BTreeMap<FieldName, FieldType>, 
-        layout: Option<InterfaceIntent>,
+        layout: Option<View>,
     ) -> Self {
         Self { fields, layout }
     }
@@ -216,37 +216,33 @@ impl FieldType {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum InterfaceIntent {
-    Stack {
-        direction: LayoutDirection,
-        children: Vec<InterfaceIntent>,
-    },
-    Grid {
-        columns: u32,
-        children: Vec<InterfaceIntent>,
-    },
-    Markdown {
-        bind: Option<FieldName>,
-    },
-    Image {
-        bind: Option<FieldName>,
-    },
-    Text {
-        value: String,
-        style: Option<String>,
-    },
-    Button {
-        label: String,
-        on_click: Option<InteractionEffect>,
-    },
-    FlipCard {
-        front: Box<InterfaceIntent>,
-        back: Box<InterfaceIntent>,
-    },
-    Link {
-        label: String,
-        bind: Option<FieldName>,
-    },
+pub struct View {
+    pub kind: ViewKind,
+    pub props: BTreeMap<String, Value>,
+    pub bindings: BTreeMap<String, FieldName>,
+    pub actions: BTreeMap<String, Action>,
+    pub slots: BTreeMap<String, View>,
+    pub children: Vec<View>,
+}
+
+impl View {
+    pub fn new(kind: ViewKind) -> Self {
+        Self {
+            kind,
+            props: BTreeMap::new(),
+            bindings: BTreeMap::new(),
+            actions: BTreeMap::new(),
+            slots: BTreeMap::new(),
+            children: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ViewKind {
+    Stack(LayoutDirection),
+    Grid { columns: u32 },
+    Component(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -256,12 +252,12 @@ pub enum LayoutDirection {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum InteractionEffect {
+pub enum Action {
     UpdateField {
         field: FieldName,
         value: Value,
     },
     NavigateTo {
-        block_id: String, // Abstract ID or reference
+        block_id: String,
     },
 }

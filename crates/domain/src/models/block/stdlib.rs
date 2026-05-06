@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use crate::models::block::schema::{
-    FieldName, FieldType, TypeDefinition, TypeName
+    FieldName, FieldType, TypeDefinition, TypeName, View, ViewKind
 };
 use crate::models::block::type_registry::TypeRegistry;
 
@@ -11,7 +11,10 @@ impl StandardLibrary {
         // Text
         registry.register(
             TypeName::new("text"),
-            TypeDefinition::empty(),
+            TypeDefinition::new(
+                BTreeMap::new(),
+                Some(View::new(ViewKind::Component("markdown".to_string())))
+            ),
         );
 
         // Connection (An arrow between two blocks)
@@ -26,9 +29,13 @@ impl StandardLibrary {
         // Image
         let mut image_fields = BTreeMap::new();
         image_fields.insert(FieldName::new("url"), FieldType::Url);
+        
+        let mut image_layout = View::new(ViewKind::Component("image".to_string()));
+        image_layout.bindings.insert("value".to_string(), FieldName::new("url"));
+        
         registry.register(
             TypeName::new("image"),
-            TypeDefinition::new(image_fields, None),
+            TypeDefinition::new(image_fields, Some(image_layout)),
         );
     }
 }
