@@ -31,7 +31,7 @@ interface CanvasState {
   setViewport: (viewport: Partial<Viewport>) => void;
   setSelectedNodeId: (id: string | null) => void;
   setEditingBlockId: (id: string | null) => void;
-  updateNodeState: (id: string, state: NodeState) => void;
+  updateNodeState: (id: string, state: Partial<NodeState>) => void;
   removeNodeState: (id: string) => void;
   setAllNodeStates: (states: Record<string, NodeState>) => void;
   
@@ -57,8 +57,11 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
   setEditingBlockId: (id) => set({ editingBlockId: id }),
 
-  updateNodeState: (id, state) => set((prev) => ({
-    nodeStates: { ...prev.nodeStates, [id]: state }
+  updateNodeState: (id, update) => set((prev) => ({
+    nodeStates: { 
+      ...prev.nodeStates, 
+      [id]: { ...(prev.nodeStates[id] || { x: 0, y: 0, width: 300, height: 200 }), ...update } 
+    }
   })),
 
   removeNodeState: (id) => set((prev) => {

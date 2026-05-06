@@ -2,7 +2,7 @@ use std::fmt::Display;
 use thiserror::Error;
 use uuid::Uuid;
 use crate::models::block::Block;
-use crate::models::block::{UpdateBlockError, UpdateBlockRequest};
+
 
 
 #[derive(Clone)]
@@ -26,6 +26,10 @@ impl Workspace {
         &self.blocks
     }
 
+    pub fn blocks_mut(&mut self) -> &mut Vec<Block> {
+        &mut self.blocks
+    }
+
     pub fn add_block(&mut self, block: Block) -> Result<(), AddBlockError> {
         if self.blocks.iter().any(|b| b.id() == block.id()) {
             return Err(AddBlockError::DuplicateId(*block.id()));
@@ -34,19 +38,6 @@ impl Workspace {
         Ok(())
     }
 
-    pub fn update_block(&mut self, req: &UpdateBlockRequest) -> Result<(), UpdateBlockError> {
-        if let Some(block) = self.blocks.iter_mut().find(|b| *b.id() == req.id()) {
-            if let Some(content) = req.content() {
-                block.update_content(content.clone());
-            }
-            if let Some(fields) = req.fields() {
-                block.update_metadata(fields.clone());
-            }
-            Ok(())
-        } else {
-            Err(UpdateBlockError::NotFound(req.id()))
-        }
-    }
 
     pub fn remove_block(&mut self, id: Uuid) -> Result<(), RemoveBlockError> {
         let before = self.blocks.len();

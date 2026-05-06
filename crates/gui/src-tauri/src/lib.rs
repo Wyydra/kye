@@ -93,7 +93,7 @@ pub fn run() {
             let (service, watcher) = if let Some(path) = &workspace_path {
                 let dispatcher = TauriEventDispatcher { app_handle: app_handle.clone() };
                 let repo = DirectoryWorkspaceRepository::new(path.clone());
-                let srv = Arc::new(Service::new(repo, dispatcher));
+                let srv = Arc::new(Service::new(repo.clone(), repo.clone(), dispatcher));
                 let w = FSWatcher::new(path.clone(), (*srv).clone());
                 (Some(srv), Some(w))
             } else {

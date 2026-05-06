@@ -6,8 +6,7 @@ use crate::models::block::{
     CreateBlockError, CreateBlockRequest, DeleteBlockError,
     UpdateBlockError, UpdateBlockRequest,
 };
-use crate::models::block::metadata::Fields;
-use crate::models::block::schema::TypeDefinition;
+use crate::models::block::schema::{Fields, TypeDefinition};
 use crate::models::workspace::{SaveWorkspaceError, Workspace};
 
 pub trait WorkspaceUseCase: Clone + Send + Sync + 'static {
@@ -37,11 +36,19 @@ pub trait ExternalEventHandler: Clone + Send + Sync + 'static {
 }
 
 pub trait WorkspaceRepository: Send + Sync + Clone + 'static {
-    fn load_workspace(&self) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
+    fn load_workspace(&self, registry: &crate::models::block::type_registry::TypeRegistry) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
     fn save_workspace(
         &self,
         workspace: &Workspace,
+        registry: &crate::models::block::type_registry::TypeRegistry,
     ) -> impl Future<Output = Result<(), SaveWorkspaceError>> + Send;
+    fn render_block_source(&self, block: &crate::models::block::Block, registry: &crate::models::block::type_registry::TypeRegistry) -> String;
+}
+
+pub trait TypeRepository: Send + Sync + Clone + 'static {
+    fn load_types(
+        &self,
+    ) -> impl Future<Output = Result<std::collections::BTreeMap<crate::models::block::schema::TypeName, crate::models::block::schema::TypeDefinition>, anyhow::Error>> + Send;
 }
 
 pub trait EventDispatcher: Clone + Send + Sync + 'static {

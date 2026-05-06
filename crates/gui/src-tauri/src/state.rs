@@ -7,7 +7,7 @@ use domain::service::Service;
 use infra::markdown::DirectoryWorkspaceRepository;
 use infra::watcher::FSWatcher;
 
-pub type AppService = Arc<Service<DirectoryWorkspaceRepository, TauriEventDispatcher>>;
+pub type AppService = Arc<Service<DirectoryWorkspaceRepository, DirectoryWorkspaceRepository, TauriEventDispatcher>>;
 
 #[derive(Clone)]
 pub struct TauriEventDispatcher {

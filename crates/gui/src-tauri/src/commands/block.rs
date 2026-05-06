@@ -1,5 +1,5 @@
 use uuid::Uuid;
-use domain::models::block::{Content, CreateBlockRequest, UpdateBlockRequest};
+use domain::models::block::{CreateBlockRequest, UpdateBlockRequest};
 use domain::ports::{WorkspaceUseCase, TypeInspector};
 
 use crate::state::AppState;
@@ -15,8 +15,13 @@ pub async fn create_block(
     let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
     
     let provider = infra::metadata::JsonMetadataProvider(metadata);
-    let fields = provider.get_fields().map_err(|e| format!("Metadata error: {}", e))?;
-    let req = CreateBlockRequest::new(Content::new(&content), fields);
+    let mut fields = provider.get_fields().map_err(|e| format!("Metadata error: {}", e))?;
+    
+    if !content.trim().is_empty() {
+        fields.insert(domain::models::block::schema::FieldName::new("body"), domain::models::block::schema::Value::String(content));
+    }
+
+    let req = CreateBlockRequest::new(fields);
 
     let (workspace, id) = service.create_block(&req).await?;
 
@@ -28,19 +33,32 @@ pub async fn update_block(
     id: Uuid,
     content: Option<String>,
     metadata: Option<String>,
+    is_full_source: Option<bool>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<WorkspaceDto> {
     let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
     
-    let domain_content = content.map(|c| Content::new(&c));
-    let mut domain_fields = None;
+    let fields = if is_full_source.unwrap_or(false) {
+        if let Some(source) = content {
+            infra::markdown::parse_markdown_to_fields(&source)
+        } else {
+            return Err(AppError::InternalError("Missing content for full_source update".into()));
+        }
+    } else {
+        let mut fields = if let Some(meta) = metadata {
+            let provider = infra::metadata::JsonMetadataProvider(meta);
+            provider.get_fields().map_err(|e| e.to_string())?
+        } else {
+            domain::models::block::schema::Fields::new()
+        };
 
-    if let Some(meta) = metadata {
-        let provider = infra::metadata::JsonMetadataProvider(meta);
-        domain_fields = Some(provider.get_fields().map_err(|e| e.to_string())?);
-    }
+        if let Some(c) = content {
+            fields.insert(domain::models::block::schema::FieldName::new("body"), domain::models::block::schema::Value::String(c));
+        }
+        fields
+    };
 
-    let req = UpdateBlockRequest::new(id, domain_content, domain_fields);
+    let req = UpdateBlockRequest::new(id, fields);
     let workspace = service.update_block(&req).await?;
 
     Ok(WorkspaceDto::from_domain(&workspace, &service))
@@ -76,7 +94,8 @@ pub fn get_templates(state: tauri::State<'_, AppState>) -> Vec<TemplateDto> {
         }).collect();
         Some(TemplateDto { 
             name, 
-            fields, 
+            fields,
+            layout: def.layout.map(|l| l.into()),
         })
     }).collect()
 }

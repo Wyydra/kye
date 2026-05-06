@@ -14,13 +14,13 @@ impl StandardLibrary {
             TypeDefinition::empty(),
         );
 
-        // Link (A connection between two blocks)
-        let mut link_fields = BTreeMap::new();
-        link_fields.insert(FieldName::new("from"), FieldType::BlockId);
-        link_fields.insert(FieldName::new("to"), FieldType::BlockId);
+        // Connection (An arrow between two blocks)
+        let mut conn_fields = BTreeMap::new();
+        conn_fields.insert(FieldName::new("from"), FieldType::BlockId);
+        conn_fields.insert(FieldName::new("to"), FieldType::BlockId);
         registry.register(
-            TypeName::new("link"),
-            TypeDefinition::new(link_fields),
+            TypeName::new("connection"),
+            TypeDefinition::new(conn_fields, None),
         );
 
         // Image
@@ -28,7 +28,7 @@ impl StandardLibrary {
         image_fields.insert(FieldName::new("url"), FieldType::Url);
         registry.register(
             TypeName::new("image"),
-            TypeDefinition::new(image_fields),
+            TypeDefinition::new(image_fields, None),
         );
     }
 }

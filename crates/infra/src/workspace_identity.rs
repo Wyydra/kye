@@ -5,7 +5,7 @@ pub struct WorkspaceIdentity;
 
 impl WorkspaceIdentity {
     pub fn get_or_create(workspace_dir: &PathBuf) -> anyhow::Result<Uuid> {
-        let kye_dir = workspace_dir.join(".kye");
+        let kye_dir = workspace_dir.join(domain::KYE_DIR);
         let id_file = kye_dir.join("workspace.json");
 
         if id_file.exists() {

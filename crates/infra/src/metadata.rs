@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use domain::models::block::metadata::{Metadata, Fields, Value};
+use domain::models::block::schema::{Fields, Value};
 use domain::models::block::schema::FieldName;
 use uuid::Uuid;
 
@@ -58,8 +58,7 @@ impl JsonMetadataProvider {
     }
 }
 
-pub fn render_json(id: &Uuid, metadata: &Metadata) -> String {
-    let fields = metadata.fields();
+pub fn render_json(id: &Uuid, fields: &Fields) -> String {
     let mut map = BTreeMap::new();
     map.insert("id".to_string(), JsonValue::String(id.to_string()));
     for (name, value) in fields.iter() {

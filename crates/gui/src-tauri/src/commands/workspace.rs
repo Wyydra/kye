@@ -79,7 +79,7 @@ pub async fn select_workspace_folder(
 
     let dispatcher = TauriEventDispatcher { app_handle: app_handle.clone() };
     let repo = DirectoryWorkspaceRepository::new(path.clone());
-    let service = Arc::new(Service::new(repo, dispatcher));
+    let service = Arc::new(Service::new(repo.clone(), repo, dispatcher));
 
     let watcher = FSWatcher::new(path.clone(), (*service).clone());
 

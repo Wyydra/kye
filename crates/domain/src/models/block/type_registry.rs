@@ -24,4 +24,16 @@ impl TypeRegistry {
     pub fn types(&self) -> &BTreeMap<TypeName, TypeDefinition> {
         &self.types
     }
+
+    pub fn identify_block_shapes(&self, fields: &crate::models::block::schema::Fields) -> Vec<TypeName> {
+        let mut shapes = Vec::new();
+        for (name, definition) in &self.types {
+            if definition.matches(fields, self) {
+                shapes.push(name.clone());
+            }
+        }
+        shapes
+    }
+
+
 }

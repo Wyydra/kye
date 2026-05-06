@@ -2,8 +2,10 @@ import React, { useMemo } from 'react';
 import { useCanvasStore } from '../../../hooks/useCanvasStore';
 import { blockRegistry, BlockRendererProps } from './BlockRegistry';
 import { getBezierPath, getEdgePoint, getBezierMidpoint } from '../../../lib/geometry';
+import { cn } from '../../../lib/utils';
+import { Block } from '../../../types/workspace';
 
-export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEditing, onSelect, onRefresh }: BlockRendererProps) => {
+export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEditing, onSelect }: BlockRendererProps) => {
   const nodeStates = useCanvasStore(state => state.nodeStates);
 
   const meta = useMemo(() => {
@@ -91,15 +93,10 @@ export const LinkRenderer = React.memo(({ block, isSelected, isEditing, setIsEdi
   );
 });
 
-// Helper for classNames (simple version since we don't have clsx in this file scope if not imported)
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
-}
-
 // Auto-registration
 blockRegistry.register({
-  priority: 10,
-  match: (_, meta) => !!(meta.from && meta.to),
+  priority: 20, // Higher priority than universal renderer
+  match: (block, meta) => block.shapes.includes('connection') || (!!meta.from && !!meta.to),
   svg: LinkRenderer,
   editorMode: 'popup',
   getAnchor: (block, meta, nodeStates) => {

@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, sync::Arc, ops::{Deref, DerefMut}, fmt::Display
 use crate::models::block::type_registry::TypeRegistry;
 
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum Value {
     None,
     Boolean(bool),
@@ -14,12 +14,38 @@ pub enum Value {
     Array(Vec<Value>),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl Value {
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s),
+            _ => None,
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::None, Value::None) => true,
+            (Value::Boolean(a), Value::Boolean(b)) => a == b,
+            (Value::Integer(a), Value::Integer(b)) => a == b,
+            (Value::Float(a), Value::Float(b)) => a.to_bits() == b.to_bits(),
+            (Value::String(a), Value::String(b)) => a == b,
+            (Value::Object(a), Value::Object(b)) => a == b,
+            (Value::Array(a), Value::Array(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Value {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fields(BTreeMap<FieldName, Value>);
 
 impl Fields {
     pub fn new() -> Self {
-        Self(BTreeMap::new())
+        Self::default()
     }
     pub fn insert(&mut self, name: FieldName, value: Value) {
         self.0.insert(name, value);
@@ -27,6 +53,12 @@ impl Fields {
 
     pub fn satisfies(&self, definition: &TypeDefinition, registry: &TypeRegistry) -> bool {
         definition.matches(self, registry)
+    }
+}
+
+impl Default for Fields {
+    fn default() -> Self {
+        Self(BTreeMap::new())
     }
 }
 
@@ -79,15 +111,22 @@ impl Display for Value {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TypeDefinition {
     pub fields: BTreeMap<FieldName, FieldType>,
+    pub layout: Option<InterfaceIntent>,
 }
 
 impl TypeDefinition {
-    pub fn new(fields: BTreeMap<FieldName, FieldType>) -> Self {
-        Self { fields }
+    pub fn new(
+        fields: BTreeMap<FieldName, FieldType>, 
+        layout: Option<InterfaceIntent>,
+    ) -> Self {
+        Self { fields, layout }
     }
     
     pub fn empty() -> Self {
-        Self { fields: BTreeMap::new() }
+        Self { 
+            fields: BTreeMap::new(), 
+            layout: None,
+        }
     }
 
     pub fn matches(&self, fields: &Fields, registry: &TypeRegistry) -> bool {
@@ -174,4 +213,55 @@ impl FieldType {
             _ => false,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InterfaceIntent {
+    Stack {
+        direction: LayoutDirection,
+        children: Vec<InterfaceIntent>,
+    },
+    Grid {
+        columns: u32,
+        children: Vec<InterfaceIntent>,
+    },
+    Markdown {
+        bind: Option<FieldName>,
+    },
+    Image {
+        bind: Option<FieldName>,
+    },
+    Text {
+        value: String,
+        style: Option<String>,
+    },
+    Button {
+        label: String,
+        on_click: Option<InteractionEffect>,
+    },
+    FlipCard {
+        front: Box<InterfaceIntent>,
+        back: Box<InterfaceIntent>,
+    },
+    Link {
+        label: String,
+        bind: Option<FieldName>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LayoutDirection {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InteractionEffect {
+    UpdateField {
+        field: FieldName,
+        value: Value,
+    },
+    NavigateTo {
+        block_id: String, // Abstract ID or reference
+    },
 }
