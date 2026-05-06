@@ -108,8 +108,16 @@ pub async fn register_type(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
-    
     service.register_type(&name, definition.to_domain()).await?;
-    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_type(
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let service = state.service().ok_or_else(|| AppError::InternalError("No workspace selected".into()))?;
+    service.delete_type(&name).await?;
     Ok(())
 }

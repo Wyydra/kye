@@ -31,6 +31,10 @@ pub trait TypeManagementUseCase: Clone + Send + Sync + 'static {
         name: &str,
         definition: TypeDefinition,
     ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
+    fn delete_type(
+        &self,
+        name: &str,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
 }
 
 pub trait TypeInspector: Clone + Send + Sync + 'static {
@@ -60,6 +64,10 @@ pub trait TypeRepository: Send + Sync + Clone + 'static {
         &self,
         name: &crate::models::block::schema::TypeName,
         definition: &crate::models::block::schema::TypeDefinition,
+    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
+    fn delete_type(
+        &self,
+        name: &crate::models::block::schema::TypeName,
     ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
 }
 

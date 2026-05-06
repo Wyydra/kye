@@ -8,7 +8,7 @@ function App() {
   const { workspace, workspacePath, templates, noWorkspace, selectWorkspace, refresh } = useWorkspace();
 
   return (
-    <WorkspaceContext.Provider value={{ workspacePath, templates }}>
+    <WorkspaceContext.Provider value={{ workspacePath, templates, refresh }}>
       {noWorkspace ? (
         <WelcomeScreen onSelectWorkspace={selectWorkspace} />
       ) : (

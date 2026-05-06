@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { ImageIcon, ExternalLink, RefreshCw } from 'lucide-react';
 import { widgetRegistry, resolveTemplate, resolveProp } from '../WidgetRegistry';
 import { useWorkspacePath } from '../../../../context/WorkspaceContext';
 import { workspaceService } from '../../../../services/WorkspaceService';
@@ -8,29 +9,54 @@ widgetRegistry.register('image', ({ blueprint, metadata }) => {
   const imageUrl = String(resolveProp(blueprint, metadata, 'value') || "");
   const workspacePath = useWorkspacePath();
   const [src, setSrc] = useState<string>("");
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (imageUrl && workspacePath) {
+    if (!imageUrl) {
+        setSrc("");
+        return;
+    }
+
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        setSrc(imageUrl);
+        setError(false);
+    } else if (workspacePath) {
         const fullPath = `${workspacePath}/${imageUrl}`;
         setSrc(convertFileSrc(fullPath));
+        setError(false);
     }
   }, [imageUrl, workspacePath]);
 
   return (
-    <div className="w-full h-full overflow-hidden rounded-lg bg-secondary/20">
-      {src ? (
-        <img 
-          src={src} 
-          alt="Widget" 
-          className="w-full h-full object-cover"
-          draggable={false}
-          onError={(e) => {
-            (e.target as HTMLImageElement).src = ""; 
-            (e.target as HTMLImageElement).className = "hidden";
-          }}
-        />
+    <div className="group relative w-full h-full overflow-hidden rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center transition-all hover:border-primary/30">
+      {src && !error ? (
+        <>
+          <img 
+            src={src} 
+            alt="Widget content" 
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            draggable={false}
+            onError={() => setError(true)}
+          />
+          {/* Subtle overlay on hover */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+        </>
       ) : (
-        <div className="text-xs opacity-30 italic">Image not found</div>
+        <div className="flex flex-col items-center gap-2 opacity-20 group-hover:opacity-40 transition-opacity">
+          <ImageIcon className="h-8 w-8" />
+          <span className="text-[10px] font-black uppercase tracking-widest">
+            {error ? "Image Load Failed" : "No Image Selected"}
+          </span>
+        </div>
+      )}
+
+      {/* Floating Info (Only if URL exists) */}
+      {imageUrl && (
+        <div className="absolute bottom-2 right-2 p-1.5 bg-black/40 backdrop-blur-md rounded-lg opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+           <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white">
+             <ExternalLink className="h-3 w-3" />
+           </a>
+        </div>
       )}
     </div>
   );
@@ -53,7 +79,7 @@ widgetRegistry.register('button', ({ blueprint, metadata, block, onRefresh }) =>
 
   return (
     <button 
-      className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-bold hover:bg-primary/90 transition-colors shadow-sm"
+      className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-lg shadow-primary/20"
       onClick={handleClick}
     >
       {label || "Button"}
@@ -70,11 +96,13 @@ widgetRegistry.register('link', ({ blueprint, metadata, block }) => {
         href={String(linkUrl || '#')} 
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-primary hover:underline font-medium text-sm flex items-center gap-1"
+        className="group/link text-primary hover:text-primary/80 font-bold text-sm flex items-center gap-2 transition-all"
         onClick={(e) => e.stopPropagation()}
       >
-        <span>{String(linkLabel)}</span>
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+        <div className="p-1.5 rounded-lg bg-primary/10 group-hover/link:bg-primary/20 transition-colors">
+          <LinkIcon className="h-3 w-3" />
+        </div>
+        <span className="underline-offset-4 group-hover/link:underline">{String(linkLabel)}</span>
       </a>
     );
 });

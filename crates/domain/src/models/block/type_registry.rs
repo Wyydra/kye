@@ -17,6 +17,10 @@ impl TypeRegistry {
         self.types.insert(name, definition);
     }
 
+    pub fn unregister(&mut self, name: &TypeName) {
+        self.types.remove(name);
+    }
+
     pub fn get(&self, name: &TypeName) -> Option<&TypeDefinition> {
         self.types.get(name)
     }

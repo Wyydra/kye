@@ -327,4 +327,15 @@ impl domain::ports::TypeRepository for DirectoryWorkspaceRepository {
         
         Ok(())
     }
+
+    async fn delete_type(
+        &self,
+        name: &domain::models::block::schema::TypeName,
+    ) -> Result<(), anyhow::Error> {
+        let file_path = self.dir_path.join(domain::KYE_DIR).join("types").join(format!("{}.json", name));
+        if file_path.exists() {
+            fs::remove_file(file_path)?;
+        }
+        Ok(())
+    }
 }

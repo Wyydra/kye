@@ -14,6 +14,7 @@ export interface WorkspaceService {
   onWorkspaceUpdated(callback: () => void): Promise<() => void>;
   selectWorkspaceFolder(): Promise<string>;
   registerType(name: string, definition: TypeDefinitionDto): Promise<void>;
+  deleteType(name: string): Promise<void>;
 }
 
 export const workspaceService: WorkspaceService = {
@@ -59,5 +60,9 @@ export const workspaceService: WorkspaceService = {
 
   async registerType(name: string, definition: TypeDefinitionDto) {
     return await invoke<void>('register_type', { name, definition });
+  },
+
+  async deleteType(name: string) {
+    return await invoke<void>('delete_type', { name });
   }
 };

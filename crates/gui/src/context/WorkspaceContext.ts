@@ -4,11 +4,13 @@ import { TemplateDto } from '../types/workspace';
 interface WorkspaceContextValue {
   workspacePath: string;
   templates: TemplateDto[];
+  refresh: () => void;
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue>({
   workspacePath: '',
   templates: [],
+  refresh: () => {},
 });
 
 // Targeted selectors — prefer these for performance

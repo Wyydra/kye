@@ -183,6 +183,25 @@ where
         
         Ok(())
     }
+
+    async fn delete_type(
+        &self,
+        name: &str,
+    ) -> Result<(), anyhow::Error> {
+        let type_name = TypeName::new(name);
+        self.type_repo.delete_type(&type_name).await?;
+        
+        // Update registry
+        {
+            let mut registry = self.registry.write().map_err(|_| anyhow::anyhow!("Poison error"))?;
+            registry.unregister(&type_name);
+        }
+        
+        // Notify GUI
+        self.dispatcher.dispatch_workspace_updated();
+        
+        Ok(())
+    }
 }
 
 

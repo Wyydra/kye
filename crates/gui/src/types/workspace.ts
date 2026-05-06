@@ -10,7 +10,7 @@ export interface Workspace {
   blocks: Block[];
 }
 
-export type FieldType = 'boolean' | 'integer' | 'float' | 'string' | 'markdown' | 'url' | 'color' | 'blockid';
+export type FieldType = 'boolean' | 'integer' | 'float' | 'string' | 'markdown' | 'image' | 'link' | 'color' | 'blockid';
 
 export interface FieldDefinitionDto {
   name: string;

@@ -1,10 +1,27 @@
-import { memo, useState, useEffect, useMemo } from 'react';
+import { memo, useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Hash,
+  Type,
+  CheckSquare,
+  Link as LinkIcon,
+  Palette,
+  Layers,
+  MoreHorizontal,
+  Copy,
+  ExternalLink,
+  TextQuote,
+  Maximize2,
+  Image as ImageIcon
+} from 'lucide-react';
+import CodeMirror from '@uiw/react-codemirror';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
+import { EditorView } from '@codemirror/view';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import type { FieldDefinitionDto } from '../../types/workspace';
 import { cn } from '../../lib/utils';
 
-// We only ignore internal metadata that shouldn't be edited directly as a "property"
-const SYSTEM_FIELDS = new Set(['id', 'title']);
+const SYSTEM_FIELDS = new Set(['id', 'title', 'x', 'y', 'width', 'height', 'type']);
 
 interface PropertyEditorProps {
   blockType?: string;
@@ -12,142 +29,217 @@ interface PropertyEditorProps {
   onMetadataChange: (newMetadata: Record<string, unknown>) => void;
 }
 
-interface FieldRowProps {
-  fieldDef?: FieldDefinitionDto;
-  name: string;
-  value: unknown;
-  onChange: (value: unknown) => void;
-  level?: number;
-}
+const InputWrapper = ({ icon: Icon, label, children, isOrphan, onRemove }: any) => (
+  <div className="group/row flex flex-col gap-1.5 px-4 py-3 transition-colors hover:bg-accent/5">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className="text-muted-foreground/40">
+          <Icon className="h-3.5 w-3.5" />
+        </div>
+        <span className={cn(
+          "text-[10px] font-bold uppercase tracking-wider",
+          isOrphan ? "text-muted-foreground/60 italic" : "text-foreground/70"
+        )}>
+          {label}
+          {isOrphan && "*"}
+        </span>
+      </div>
+      {onRemove && (
+        <button
+          onClick={onRemove}
+          className="opacity-0 group-hover/row:opacity-100 p-1 hover:bg-destructive/10 hover:text-destructive rounded transition-all"
+        >
+          <MoreHorizontal className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+    <div className="flex-1">
+      {children}
+    </div>
+  </div>
+);
 
-function resolveInputKind(fieldDef?: FieldDefinitionDto, jsValue?: unknown): 'checkbox' | 'number' | 'text' | 'object' | 'color' | 'id' {
-  if (fieldDef) {
-    const ft = fieldDef.field_type;
-    if (ft === 'Boolean') return 'checkbox';
-    if (ft === 'Integer' || ft === 'Float') return 'number';
-    if (ft === 'Color') return 'color';
-    if (ft === 'BlockId') return 'id';
-    if (ft === 'Record' || ft.startsWith('Named:')) return 'object';
-    return 'text';
-  }
-  if (typeof jsValue === 'boolean') return 'checkbox';
-  if (typeof jsValue === 'number') return 'number';
-  if (typeof jsValue === 'object' && jsValue !== null && !Array.isArray(jsValue)) return 'object';
-  return 'text';
-}
-
-const FieldRow = memo(function FieldRow({ fieldDef, name, value, onChange, level = 0 }: FieldRowProps) {
+const PropertyInput = memo(({ type, value, onChange, placeholder }: any) => {
   const [localValue, setLocalValue] = useState(value ?? '');
 
   useEffect(() => {
     setLocalValue(value ?? '');
   }, [value]);
 
-  const kind = resolveInputKind(fieldDef, value);
+  const handleChange = (val: any) => {
+    setLocalValue(val);
+    onChange(val);
+  };
 
-  // Recursive rendering for nested objects (Records)
-  if (kind === 'object') {
-    return (
-      <div className="col-span-2 pl-4 border-l border-border/50 ml-2 py-2 flex flex-col gap-2">
-        <PropertyEditor 
-          metadata={(value as Record<string, unknown>) ?? {}} 
-          onMetadataChange={onChange}
-        />
-      </div>
-    );
-  }
+  const inputBase = "w-full bg-transparent border-none p-0 text-sm focus:outline-none placeholder:text-muted-foreground/20 font-medium";
 
-  const inputClasses = "w-full bg-background border border-border/50 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground/30";
+  // CodeMirror extensions for rich editing
+  const cmExtensions = useMemo(() => [
+    markdown({ base: markdownLanguage, codeLanguages: languages }),
+    EditorView.lineWrapping,
+    EditorView.theme({
+      "&": { height: "auto", minHeight: "80px", backgroundColor: "transparent", fontSize: "14px" },
+      ".cm-content": { padding: "0px", lineHeight: "1.6" },
+      ".cm-gutters": { display: "none" },
+      "&.cm-focused": { outline: "none" }
+    })
+  ], []);
 
-  if (kind === 'checkbox') {
-    return (
-      <div className="flex items-center h-8">
+  // Normalize type to handle potential casing differences
+  const normalizedType = typeof type === 'string' ? type.toLowerCase() : '';
+
+  switch (normalizedType) {
+    case 'boolean':
+      return (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleChange(!localValue)}
+            className={cn(
+              "flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+              localValue ? "bg-primary" : "bg-muted"
+            )}
+          >
+            <span className={cn(
+              "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+              localValue ? "translate-x-4" : "translate-x-0"
+            )} />
+          </button>
+          <span className="text-xs text-muted-foreground">{localValue ? "True" : "False"}</span>
+        </div>
+      );
+
+    case 'integer':
+    case 'float':
+      return (
         <input
-          id={`prop-${name}-${level}`}
-          type="checkbox"
-          checked={!!localValue}
-          onChange={(e) => onChange(e.target.checked)}
-          className="h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary cursor-pointer"
-        />
-      </div>
-    );
-  }
-
-  if (kind === 'number') {
-    return (
-      <div className="flex items-center h-8">
-        <input
-          id={`prop-${name}-${level}`}
           type="number"
-          step={fieldDef?.field_type === 'Float' ? 'any' : '1'}
-          value={String(localValue)}
-          onChange={(e) => {
-            const val = fieldDef?.field_type === 'Float'
-              ? parseFloat(e.target.value)
-              : parseInt(e.target.value, 10);
-            const safe = isNaN(val) ? 0 : val;
-            setLocalValue(safe);
-            onChange(safe);
-          }}
-          className={inputClasses}
+          value={localValue}
+          onChange={(e) => handleChange(normalizedType === 'integer' ? parseInt(e.target.value, 10) : parseFloat(e.target.value))}
+          className={cn(inputBase, "font-mono")}
+          placeholder="0"
         />
-      </div>
-    );
-  }
+      );
 
-  if (kind === 'color') {
-    return (
-      <div className="flex items-center h-8 gap-2">
-        <input
-          id={`prop-${name}-${level}`}
-          type="color"
-          value={String(localValue || '#000000')}
-          onChange={(e) => {
-            setLocalValue(e.target.value);
-            onChange(e.target.value);
-          }}
-          className="h-6 w-10 bg-transparent border-none cursor-pointer"
-        />
-        <span className="text-[10px] font-mono opacity-50 uppercase">{String(localValue)}</span>
-      </div>
-    );
-  }
+    case 'color':
+      return (
+        <div className="flex items-center gap-3">
+          <div className="relative h-6 w-6 rounded-md border overflow-hidden shrink-0 group/color">
+            <input
+              type="color"
+              value={localValue || '#000000'}
+              onChange={(e) => handleChange(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+            <div
+              className="h-full w-full"
+              style={{ backgroundColor: (localValue as string) || '#000000' }}
+            />
+          </div>
+          <input
+            type="text"
+            value={localValue}
+            onChange={(e) => handleChange(e.target.value)}
+            className={cn(inputBase, "font-mono uppercase")}
+            placeholder="#000000"
+          />
+        </div>
+      );
 
-  if (kind === 'id') {
-    return (
-      <div className="flex items-center h-8">
+    case 'markdown':
+      return (
+        <div className="mt-1 border-l-2 border-primary/10 pl-3 py-1 hover:border-primary/30 transition-colors">
+          <CodeMirror
+            value={String(localValue)}
+            extensions={cmExtensions}
+            onChange={handleChange}
+            className="text-sm"
+          />
+        </div>
+      );
+
+    case 'image':
+      return (
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-secondary/50 text-muted-foreground">
+            <ImageIcon className="h-3.5 w-3.5" />
+          </div>
+          <input
+            type="text"
+            value={localValue}
+            onChange={(e) => handleChange(e.target.value)}
+            className={cn(inputBase, "text-[12px]")}
+            placeholder="Image path or URL..."
+          />
+        </div>
+      );
+
+    case 'link':
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={localValue}
+            onChange={(e) => handleChange(e.target.value)}
+            className={cn(inputBase, "text-primary underline underline-offset-4")}
+            placeholder="https://..."
+          />
+          {localValue && (
+            <a href={String(localValue)} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-accent rounded text-muted-foreground">
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      );
+
+    case 'blockid':
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={localValue}
+            readOnly
+            className={cn(inputBase, "font-mono text-[11px] text-muted-foreground/60")}
+          />
+          <button
+            onClick={() => navigator.clipboard.writeText(String(localValue))}
+            className="p-1 hover:bg-accent rounded text-muted-foreground"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+        </div>
+      );
+
+    default:
+      return (
         <input
-          id={`prop-${name}-${level}`}
           type="text"
-          value={String(localValue)}
-          readOnly
-          className={cn(inputClasses, "font-mono text-[10px] bg-muted/30 border-dashed cursor-default")}
-          title="Reference ID (Read-only)"
+          value={localValue}
+          onChange={(e) => handleChange(e.target.value)}
+          className={inputBase}
+          placeholder={placeholder || "Empty"}
         />
-      </div>
-    );
+      );
   }
-
-  const safeStr = (v: unknown) =>
-    v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
-
-  return (
-    <div className="flex items-center h-8">
-      <input
-        id={`prop-${name}-${level}`}
-        type="text"
-        value={safeStr(localValue)}
-        onChange={(e) => {
-          setLocalValue(e.target.value);
-          onChange(e.target.value);
-        }}
-        placeholder={`Value for ${name}`}
-        className={inputClasses}
-      />
-    </div>
-  );
 });
 
+const getTypeIcon = (type: string) => {
+  const t = typeof type === 'string' ? type.toLowerCase() : '';
+  switch (t) {
+    case 'boolean': return CheckSquare;
+    case 'integer':
+    case 'float': return Hash;
+    case 'color': return Palette;
+    case 'image': return ImageIcon;
+    case 'link': return LinkIcon;
+    case 'blockid': return Layers;
+    case 'markdown': return TextQuote;
+    default: return Type;
+  }
+};
+
+/**
+ * Main Component
+ */
 export const PropertyEditor = memo(function PropertyEditor({
   blockType,
   metadata,
@@ -155,80 +247,95 @@ export const PropertyEditor = memo(function PropertyEditor({
 }: PropertyEditorProps) {
   const { templates } = useWorkspace();
 
-  // Find template for this block type
-  const templateDef = useMemo(() => 
+  const templateDef = useMemo(() =>
     blockType ? templates.find(t => t.name === blockType) : undefined
-  , [blockType, templates]);
+    , [blockType, templates]);
 
-  const handleFieldChange = (key: string, value: unknown) => {
+  const handleFieldChange = useCallback((key: string, value: unknown) => {
     onMetadataChange({ ...metadata, [key]: value });
-  };
+  }, [metadata, onMetadataChange]);
 
-  // 1. Identify fields from the template (Schema)
-  const templateFields = useMemo(() => 
+  const templateFields = useMemo(() =>
     templateDef?.fields.filter(f => !SYSTEM_FIELDS.has(f.name)) ?? []
-  , [templateDef]);
+    , [templateDef]);
 
-  const templateFieldNames = useMemo(() => 
+  const templateFieldNames = useMemo(() =>
     new Set(templateFields.map(f => f.name))
-  , [templateFields]);
+    , [templateFields]);
 
-  // 2. Identify "Orphan" fields (present in metadata but not in template)
-  const orphanFields = useMemo(() => 
-    Object.keys(metadata).filter(k => 
+  const orphanFields = useMemo(() =>
+    Object.keys(metadata).filter(k =>
       !SYSTEM_FIELDS.has(k) && !templateFieldNames.has(k)
     )
-  , [metadata, templateFieldNames]);
-
-  if (templateFields.length === 0 && orphanFields.length === 0) {
-    return (
-      <div className="p-4 text-[10px] text-muted-foreground/40 italic text-center uppercase tracking-widest">
-        No properties
-      </div>
-    );
-  }
+    , [metadata, templateFieldNames]);
 
   return (
-    <div className="flex flex-col gap-1 p-4 overflow-y-auto max-h-[300px]">
-      <div className="grid grid-cols-[100px_1fr] items-start gap-x-4 gap-y-2">
-        {/* Schema-defined fields (Primary) */}
-        {templateFields.map((fieldDef) => (
-          <div key={fieldDef.name} className="contents">
-            <label 
-              htmlFor={`prop-${fieldDef.name}-0`} 
-              className="text-[11px] font-bold text-foreground/70 h-8 flex items-center truncate"
-            >
-              {fieldDef.name}
-            </label>
-            <FieldRow
-              fieldDef={fieldDef}
-              name={fieldDef.name}
-              value={metadata[fieldDef.name]}
-              onChange={(val) => handleFieldChange(fieldDef.name, val)}
+    <div className="flex flex-col h-full bg-background overflow-hidden border-t">
+      {/* Header / Subtitle */}
+      <div className="px-4 py-3 border-b bg-secondary/20 flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+          Properties
+        </span>
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+          <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+          <span className="text-[10px] font-bold text-primary lowercase">{blockType || 'Generic'}</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto divide-y divide-border/50">
+        {/* Schema Fields */}
+        {templateFields.map((field) => (
+          <InputWrapper
+            key={field.name}
+            label={field.name}
+            icon={getTypeIcon(field.field_type as string)}
+          >
+            <PropertyInput
+              type={field.field_type}
+              value={metadata[field.name]}
+              onChange={(val: any) => handleFieldChange(field.name, val)}
             />
-          </div>
+          </InputWrapper>
         ))}
 
-        {/* Dynamic/Orphan fields (Secondary) */}
+        {/* Orphan Fields */}
         {orphanFields.length > 0 && (
-          <>
+          <div className="bg-secondary/10">
+            <div className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 flex items-center gap-2">
+              <div className="h-[1px] flex-1 bg-border/50" />
+              Additional Data
+              <div className="h-[1px] flex-1 bg-border/50" />
+            </div>
             {orphanFields.map((key) => (
-              <div key={key} className="contents">
-                <label 
-                  htmlFor={`prop-${key}-0`} 
-                  className="text-[11px] font-medium text-muted-foreground/50 h-8 flex items-center truncate italic" 
-                  title="Dynamic field (not in schema)"
-                >
-                  {key}*
-                </label>
-                <FieldRow
-                  name={key}
+              <InputWrapper
+                key={key}
+                label={key}
+                icon={Type}
+                isOrphan
+                onRemove={() => {
+                  const newMeta = { ...metadata };
+                  delete newMeta[key];
+                  onMetadataChange(newMeta);
+                }}
+              >
+                <PropertyInput
                   value={metadata[key]}
-                  onChange={(val) => handleFieldChange(key, val)}
+                  onChange={(val: any) => handleFieldChange(key, val)}
                 />
-              </div>
+              </InputWrapper>
             ))}
-          </>
+          </div>
+        )}
+
+        {templateFields.length === 0 && orphanFields.length === 0 && (
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <div className="p-3 rounded-full bg-secondary mb-3">
+              <Layers className="h-5 w-5 text-muted-foreground/30" />
+            </div>
+            <p className="text-xs font-bold text-muted-foreground/40 uppercase tracking-widest">
+              No Properties Defined
+            </p>
+          </div>
         )}
       </div>
     </div>
