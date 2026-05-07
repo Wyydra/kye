@@ -226,32 +226,21 @@ where
     fn identify_block_shapes(&self, fields: &Fields) -> Vec<String> {
         let registry = self.registry.read().unwrap();
         
-        // Priority to explicit type field
+        // Priority to explicit type field if it exists and matches
         if let Some(explicit_type) = fields.get(&crate::models::block::schema::FieldName::new("type")).and_then(|v| v.as_str()) {
             let type_name = crate::models::block::schema::TypeName::new(explicit_type);
             if let Some(definition) = registry.get(&type_name) {
-                if fields.satisfies(definition, &registry) {
+                if definition.matches(fields, &registry) {
                     return vec![explicit_type.to_string()];
                 }
             }
         }
 
-        let mut matching_types: Vec<(String, usize)> = registry
-            .types()
-            .iter()
-            .filter_map(|(name, definition)| {
-                if fields.satisfies(definition, &registry) {
-                    Some((name.to_string(), definition.fields.len()))
-                } else {
-                    None
-                }
-            })
-            .collect();
-            
-        // Sort by field count descending (most specific first)
-        matching_types.sort_by(|a, b| b.1.cmp(&a.1));
-        
-        matching_types.into_iter().map(|(name, _)| name).collect()
+        registry
+            .identify_block_shapes(fields)
+            .into_iter()
+            .map(|name| name.to_string())
+            .collect()
     }
 
     fn get_type_definition(&self, type_name: &str) -> Option<TypeDefinition> {

@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use domain::models::block::{CreateBlockRequest, UpdateBlockRequest};
 use crate::state::AppState;
-use crate::dto::{WorkspaceDto, TemplateDto, FieldDefinitionDto, field_type_to_str};
+use crate::dto::{WorkspaceDto, TemplateDto, FieldDefinitionDto};
 use crate::error::{AppError, AppResult};
 use domain::ports::{WorkspaceUseCase, TypeInspector, TypeManagementUseCase};
 use infra::types::dto::TypeDefinitionDto;
@@ -92,9 +92,8 @@ pub async fn get_templates(state: tauri::State<'_, AppState>) -> AppResult<Vec<T
     
     let result = service.get_block_types().into_iter().filter_map(|name| {
         let def = service.get_type_definition(&name)?;
-        let fields = def.fields.iter().map(|(fname, ftype)| FieldDefinitionDto {
-            name: fname.to_string(),
-            field_type: field_type_to_str(ftype),
+        let fields = def.fields.iter().map(|(fname, fschema)| {
+            FieldDefinitionDto::from_domain(fname.to_string(), fschema)
         }).collect();
         Some(TemplateDto { 
             name, 

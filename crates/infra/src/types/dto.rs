@@ -1,18 +1,33 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use domain::models::block::schema::{
     FieldName, FieldType, TypeDefinition, View, ViewKind,
-    LayoutDirection, Action, Value
+    LayoutDirection, Action, Value, FieldSchema
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct TypeDefinitionDto {
-    pub fields: BTreeMap<String, FieldTypeDto>,
+    pub fields: BTreeMap<String, FieldSchemaDto>,
     pub layout: Option<ViewDto>,
 }
 
 #[derive(Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+pub struct FieldSchemaDto {
+    #[serde(rename = "type")]
+    pub field_type: FieldTypeDto,
+    #[serde(default = "default_true")]
+    pub required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+fn default_true() -> bool { true }
+
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "kind", content = "data", rename_all = "lowercase")]
 pub enum FieldTypeDto {
     Boolean,
     Integer,
@@ -23,6 +38,12 @@ pub enum FieldTypeDto {
     Link,
     Color,
     BlockId,
+    Literal(ValueDto),
+    Union(Vec<FieldTypeDto>),
+    Intersection(Vec<FieldTypeDto>),
+    Record(TypeDefinitionDto),
+    List(Box<FieldTypeDto>),
+    Named(String),
 }
 
 #[derive(Deserialize, Serialize)]
@@ -79,29 +100,51 @@ pub enum ValueDto {
     Integer(i64),
     Float(f64),
     String(String),
+    Array(Vec<ValueDto>),
+    Object(BTreeMap<String, ValueDto>),
 }
 
 
 impl TypeDefinitionDto {
     pub fn to_domain(self) -> TypeDefinition {
         let mut fields = BTreeMap::new();
-        for (name, ftype) in self.fields {
-            fields.insert(FieldName::new(&name), ftype.to_domain());
+        for (name, schema) in self.fields {
+            fields.insert(FieldName::new(&name), schema.to_domain());
         }
-        TypeDefinition::new(
+        TypeDefinition {
             fields,
-            self.layout.map(|l| l.to_domain())
-        )
+            layout: self.layout.map(|l| l.to_domain()),
+        }
     }
 
     pub fn from_domain(definition: &TypeDefinition) -> Self {
         let mut fields = BTreeMap::new();
-        for (name, ftype) in &definition.fields {
-            fields.insert(name.to_string(), FieldTypeDto::from_domain(ftype));
+        for (name, schema) in &definition.fields {
+            fields.insert(name.to_string(), FieldSchemaDto::from_domain(schema));
         }
         Self {
             fields,
             layout: definition.layout.as_ref().map(ViewDto::from_domain),
+        }
+    }
+}
+
+impl FieldSchemaDto {
+    pub fn to_domain(self) -> FieldSchema {
+        FieldSchema {
+            field_type: self.field_type.to_domain(),
+            required: self.required,
+            label: self.label,
+            description: self.description,
+        }
+    }
+
+    pub fn from_domain(schema: &FieldSchema) -> Self {
+        Self {
+            field_type: FieldTypeDto::from_domain(&schema.field_type),
+            required: schema.required,
+            label: schema.label.clone(),
+            description: schema.description.clone(),
         }
     }
 }
@@ -119,6 +162,12 @@ impl FieldTypeDto {
             FieldTypeDto::Link => FieldType::Link,
             FieldTypeDto::Color => FieldType::Color,
             FieldTypeDto::BlockId => FieldType::BlockId,
+            FieldTypeDto::Literal(v) => FieldType::Literal(v.to_domain()),
+            FieldTypeDto::Union(types) => FieldType::Union(types.into_iter().map(|t| t.to_domain()).collect()),
+            FieldTypeDto::Intersection(types) => FieldType::Intersection(types.into_iter().map(|t| t.to_domain()).collect()),
+            FieldTypeDto::Record(def) => FieldType::Record(def.to_domain()),
+            FieldTypeDto::List(inner) => FieldType::List(Arc::new(inner.to_domain())),
+            FieldTypeDto::Named(name) => FieldType::Named(domain::models::block::schema::TypeName::new(&name)),
         }
     }
 
@@ -133,7 +182,12 @@ impl FieldTypeDto {
             FieldType::Link => FieldTypeDto::Link,
             FieldType::Color => FieldTypeDto::Color,
             FieldType::BlockId => FieldTypeDto::BlockId,
-            _ => FieldTypeDto::String, 
+            FieldType::Literal(v) => FieldTypeDto::Literal(ValueDto::from_domain(v)),
+            FieldType::Union(types) => FieldTypeDto::Union(types.iter().map(FieldTypeDto::from_domain).collect()),
+            FieldType::Intersection(types) => FieldTypeDto::Intersection(types.iter().map(FieldTypeDto::from_domain).collect()),
+            FieldType::Record(def) => FieldTypeDto::Record(TypeDefinitionDto::from_domain(def)),
+            FieldType::List(inner) => FieldTypeDto::List(Box::new(FieldTypeDto::from_domain(inner))),
+            FieldType::Named(name) => FieldTypeDto::Named(name.to_string()),
         }
     }
 }
@@ -208,6 +262,11 @@ impl ViewDto {
             slots.insert(k.clone(), ViewDto::from_domain(v));
         }
 
+        let mut children = Vec::new();
+        for c in &view.children {
+            children.push(ViewDto::from_domain(c));
+        }
+
         Self {
             kind,
             direction,
@@ -216,7 +275,7 @@ impl ViewDto {
             props,
             actions,
             slots,
-            children: view.children.iter().map(ViewDto::from_domain).collect(),
+            children,
         }
     }
 }
@@ -271,6 +330,14 @@ impl ValueDto {
             ValueDto::Integer(i) => Value::Integer(i),
             ValueDto::Float(f) => Value::Float(f),
             ValueDto::String(s) => Value::String(s),
+            ValueDto::Array(arr) => Value::Array(arr.into_iter().map(|v| v.to_domain()).collect()),
+            ValueDto::Object(map) => {
+                let mut fields = domain::models::block::schema::Fields::new();
+                for (k, v) in map {
+                    fields.insert(FieldName::new(&k), v.to_domain());
+                }
+                Value::Object(fields)
+            }
         }
     }
 
@@ -281,7 +348,14 @@ impl ValueDto {
             Value::Integer(i) => ValueDto::Integer(*i),
             Value::Float(f) => ValueDto::Float(*f),
             Value::String(s) => ValueDto::String(s.clone()),
-            _ => ValueDto::None, 
+            Value::Array(arr) => ValueDto::Array(arr.iter().map(ValueDto::from_domain).collect()),
+            Value::Object(fields) => {
+                let mut map = BTreeMap::new();
+                for (k, v) in fields.iter() {
+                    map.insert(k.to_string(), ValueDto::from_domain(v));
+                }
+                ValueDto::Object(map)
+            }
         }
     }
 }

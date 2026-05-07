@@ -18,6 +18,9 @@ export type FieldType = 'boolean' | 'integer' | 'float' | 'string' | 'markdown' 
 export interface FieldDefinitionDto {
   name: string;
   field_type: FieldType | string;
+  required: boolean;
+  label?: string;
+  description?: string;
 }
 
 export type InteractionAction = 

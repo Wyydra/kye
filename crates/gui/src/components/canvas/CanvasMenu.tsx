@@ -125,8 +125,8 @@ function getDefaultValue(type: string): any {
   if (type === 'Boolean') return false;
   if (type === 'Integer') return 0;
   if (type === 'Float') return 0.0;
-  if (type === 'String') return '';
-  if (type === 'List') return [];
+  if (type === 'String' || type === 'Markdown' || type === 'Image' || type === 'Link' || type === 'Color' || type === 'BlockId') return '';
+  if (type.startsWith('List') || type === 'Union' || type === 'Intersection') return [];
   if (type === 'Record') return {};
   return null;
 }

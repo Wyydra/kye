@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use domain::models::block::schema::{FieldType, View, ViewKind, Value, Action};
+use domain::models::block::schema::{FieldType, View, ViewKind, Value, Action, FieldSchema};
 use domain::ports::TypeInspector;
 use std::collections::BTreeMap;
 
@@ -61,6 +61,9 @@ impl From<(&domain::models::block::Block, &AppService)> for BlockDto {
 pub struct FieldDefinitionDto {
     pub name: String,
     pub field_type: String,
+    pub required: bool,
+    pub label: Option<String>,
+    pub description: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -68,6 +71,18 @@ pub struct TemplateDto {
     pub name: String,
     pub fields: Vec<FieldDefinitionDto>,
     pub layout: Option<WidgetDto>,
+}
+
+impl FieldDefinitionDto {
+    pub fn from_domain(name: String, schema: &FieldSchema) -> Self {
+        Self {
+            name,
+            field_type: field_type_to_str(&schema.field_type),
+            required: schema.required,
+            label: schema.label.clone(),
+            description: schema.description.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -105,9 +120,12 @@ pub fn field_type_to_str(ft: &FieldType) -> String {
         FieldType::Link => "Link".to_string(),
         FieldType::Color => "Color".to_string(),
         FieldType::BlockId => "BlockId".to_string(),
+        FieldType::Literal(v) => format!("Literal:{}", v),
+        FieldType::Union(_) => "Union".to_string(),
+        FieldType::Intersection(_) => "Intersection".to_string(),
         FieldType::Record(_) => "Record".to_string(),
-        FieldType::List(_) => "List".to_string(),
-        FieldType::Named(name) => format!("Named:{}", name),
+        FieldType::List(inner) => format!("List<{}>", field_type_to_str(inner)),
+        FieldType::Named(name) => name.to_string(),
     }
 }
 

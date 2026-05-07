@@ -138,12 +138,15 @@ impl DirectoryWorkspaceRepository {
         let mut json_fields = domain::models::block::schema::Fields::new();
         let mut markdown_fields = std::collections::BTreeMap::new();
 
-        // 1. Collect ALL fields required by the block's shapes
+        // 1. Collect ALL fields from the block's shapes
         let shapes = registry.identify_block_shapes(block.fields());
         for shape_name in shapes {
             if let Some(def) = registry.get(&shape_name) {
-                for field_name in def.fields.keys() {
-                    markdown_fields.insert(field_name.to_string(), String::new());
+                for (field_name, schema) in &def.fields {
+                    // Required fields MUST be present (even if empty) to maintain type identity
+                    if schema.required {
+                        markdown_fields.insert(field_name.to_string(), String::new());
+                    }
                 }
             }
         }
@@ -159,7 +162,14 @@ impl DirectoryWorkspaceRepository {
                 let val_str = match value {
                     domain::models::block::schema::Value::None => String::new(),
                     domain::models::block::schema::Value::String(s) => s.clone(),
-                    v => v.to_string().trim_matches('"').to_string(),
+                    v => {
+                        let s = v.to_string();
+                        if s.starts_with('"') && s.ends_with('"') {
+                            s[1..s.len()-1].to_string()
+                        } else {
+                            s
+                        }
+                    }
                 };
                 markdown_fields.insert(name_str, val_str);
             }
@@ -309,6 +319,13 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
             let pref_guard = self.file_prefixes.read().unwrap();
 
             let mut fw: HashMap<PathBuf, Vec<Uuid>> = HashMap::new();
+            
+            // 1. Ensure all files currently in the index are accounted for (even if they'll be empty)
+            for path in index_guard.values() {
+                fw.entry(path.clone()).or_default();
+            }
+
+            // 2. Assign current blocks to their respective files
             for block in workspace.blocks() {
                 let path = index_guard.get(block.id()).unwrap_or(&self.default_inbox_file).clone();
                 fw.entry(path).or_default().push(*block.id());

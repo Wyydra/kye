@@ -30,17 +30,36 @@ impl TypeRegistry {
     }
 
     pub fn identify_block_shapes(&self, fields: &crate::models::block::schema::Fields) -> Vec<TypeName> {
-        let mut shapes: Vec<(TypeName, usize)> = Vec::new();
+        let mut candidates: Vec<(TypeName, &TypeDefinition, usize)> = Vec::new();
+        
         for (name, definition) in &self.types {
             if definition.matches(fields, self) {
-                shapes.push((name.clone(), definition.fields.len()));
+                // Coverage is how many fields from the input are used by this type
+                let coverage = definition.fields.len();
+                candidates.push((name.clone(), definition, coverage));
             }
         }
         
-        // Sort by specificity (descending: more fields = more specific)
-        shapes.sort_by(|a, b| b.1.cmp(&a.1));
+        // Sort by specificity
+        candidates.sort_by(|(name_a, def_a, cov_a), (name_b, def_b, cov_b)| {
+            // 1. Structural Subsumption (The core of structural typing)
+            if def_a.is_more_specific_than(def_b, self) {
+                return std::cmp::Ordering::Less;
+            }
+            if def_b.is_more_specific_than(def_a, self) {
+                return std::cmp::Ordering::Greater;
+            }
+            
+            // 2. Coverage (Field Density) - More fields mean more specific intent
+            if cov_a != cov_b {
+                return cov_b.cmp(cov_a); // More fields first
+            }
+            
+            // 4. Stability (Alphabetical)
+            name_a.to_string().cmp(&name_b.to_string())
+        });
         
-        shapes.into_iter().map(|(name, _)| name).collect()
+        candidates.into_iter().map(|(name, _, _)| name).collect()
     }
 
 

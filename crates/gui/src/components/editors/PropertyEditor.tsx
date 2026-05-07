@@ -29,20 +29,29 @@ interface PropertyEditorProps {
   onMetadataChange: (newMetadata: Record<string, unknown>) => void;
 }
 
-const InputWrapper = ({ icon: Icon, label, children, isOrphan, onRemove }: any) => (
+const InputWrapper = ({ icon: Icon, label, description, required, children, isOrphan, onRemove }: any) => (
   <div className="group/row flex flex-col gap-1.5 px-4 py-3 transition-colors hover:bg-accent/5">
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <div className="text-muted-foreground/40">
           <Icon className="h-3.5 w-3.5" />
         </div>
-        <span className={cn(
-          "text-[10px] font-bold uppercase tracking-wider",
-          isOrphan ? "text-muted-foreground/60 italic" : "text-foreground/70"
-        )}>
-          {label}
-          {isOrphan && "*"}
-        </span>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={cn(
+              "text-[10px] font-bold uppercase tracking-wider",
+              isOrphan ? "text-muted-foreground/60 italic" : "text-foreground/70"
+            )}>
+              {label}
+            </span>
+            {required && <span className="text-[10px] text-primary/60 font-black">*</span>}
+          </div>
+          {description && (
+            <span className="text-[9px] text-muted-foreground/50 leading-tight">
+              {description}
+            </span>
+          )}
+        </div>
       </div>
       {onRemove && (
         <button
@@ -53,7 +62,7 @@ const InputWrapper = ({ icon: Icon, label, children, isOrphan, onRemove }: any) 
         </button>
       )}
     </div>
-    <div className="flex-1">
+    <div className="mt-1">
       {children}
     </div>
   </div>
@@ -287,7 +296,9 @@ export const PropertyEditor = memo(function PropertyEditor({
         {templateFields.map((field) => (
           <InputWrapper
             key={field.name}
-            label={field.name}
+            label={field.label || field.name}
+            description={field.description}
+            required={field.required}
             icon={getTypeIcon(field.field_type as string)}
           >
             <PropertyInput

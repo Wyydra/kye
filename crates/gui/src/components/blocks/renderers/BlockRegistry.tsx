@@ -52,33 +52,32 @@ class BlockRegistry {
   findConfig(block: Block, templates: TemplateDto[] = [], layer: 'svg' | 'html' = 'html'): RegisteredBlock | null {
     const candidates: RegisteredBlock[] = [...this.renderers.filter(r => r.match(block, block.fields))];
 
-    // Convert matching templates to virtual RegisteredBlocks
+    // 2. Add the best matching template based on primary_shape
     if (layer === 'html') {
-      templates.forEach(template => {
-        if (block.shapes.includes(template.name) && template.layout) {
-          candidates.push({
-            priority: 100, // Templates have a solid base priority
-            match: () => true,
-            features: template.features,
-            editorMode: 'auto',
-            html: (props: BlockRendererProps) => (
-              <div
-                className={React.useMemo(() => `w-full h-full flex flex-col overflow-hidden bg-card rounded-xl border shadow-sm transition-all ${props.isSelected ? 'border-primary ring-2 ring-primary/20' : ''} ${props.isEditing ? 'opacity-50' : ''}`, [props.isSelected, props.isEditing])}
-                onClick={(e) => { e.stopPropagation(); props.onSelect(); }}
-              >
-                <div className="flex-1 p-4 overflow-auto">
+      const primaryTemplate = templates.find(t => t.name === block.primary_shape);
+      if (primaryTemplate && primaryTemplate.layout) {
+        candidates.push({
+          priority: 100, // Templates have a base priority
+          match: () => true,
+          features: primaryTemplate.features,
+          editorMode: 'auto',
+          html: (props: BlockRendererProps) => (
+            <div
+              className={React.useMemo(() => `w-full h-full flex flex-col overflow-hidden bg-card rounded-xl border shadow-sm transition-all ${props.isSelected ? 'border-primary ring-2 ring-primary/20' : ''} ${props.isEditing ? 'opacity-50' : ''}`, [props.isSelected, props.isEditing])}
+              onClick={(e) => { e.stopPropagation(); props.onSelect(); }}
+            >
+              <div className="flex-1 p-4 overflow-auto">
                   <UniversalRenderer
-                    blueprint={template.layout}
+                    blueprint={primaryTemplate.layout!}
                     block={props.block}
-                    metadata={block.fields}
+                    metadata={props.block.fields}
                     onRefresh={props.onRefresh}
                   />
-                </div>
               </div>
-            )
-          });
-        }
-      });
+            </div>
+          )
+        });
+      }
     }
 
     if (candidates.length === 0) return null;

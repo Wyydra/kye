@@ -28,7 +28,7 @@ widgetRegistry.register('image', ({ blueprint, metadata }) => {
   }, [imageUrl, workspacePath]);
 
   return (
-    <div className="group relative w-full h-full overflow-hidden rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center transition-all hover:border-primary/30">
+    <div className="group relative w-full aspect-video overflow-hidden rounded-xl bg-muted/30 border border-border/50 flex items-center justify-center transition-all hover:border-primary/30">
       {src && !error ? (
         <>
           <img 

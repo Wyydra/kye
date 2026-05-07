@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use crate::models::block::schema::{
-    FieldName, FieldType, TypeDefinition, TypeName, View, ViewKind, LayoutDirection
+    FieldName, FieldType, TypeDefinition, TypeName, View, ViewKind, LayoutDirection, FieldSchema
 };
 use crate::models::block::type_registry::TypeRegistry;
 
@@ -8,10 +8,10 @@ pub struct StandardLibrary;
 
 impl StandardLibrary {
     pub fn init(registry: &mut TypeRegistry) {
-        // Text
+        // --- Text ---
         let mut text_fields = BTreeMap::new();
-        text_fields.insert(FieldName::new("title"), FieldType::String);
-        text_fields.insert(FieldName::new("body"), FieldType::Markdown);
+        text_fields.insert(FieldName::new("title"), FieldSchema::new(FieldType::String).with_label("Title"));
+        text_fields.insert(FieldName::new("body"), FieldSchema::new(FieldType::Markdown).with_label("Content"));
         
         let mut text_layout = View::new(ViewKind::Component("markdown".to_string()));
         text_layout.bindings.insert("value".to_string(), FieldName::new("body"));
@@ -21,21 +21,24 @@ impl StandardLibrary {
             TypeDefinition::new(text_fields, Some(text_layout)),
         );
 
-        // Connection (An arrow between two blocks)
+        // --- Connection ---
         let mut conn_fields = BTreeMap::new();
-        conn_fields.insert(FieldName::new("title"), FieldType::String);
-        conn_fields.insert(FieldName::new("from"), FieldType::BlockId);
-        conn_fields.insert(FieldName::new("to"), FieldType::BlockId);
+        conn_fields.insert(FieldName::new("title"), FieldSchema::new(FieldType::String).with_label("Label").optional());
+        conn_fields.insert(FieldName::new("from"), FieldSchema::new(FieldType::BlockId));
+        conn_fields.insert(FieldName::new("to"), FieldSchema::new(FieldType::BlockId));
 
         registry.register(
             TypeName::new("connection"),
-            TypeDefinition::new(conn_fields, None),
+            TypeDefinition {
+                fields: conn_fields,
+                layout: None,
+            },
         );
 
-        // Image
+        // --- Image ---
         let mut image_fields = BTreeMap::new();
-        image_fields.insert(FieldName::new("title"), FieldType::String);
-        image_fields.insert(FieldName::new("src"), FieldType::Image);
+        image_fields.insert(FieldName::new("title"), FieldSchema::new(FieldType::String).with_label("Title").optional());
+        image_fields.insert(FieldName::new("src"), FieldSchema::new(FieldType::Image).with_label("Source URL"));
         
         let mut image_layout = View::new(ViewKind::Component("image".to_string()));
         image_layout.bindings.insert("value".to_string(), FieldName::new("src"));
@@ -45,11 +48,11 @@ impl StandardLibrary {
             TypeDefinition::new(image_fields, Some(image_layout)),
         );
 
-        // Link
+        // --- Link ---
         let mut link_fields = BTreeMap::new();
-        link_fields.insert(FieldName::new("title"), FieldType::String);
-        link_fields.insert(FieldName::new("url"), FieldType::Link);
-        link_fields.insert(FieldName::new("label"), FieldType::String);
+        link_fields.insert(FieldName::new("title"), FieldSchema::new(FieldType::String).optional());
+        link_fields.insert(FieldName::new("url"), FieldSchema::new(FieldType::Link).with_label("URL"));
+        link_fields.insert(FieldName::new("label"), FieldSchema::new(FieldType::String).with_label("Display Text").optional());
         
         let mut link_layout = View::new(ViewKind::Component("link".to_string()));
         link_layout.bindings.insert("value".to_string(), FieldName::new("url"));
@@ -60,13 +63,13 @@ impl StandardLibrary {
             TypeDefinition::new(link_fields, Some(link_layout)),
         );
 
-        // Image with Text (Composite Type)
+        // --- Image with Text (Pure Duck Typing Example) ---
         let mut iwt_fields = BTreeMap::new();
-        iwt_fields.insert(FieldName::new("src"), FieldType::Image);
-        iwt_fields.insert(FieldName::new("caption"), FieldType::Markdown);
+        iwt_fields.insert(FieldName::new("src"), FieldSchema::new(FieldType::Image));
+        iwt_fields.insert(FieldName::new("caption"), FieldSchema::new(FieldType::Markdown).with_label("Caption"));
 
         let mut iwt_layout = View::new(ViewKind::Stack(LayoutDirection::Vertical));
-
+        
         let mut img_part = View::new(ViewKind::Component("image".to_string()));
         img_part.bindings.insert("value".to_string(), FieldName::new("src"));
 
@@ -80,11 +83,11 @@ impl StandardLibrary {
             TypeDefinition::new(iwt_fields, Some(iwt_layout)),
         );
 
-        // Flashcard (Structured Knowledge)
+        // --- Flashcard ---
         let mut fc_fields = BTreeMap::new();
-        fc_fields.insert(FieldName::new("title"), FieldType::String);
-        fc_fields.insert(FieldName::new("front"), FieldType::Markdown);
-        fc_fields.insert(FieldName::new("back"), FieldType::Markdown);
+        fc_fields.insert(FieldName::new("title"), FieldSchema::new(FieldType::String).optional());
+        fc_fields.insert(FieldName::new("front"), FieldSchema::new(FieldType::Markdown).with_label("Front Side"));
+        fc_fields.insert(FieldName::new("back"), FieldSchema::new(FieldType::Markdown).with_label("Back Side"));
 
         let mut fc_layout = View::new(ViewKind::Component("flashcard".to_string()));
         fc_layout.bindings.insert("front".to_string(), FieldName::new("front"));
