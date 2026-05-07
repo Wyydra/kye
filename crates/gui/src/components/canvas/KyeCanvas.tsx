@@ -52,24 +52,22 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     return unsub;
   }, [openMenuAt]);
   
-  // Initialize all node states from workspace metadata (even off-screen nodes)
+  // Initialize all node states from workspace fields
   useEffect(() => {
     if (!workspace) return;
     
     const states: Record<string, any> = {};
     workspace.blocks.forEach(block => {
-      try {
-        const meta = JSON.parse(block.metadata);
-        // Use prefixed fields (_x, _y, _width, _height)
-        if (meta._x !== undefined && meta._y !== undefined) {
-          states[block.id] = {
-            x: meta._x,
-            y: meta._y,
-            width: meta._width ?? 300,
-            height: meta._height ?? 200
-          };
-        }
-      } catch {}
+      const f = block.fields;
+      // Use prefixed fields (_x, _y, _width, _height)
+      if (f._x !== undefined && f._y !== undefined) {
+        states[block.id] = {
+          x: f._x,
+          y: f._y,
+          width: f._width ?? 300,
+          height: f._height ?? 200
+        };
+      }
     });
     
     setAllNodeStates(states);
@@ -110,14 +108,11 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
         const currentSourceId = connectionDraft?.sourceId;
 
         if (targetId && currentSourceId && targetId !== currentSourceId) {
-          await workspaceService.createBlock(
-            '',
-            JSON.stringify({
-              title: 'Connection',
-              from: currentSourceId,
-              to: targetId
-            })
-          );
+          await workspaceService.createBlock({
+            title: 'Connection',
+            from: currentSourceId,
+            to: targetId
+          });
           onRefresh();
         }
       } catch (err) {

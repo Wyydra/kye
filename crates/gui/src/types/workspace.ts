@@ -1,8 +1,5 @@
 export interface Block {
   id: string;
-  title: string;
-  content: string;
-  metadata: string;
   shapes: string[];
   fields: Record<string, any>;
   primary_shape: string;
@@ -37,7 +34,12 @@ export interface WidgetBlueprint {
 }
 
 export interface TypeDefinitionDto {
-  fields: Record<string, FieldType>;
+  fields: Record<string, {
+    type: { kind: string; data?: any };
+    required: boolean;
+    label?: string;
+    description?: string;
+  }>;
   layout?: WidgetBlueprint;
 }
 

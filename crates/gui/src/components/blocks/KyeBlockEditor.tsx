@@ -24,7 +24,7 @@ export const KyeBlockEditor = ({ block, anchor, isPopup, onClose, onRefresh }: K
 
   const handleSave = useCallback(async () => {
     // We only update via a flat field map now
-    await workspaceService.updateBlock(block.id, null, JSON.stringify(fields));
+    await workspaceService.updateBlock(block.id, fields);
     onRefresh();
     onClose();
   }, [block.id, fields, onRefresh, onClose]);

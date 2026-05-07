@@ -7,9 +7,9 @@ export interface WorkspaceService {
   getWorkspacePath(): Promise<string>;
   getBlockTypes(): Promise<string[]>;
   getTemplates(): Promise<TemplateDto[]>;
-  identifyBlockShapes(metadata: string): Promise<string[]>;
-  createBlock(content: string, metadata: string): Promise<[Workspace, string]>;
-  updateBlock(id: string, content: string | null, metadata: string | null): Promise<Workspace>;
+  identifyBlockShapes(fields: any): Promise<string[]>;
+  createBlock(fields: any): Promise<[Workspace, string]>;
+  updateBlock(id: string, fields: any): Promise<Workspace>;
   deleteBlock(id: string): Promise<Workspace>;
   onWorkspaceUpdated(callback: () => void): Promise<() => void>;
   selectWorkspaceFolder(): Promise<string>;
@@ -34,16 +34,16 @@ export const workspaceService: WorkspaceService = {
     return await invoke<TemplateDto[]>('get_templates');
   },
 
-  async identifyBlockShapes(metadata: string) {
-    return await invoke<string[]>('identify_block_shapes', { metadata });
+  async identifyBlockShapes(fields: any) {
+    return await invoke<string[]>('identify_block_shapes', { metadata: JSON.stringify(fields) });
   },
 
-  async createBlock(content: string, metadata: string) {
-    return await invoke<[Workspace, string]>('create_block', { content, metadata });
+  async createBlock(fields: any) {
+    return await invoke<[Workspace, string]>('create_block', { content: "", metadata: JSON.stringify(fields) });
   },
 
-  async updateBlock(id: string, content: string | null, metadata: string | null) {
-    return await invoke<Workspace>('update_block', { id, content, metadata });
+  async updateBlock(id: string, fields: any) {
+    return await invoke<Workspace>('update_block', { id, content: null, metadata: JSON.stringify(fields) });
   },
 
   async deleteBlock(id: string) {

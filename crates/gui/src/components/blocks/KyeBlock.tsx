@@ -161,8 +161,7 @@ export const KyeBlock = memo(function KyeBlock({ block, layer, zoom = 1, templat
 }, (prev, next) => {
   return (
     prev.block.id === next.block.id &&
-    prev.block.content === next.block.content &&
-    prev.block.metadata === next.block.metadata &&
+    JSON.stringify(prev.block.fields) === JSON.stringify(next.block.fields) &&
     prev.layer === next.layer &&
     prev.zoom === next.zoom &&
     JSON.stringify(prev.templates) === JSON.stringify(next.templates) &&

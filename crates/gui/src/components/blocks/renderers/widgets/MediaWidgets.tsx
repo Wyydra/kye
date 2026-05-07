@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { ImageIcon, ExternalLink, RefreshCw } from 'lucide-react';
+import { ImageIcon, ExternalLink, RefreshCw, Link as LinkIcon } from 'lucide-react';
 import { widgetRegistry, resolveTemplate, resolveProp } from '../WidgetRegistry';
 import { useWorkspacePath } from '../../../../context/WorkspaceContext';
 import { workspaceService } from '../../../../services/WorkspaceService';
@@ -72,7 +72,7 @@ widgetRegistry.register('button', ({ blueprint, metadata, block, onRefresh }) =>
 
     if (action.type === 'update_field') {
       const newMetadata = { ...metadata, [action.field]: action.value };
-      await workspaceService.updateBlock(block.id, block.content, JSON.stringify(newMetadata));
+      await workspaceService.updateBlock(block.id, null, JSON.stringify(newMetadata));
       onRefresh();
     }
   };
@@ -87,8 +87,8 @@ widgetRegistry.register('button', ({ blueprint, metadata, block, onRefresh }) =>
   );
 });
 
-widgetRegistry.register('link', ({ blueprint, metadata, block }) => {
-    const linkUrl = resolveProp(blueprint, metadata, 'value') || block.content;
+widgetRegistry.register('link', ({ blueprint, metadata }) => {
+    const linkUrl = resolveProp(blueprint, metadata, 'value');
     const linkLabel = resolveProp(blueprint, metadata, 'label') || linkUrl || "Link";
     
     return (

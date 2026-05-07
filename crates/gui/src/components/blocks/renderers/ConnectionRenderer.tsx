@@ -10,22 +10,21 @@ import { cn } from '../../../lib/utils';
 export const ConnectionRenderer = React.memo(({ block, isSelected, onSelect }: BlockRendererProps) => {
   const nodeStates = useCanvasStore(state => state.nodeStates);
 
-  const meta = useMemo(() => {
-    try { return JSON.parse(block.metadata); } catch { return {}; }
-  }, [block.metadata]);
+  // Use fields directly
+  const fields = block.fields;
 
   // Normalize node states with defaults to prevent NaN in geometry
   const source = useMemo(() => {
-    const s = nodeStates[meta.from];
+    const s = nodeStates[fields.from];
     if (!s) return null;
     return { x: s.x || 0, y: s.y || 0, width: s.width || 300, height: s.height || 200 };
-  }, [nodeStates, meta.from]);
+  }, [nodeStates, fields.from]);
 
   const target = useMemo(() => {
-    const t = nodeStates[meta.to];
+    const t = nodeStates[fields.to];
     if (!t) return null;
     return { x: t.x || 0, y: t.y || 0, width: t.width || 300, height: t.height || 200 };
-  }, [nodeStates, meta.to]);
+  }, [nodeStates, fields.to]);
 
   const { pathData } = useMemo(() => {
     if (!source || !target) return { pathData: '' };
@@ -103,7 +102,6 @@ export const ConnectionRenderer = React.memo(({ block, isSelected, onSelect }: B
 
 // Auto-registration
 blockRegistry.register({
-  priority: 200, 
   match: (block) => block.shapes.includes('connection'),
   svg: ConnectionRenderer,
   editorMode: 'popup',

@@ -28,7 +28,6 @@ export interface RegisteredBlock {
   html?: RendererComponent;
   svg?: RendererComponent;
   match: (block: Block, fields: any) => boolean;
-  priority: number;
   getAnchor?: (block: Block, fields: any, nodeStates: Record<string, any>) => { x: number, y: number, width: number, height: number } | null;
   editorMode?: 'popup' | 'inline' | 'auto';
   features?: BlockFeatures;
@@ -39,25 +38,27 @@ class BlockRegistry {
 
   register(config: RegisteredBlock) {
     this.renderers.push(config);
-    this.renderers.sort((a, b) => b.priority - a.priority);
   }
 
   /**
    * Finds the best renderer configuration for a block.
    * Logic: 
    * 1. Collect all manual renderers that match.
-   * 2. Collect all templates that match (via block.shapes).
-   * 3. Return the one with the highest priority.
+   * 2. If no manual match, collect templates that match.
+   * 3. Return the first matching config.
    */
   findConfig(block: Block, templates: TemplateDto[] = [], layer: 'svg' | 'html' = 'html'): RegisteredBlock | null {
-    const candidates: RegisteredBlock[] = [...this.renderers.filter(r => r.match(block, block.fields))];
+    const manualCandidates: RegisteredBlock[] = this.renderers.filter(r => r.match(block, block.fields));
+    
+    if (manualCandidates.length > 0) {
+      return manualCandidates[0];
+    }
 
     // 2. Add the best matching template based on primary_shape
     if (layer === 'html') {
       const primaryTemplate = templates.find(t => t.name === block.primary_shape);
       if (primaryTemplate && primaryTemplate.layout) {
-        candidates.push({
-          priority: 100, // Templates have a base priority
+        return {
           match: () => true,
           features: primaryTemplate.features,
           editorMode: 'auto',
@@ -76,15 +77,11 @@ class BlockRegistry {
               </div>
             </div>
           )
-        });
+        };
       }
     }
 
-    if (candidates.length === 0) return null;
-
-    // Sort by priority and return the winner
-    candidates.sort((a, b) => b.priority - a.priority);
-    return candidates[0];
+    return null;
   }
 
   getRenderer(block: Block, layer: 'svg' | 'html', templates: TemplateDto[] = []): RendererComponent | null {

@@ -15,9 +15,6 @@ pub struct WorkspaceDto {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockDto {
     pub id: Uuid,
-    pub title: String,
-    pub content: String,
-    pub metadata: String,
     pub shapes: Vec<String>,
     pub fields: BTreeMap<String, serde_json::Value>,
     pub primary_shape: String,
@@ -34,9 +31,6 @@ impl WorkspaceDto {
 
 impl From<(&domain::models::block::Block, &AppService)> for BlockDto {
     fn from((b, service): (&domain::models::block::Block, &AppService)) -> Self {
-        let title = b.fields().get(&domain::models::block::schema::FieldName::new("title")).and_then(|v| v.as_str()).unwrap_or("Untitled").to_string();
-        let content = b.fields().get(&domain::models::block::schema::FieldName::new("body")).and_then(|v| v.as_str()).unwrap_or_default().to_string();
-
         let mut fields = BTreeMap::new();
         for (name, val) in b.fields().iter() {
             fields.insert(name.to_string(), value_to_json(val.clone()));
@@ -47,9 +41,6 @@ impl From<(&domain::models::block::Block, &AppService)> for BlockDto {
 
         Self {
             id: *b.id(),
-            title,
-            content,
-            metadata: infra::metadata::render_json(b.id(), b.fields()),
             shapes,
             fields,
             primary_shape,

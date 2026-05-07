@@ -226,7 +226,7 @@ where
     fn identify_block_shapes(&self, fields: &Fields) -> Vec<String> {
         let registry = self.registry.read().unwrap();
         
-        // Priority to explicit type field if it exists and matches
+        // Explicit type field takes precedence if it exists and matches
         if let Some(explicit_type) = fields.get(&crate::models::block::schema::FieldName::new("type")).and_then(|v| v.as_str()) {
             let type_name = crate::models::block::schema::TypeName::new(explicit_type);
             if let Some(definition) = registry.get(&type_name) {

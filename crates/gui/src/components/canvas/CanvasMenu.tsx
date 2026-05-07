@@ -51,8 +51,7 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
         }
       });
 
-      const metadata = JSON.stringify(initialFields);
-      await workspaceService.createBlock('', metadata);
+      await workspaceService.createBlock(initialFields);
       
       onCreated();
       onClose();

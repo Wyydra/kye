@@ -19,8 +19,8 @@ widgetRegistry.register('text', ({ blueprint, metadata }) => {
   );
 });
 
-widgetRegistry.register('markdown', ({ blueprint, metadata, block }) => {
-  const mdContent = resolveProp(blueprint, metadata, 'value') || block.content;
+widgetRegistry.register('markdown', ({ blueprint, metadata }) => {
+  const mdContent = resolveProp(blueprint, metadata, 'value');
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none w-full">
       {mdContent ? (

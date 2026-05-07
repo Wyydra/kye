@@ -14,32 +14,29 @@ export function useBlock(block: Block, onRefresh?: () => void) {
     setEditingBlockId(val ? block.id : null);
   }, [block.id, setEditingBlockId]);
   
-  // Parse metadata
-  const meta = useMemo(() => {
-    try { return JSON.parse(block.metadata); } catch { return {}; }
-  }, [block.metadata]);
+  // Access fields directly
+  const fields = block.fields;
 
   // Sync position to global store (for edges)
   useEffect(() => {
-    if (meta._x !== undefined && meta._y !== undefined) {
+    if (fields._x !== undefined && fields._y !== undefined) {
       updateNodeState(block.id, {
-        x: meta._x,
-        y: meta._y,
-        width: meta._width ?? 300,
-        height: meta._height ?? 200
+        x: fields._x,
+        y: fields._y,
+        width: fields._width ?? 300,
+        height: fields._height ?? 200
       });
     }
-  }, [block.id, meta._x, meta._y, meta._width, meta._height, updateNodeState]);
+  }, [block.id, fields._x, fields._y, fields._width, fields._height, updateNodeState]);
 
-  const save = useCallback(async (content?: string, metadataUpdate?: Record<string, any>) => {
-    const newContent = content ?? block.content;
-    const newMeta = metadataUpdate ? JSON.stringify({ ...meta, ...metadataUpdate }) : block.metadata;
+  const save = useCallback(async (fieldsUpdate?: Record<string, any>) => {
+    const newFields = fieldsUpdate ? { ...fields, ...fieldsUpdate } : fields;
     
-    if (newContent !== block.content || newMeta !== block.metadata) {
-      await workspaceService.updateBlock(block.id, newContent, newMeta);
+    if (JSON.stringify(newFields) !== JSON.stringify(fields)) {
+      await workspaceService.updateBlock(block.id, newFields);
       onRefresh?.();
     }
-  }, [block.id, block.content, block.metadata, meta, onRefresh]);
+  }, [block.id, fields, onRefresh]);
 
   const select = useCallback(() => setSelectedNodeId(block.id), [block.id, setSelectedNodeId]);
   const toggleEdit = useCallback(() => setIsEditing(!isEditing), [isEditing]);
@@ -48,7 +45,7 @@ export function useBlock(block: Block, onRefresh?: () => void) {
     isSelected,
     isEditing,
     setIsEditing,
-    meta,
+    fields,
     select,
     toggleEdit,
     save

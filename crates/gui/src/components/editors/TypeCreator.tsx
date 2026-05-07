@@ -17,10 +17,7 @@ interface FieldRow {
 
 export const TypeCreator: React.FC<TypeCreatorProps> = ({ onClose, onSuccess }) => {
   const [name, setName] = useState('');
-  const [fields, setFields] = useState<FieldRow[]>([
-    { id: '1', name: 'title', type: 'string' },
-    { id: '2', name: 'body', type: 'markdown' },
-  ]);
+  const [fields, setFields] = useState<FieldRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,9 +49,12 @@ export const TypeCreator: React.FC<TypeCreatorProps> = ({ onClose, onSuccess }) 
     try {
       const definition: TypeDefinitionDto = {
         fields: fields.reduce((acc, f) => {
-          acc[f.name.trim()] = f.type;
+          acc[f.name.trim()] = {
+            type: { kind: f.type },
+            required: true
+          };
           return acc;
-        }, {} as Record<string, FieldType>),
+        }, {} as TypeDefinitionDto['fields']),
         // Default layout: a vertical stack of all fields
         layout: {
           type: 'stack',
@@ -138,35 +138,43 @@ export const TypeCreator: React.FC<TypeCreatorProps> = ({ onClose, onSuccess }) 
             </div>
 
             <div className="space-y-3">
-              {fields.map((field) => (
-                <div key={field.id} className="flex items-center gap-3 group">
-                  <div className="flex-1 flex items-center gap-2 bg-secondary/30 border rounded-lg p-1">
-                    <input
-                      type="text"
-                      value={field.name}
-                      onChange={(e) => updateField(field.id, { name: e.target.value })}
-                      placeholder="Nom du champ"
-                      className="flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none font-medium"
-                    />
-                    <div className="h-4 w-[1px] bg-border mx-1" />
-                    <select
-                      value={field.type}
-                      onChange={(e) => updateField(field.id, { type: e.target.value as FieldType })}
-                      className="bg-transparent px-3 py-2 text-sm focus:outline-none font-bold text-primary appearance-none cursor-pointer"
-                    >
-                      {fieldTypes.map(t => (
-                        <option key={t} value={t}>{t.toUpperCase()}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => removeField(field.id)}
-                    className="p-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+              {fields.length === 0 ? (
+                <div className="py-8 border border-dashed rounded-xl flex flex-col items-center justify-center bg-secondary/10 text-muted-foreground animate-in fade-in duration-300">
+                  <Layout className="h-8 w-8 mb-2 opacity-20" />
+                  <p className="text-sm font-medium">Aucun champ défini</p>
+                  <p className="text-[10px]">Cliquez sur "Ajouter un champ" pour commencer</p>
                 </div>
-              ))}
+              ) : (
+                fields.map((field) => (
+                  <div key={field.id} className="flex items-center gap-3 group">
+                    <div className="flex-1 flex items-center gap-2 bg-secondary/30 border rounded-lg p-1">
+                      <input
+                        type="text"
+                        value={field.name}
+                        onChange={(e) => updateField(field.id, { name: e.target.value })}
+                        placeholder="Nom du champ"
+                        className="flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none font-medium"
+                      />
+                      <div className="h-4 w-[1px] bg-border mx-1" />
+                      <select
+                        value={field.type}
+                        onChange={(e) => updateField(field.id, { type: e.target.value as FieldType })}
+                        className="bg-transparent px-3 py-2 text-sm focus:outline-none font-bold text-primary appearance-none cursor-pointer"
+                      >
+                        {fieldTypes.map(t => (
+                          <option key={t} value={t}>{t.toUpperCase()}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => removeField(field.id)}
+                      className="p-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
