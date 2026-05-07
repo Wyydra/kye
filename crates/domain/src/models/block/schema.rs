@@ -21,6 +21,10 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Value::None)
+    }
 }
 
 impl PartialEq for Value {

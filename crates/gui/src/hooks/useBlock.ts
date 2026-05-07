@@ -3,7 +3,7 @@ import { Block } from '../types/workspace';
 import { useCanvasStore } from './useCanvasStore';
 import { workspaceService } from '../services/WorkspaceService';
 
-export function useBlock(block: Block) {
+export function useBlock(block: Block, onRefresh?: () => void) {
   const isSelected = useCanvasStore(state => state.selectedNodeId === block.id);
   const isEditing = useCanvasStore(state => state.editingBlockId === block.id);
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
@@ -21,15 +21,15 @@ export function useBlock(block: Block) {
 
   // Sync position to global store (for edges)
   useEffect(() => {
-    if (meta.x !== undefined && meta.y !== undefined) {
+    if (meta._x !== undefined && meta._y !== undefined) {
       updateNodeState(block.id, {
-        x: meta.x,
-        y: meta.y,
-        width: meta.width ?? 300,
-        height: meta.height ?? 200
+        x: meta._x,
+        y: meta._y,
+        width: meta._width ?? 300,
+        height: meta._height ?? 200
       });
     }
-  }, [block.id, meta.x, meta.y, meta.width, meta.height, updateNodeState]);
+  }, [block.id, meta._x, meta._y, meta._width, meta._height, updateNodeState]);
 
   const save = useCallback(async (content?: string, metadataUpdate?: Record<string, any>) => {
     const newContent = content ?? block.content;
@@ -37,8 +37,9 @@ export function useBlock(block: Block) {
     
     if (newContent !== block.content || newMeta !== block.metadata) {
       await workspaceService.updateBlock(block.id, newContent, newMeta);
+      onRefresh?.();
     }
-  }, [block.id, block.content, block.metadata, meta]);
+  }, [block.id, block.content, block.metadata, meta, onRefresh]);
 
   const select = useCallback(() => setSelectedNodeId(block.id), [block.id, setSelectedNodeId]);
   const toggleEdit = useCallback(() => setIsEditing(!isEditing), [isEditing]);

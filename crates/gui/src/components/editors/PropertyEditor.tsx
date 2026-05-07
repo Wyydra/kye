@@ -21,7 +21,7 @@ import { useWorkspace } from '../../context/WorkspaceContext';
 import type { FieldDefinitionDto } from '../../types/workspace';
 import { cn } from '../../lib/utils';
 
-const SYSTEM_FIELDS = new Set(['id', 'title', 'x', 'y', 'width', 'height', 'type']);
+const SYSTEM_FIELDS = new Set(['id']);
 
 interface PropertyEditorProps {
   blockType?: string;
@@ -256,7 +256,7 @@ export const PropertyEditor = memo(function PropertyEditor({
   }, [metadata, onMetadataChange]);
 
   const templateFields = useMemo(() =>
-    templateDef?.fields.filter(f => !SYSTEM_FIELDS.has(f.name)) ?? []
+    templateDef?.fields.filter(f => !SYSTEM_FIELDS.has(f.name) && !f.name.startsWith('_')) ?? []
     , [templateDef]);
 
   const templateFieldNames = useMemo(() =>
@@ -265,7 +265,7 @@ export const PropertyEditor = memo(function PropertyEditor({
 
   const orphanFields = useMemo(() =>
     Object.keys(metadata).filter(k =>
-      !SYSTEM_FIELDS.has(k) && !templateFieldNames.has(k)
+      !SYSTEM_FIELDS.has(k) && !templateFieldNames.has(k) && !k.startsWith('_')
     )
     , [metadata, templateFieldNames]);
 

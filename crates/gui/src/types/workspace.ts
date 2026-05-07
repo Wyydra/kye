@@ -1,5 +1,6 @@
 export interface Block {
   id: string;
+  title: string;
   content: string;
   metadata: string;
   shapes: string[];

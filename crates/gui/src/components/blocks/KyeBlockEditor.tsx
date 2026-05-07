@@ -78,13 +78,15 @@ const EditorChrome = ({
  * Main Universal Editor Component
  */
 export const KyeBlockEditor = ({ block, anchor, isPopup, onClose, onRefresh }: KyeBlockEditorProps) => {
-  const primaryType = useMemo(() => 
-    block.shapes.find(s => s !== 'text') ?? block.shapes[0] ?? 'text'
-  , [block.shapes]);
-
   const [metadata, setMetadata] = useState(() => {
-    try { return JSON.parse(block.metadata); } catch { return {}; }
+    let base = {};
+    try { base = JSON.parse(block.metadata); } catch { base = {}; }
+    return { ...base, title: block.title, body: block.content };
   });
+
+  const primaryType = useMemo(() => 
+    metadata._shape ?? block.shapes.find(s => s !== 'text') ?? block.shapes[0] ?? 'text'
+  , [block.shapes, metadata._shape]);
 
   const handleSave = useCallback(async () => {
     const metaStr = JSON.stringify(metadata);

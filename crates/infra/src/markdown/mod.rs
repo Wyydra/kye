@@ -40,103 +40,101 @@ impl DirectoryWorkspaceRepository {
 }
 
 impl DirectoryWorkspaceRepository {
-    fn separate_fields(&self, fields: &domain::models::block::schema::Fields) -> (domain::models::block::schema::Fields, domain::models::block::schema::Fields) {
-        let mut system = domain::models::block::schema::Fields::new();
-        let mut content = domain::models::block::schema::Fields::new();
-        
-        for (name, value) in fields.iter() {
-            let name_str = name.to_string();
-            // Fields starting with _ or specific layout/system fields are hidden in JSON
-            if name_str.starts_with('_') || ["x", "y", "width", "height", "type"].contains(&name_str.as_str()) {
-                system.insert(name.clone(), value.clone());
-            } else {
-                content.insert(name.clone(), value.clone());
-            }
-        }
-        (system, content)
-    }
-
-    fn map_from_markdown(
-        &self,
-        base_fields: domain::models::block::schema::Fields,
-        body: String,
-        sections: std::collections::BTreeMap<String, String>,
-    ) -> domain::models::block::schema::Fields {
-        let mut fields = base_fields.clone();
-        
-        if !body.is_empty() {
-            fields.insert(
-                domain::models::block::schema::FieldName::new("body"),
-                domain::models::block::schema::Value::String(body)
-            );
-        }
-
+    fn map_from_markdown(&self, mut fields: domain::models::block::schema::Fields, body: String, sections: std::collections::BTreeMap<String, String>, _registry: &domain::models::block::type_registry::TypeRegistry) -> domain::models::block::schema::Fields {
+        // 1. If we have sections, map them to fields
         for (title, content) in sections {
             fields.insert(
                 domain::models::block::schema::FieldName::new(&title), 
                 domain::models::block::schema::Value::String(content)
             );
         }
+
+        // 2. Ensure title exists (Natural H2 model)
+        if fields.get(&domain::models::block::schema::FieldName::new("title")).is_none() {
+            fields.insert(
+                domain::models::block::schema::FieldName::new("title"),
+                domain::models::block::schema::Value::String("Untitled".to_string())
+            );
+        }
+
+        // 3. Ensure label exists
+        if fields.get(&domain::models::block::schema::FieldName::new("label")).is_none() {
+            fields.insert(
+                domain::models::block::schema::FieldName::new("label"),
+                domain::models::block::schema::Value::String("".to_string())
+            );
+        }
+
+        // 4. Ensure body exists
+        fields.insert(
+            domain::models::block::schema::FieldName::new("body"), 
+            domain::models::block::schema::Value::String(body)
+        );
         
         fields
     }
 
-    fn map_to_markdown(
-        &self,
-        fields: &domain::models::block::schema::Fields,
-    ) -> (String, std::collections::BTreeMap<String, String>, domain::models::block::schema::Fields) {
-        let mut body = String::new();
-        let mut sections = std::collections::BTreeMap::new();
-        let mut frontmatter_fields = domain::models::block::schema::Fields::new();
-
-        for (name, value) in fields.iter() {
-            let name_str = name.to_string();
-            if name_str == "title" { continue; }
-
-            match value {
-                domain::models::block::schema::Value::String(s) => {
-                    if name_str == "body" || name_str == "content" {
-                        body = s.clone();
-                    } else if s.contains('\n') || s.len() > 100 {
-                        sections.insert(name_str, s.clone());
-                    } else {
-                        frontmatter_fields.insert(name.clone(), value.clone());
-                    }
-                }
-                _ => {
-                    frontmatter_fields.insert(name.clone(), value.clone());
-                }
-            }
-        }
-        
-        (body, sections, frontmatter_fields)
-    }
-
     fn parse_markdown_segments(&self, content: &str) -> (String, std::collections::BTreeMap<String, String>) {
         let mut sections = std::collections::BTreeMap::new();
-        let mut body;
+        let mut body = String::new();
+        
+        let arena = Arena::new();
+        let options = Options::default();
+        let root = parse_document(&arena, content, &options);
 
-        let parts: Vec<&str> = content.split("\n### ").collect();
-        if parts.len() > 1 {
-            body = parts[0].trim().to_string();
-            for part in &parts[1..] {
-                if let Some((title, content)) = part.split_once('\n') {
-                    sections.insert(title.trim().to_string(), content.trim().to_string());
-                } else {
-                    sections.insert(part.trim().to_string(), String::new());
+        let mut current_section: Option<String> = None;
+        let mut current_buffer = String::new();
+        let mut found_title = false;
+
+        for node in root.children() {
+            let n = node.data.borrow();
+            match &n.value {
+                NodeValue::Heading(h) if h.level == 2 && !found_title => {
+                    // First H2 is the TITLE
+                    let mut title = String::new();
+                    for child in node.children() {
+                        let c = child.data.borrow();
+                        if let NodeValue::Text(t) = &c.value {
+                            title.push_str(t);
+                        }
+                    }
+                    sections.insert("title".to_string(), title.trim().to_string());
+                    found_title = true;
+                }
+                NodeValue::Heading(h) if h.level >= 3 => {
+                    // H3 or lower are FIELDS
+                    // Save previous section/body
+                    if let Some(key) = current_section.take() {
+                        sections.insert(key, current_buffer.trim().to_string());
+                        current_buffer.clear();
+                    } else if !current_buffer.trim().is_empty() {
+                        body = current_buffer.trim().to_string();
+                        current_buffer.clear();
+                    }
+
+                    // Extract heading text for new field
+                    let mut field_name = String::new();
+                    for child in node.children() {
+                        let c = child.data.borrow();
+                        if let NodeValue::Text(t) = &c.value {
+                            field_name.push_str(t);
+                        }
+                    }
+                    current_section = Some(field_name.trim().to_string());
+                }
+                _ => {
+                    let mut text = String::new();
+                    format_commonmark(node, &options, &mut text).unwrap_or_default();
+                    current_buffer.push_str(&text);
                 }
             }
-        } else {
-            body = content.trim().to_string();
         }
 
-        // Clean title heading if present
-        if body.starts_with("## ") {
-            if let Some(newline_idx) = body.find('\n') {
-                body = body[newline_idx..].trim().to_string();
-            } else {
-                body = String::new();
-            }
+        // Final cleanup
+        if let Some(key) = current_section {
+            sections.insert(key, current_buffer.trim().to_string());
+        } else if !current_buffer.trim().is_empty() {
+            body = current_buffer.trim().to_string();
         }
 
         (body, sections)
@@ -145,28 +143,63 @@ impl DirectoryWorkspaceRepository {
     fn render_block_to_markdown(&self, block: &domain::models::block::Block, _registry: &domain::models::block::type_registry::TypeRegistry) -> String {
         let mut draft = String::new();
         
-        let (system, content) = self.separate_fields(block.fields());
-        let (body, sections, extra_meta) = self.map_to_markdown(&content);
-        
-        let mut meta_fields = system.clone();
-        for (name, val) in extra_meta.iter() {
-            meta_fields.insert(name.clone(), val.clone());
+        let mut json_fields = domain::models::block::schema::Fields::new();
+        let mut markdown_fields = Vec::new();
+
+        for (name, value) in block.fields().iter() {
+            let name_str = name.to_string();
+            
+            // Structural/Private fields go to JSON
+            let is_technical = name_str == "id" || name_str.starts_with('_');
+
+            if is_technical {
+                json_fields.insert(name.clone(), value.clone());
+            } else {
+                // Public data fields go to Markdown body
+                // SKIP null values for clean Markdown
+                if !value.is_none() {
+                    markdown_fields.push((name_str, value.to_string().trim_matches('"').to_string()));
+                }
+            }
         }
 
-        let meta_json = crate::metadata::render_json(block.id(), &meta_fields);
+        // 1. Render JSON metadata comment
+        let meta_json = crate::metadata::render_json(block.id(), &json_fields);
         draft.push_str(&format!("<!-- {} -->\n", meta_json));
-        
-        let title = block.fields().get(&domain::models::block::schema::FieldName::new("title"))
-            .and_then(|v| if let domain::models::block::schema::Value::String(s) = v { Some(s.as_str()) } else { None })
-            .unwrap_or("Sans titre");
-        
-        draft.push_str(&format!("## {}\n", title));
-        
-        if !body.is_empty() { draft.push_str(&format!("{}\n", body)); }
-        
-        for (title, content) in sections {
-            draft.push_str(&format!("\n### {}\n{}\n", title, content));
+
+        // 2. Render Markdown content
+        // Order: Title (H2), Body (Raw), Fields (H3)
+        let mut title = String::new();
+        let mut main_content = String::new();
+        let mut other_sections = Vec::new();
+
+        for (name, content) in markdown_fields {
+            if name == "title" {
+                title = content;
+            } else if name == "body" {
+                main_content = content;
+            } else if !content.is_empty() {
+                other_sections.push((name, content));
+            }
         }
+
+        // Write Title
+        if !title.is_empty() {
+            draft.push_str(&format!("## {}\n", title));
+        } else {
+            draft.push_str("## Untitled\n");
+        }
+
+        // Write main content (body)
+        if !main_content.is_empty() {
+            draft.push_str(&format!("\n{}\n", main_content));
+        }
+
+        // Write other sections
+        for (name, content) in other_sections {
+            draft.push_str(&format!("\n### {}\n\n{}\n", name, content));
+        }
+        
         draft.push_str("\n");
         draft
     }
@@ -216,7 +249,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                                 if let Some(id) = current_block_id.take() {
                                     let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone()).get_fields().unwrap_or_default();
                                     let (body, sections) = self.parse_markdown_segments(&current_content);
-                                    let fields = self.map_from_markdown(fields, body, sections);
+                                    let fields = self.map_from_markdown(fields, body, sections, _registry);
                                     
                                     let block = domain::models::block::Block::new(id, fields);
                                     blocks_map.insert(id, block);
@@ -247,7 +280,7 @@ impl WorkspaceRepository for DirectoryWorkspaceRepository {
                 if let Some(id) = current_block_id.take() {
                     let fields = crate::metadata::JsonMetadataProvider(current_metadata.clone()).get_fields().unwrap_or_default();
                     let (body, sections) = self.parse_markdown_segments(&current_content);
-                    let fields = self.map_from_markdown(fields, body, sections);
+                    let fields = self.map_from_markdown(fields, body, sections, _registry);
                     let block = domain::models::block::Block::new(id, fields);
                     blocks_map.insert(id, block);
                     new_index.insert(id, path.to_path_buf());

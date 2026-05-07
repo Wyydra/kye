@@ -1,2 +1,3 @@
-import './LinkRenderer';
+import './ConnectionRenderer';
+import './widgets';
 export {};

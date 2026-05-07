@@ -56,17 +56,25 @@ where
     }
     
     pub async fn refresh_types(&self) -> anyhow::Result<()> {
-        let new_types = match self.type_repo.load_types().await {
+        let disk_types = match self.type_repo.load_types().await {
             Ok(t) => t,
             Err(e) => {
                 tracing::error!("Failed to load types: {}", e);
                 return Err(e);
             }
         };
+
         let mut registry = self.registry.write().map_err(|_| anyhow::anyhow!("Poison error"))?;
-        for (name, definition) in new_types {
-            registry.register(name, definition);
+        
+        // Re-initialize registry to clear deleted types while keeping StandardLibrary
+        let mut new_registry = TypeRegistry::new();
+        StandardLibrary::init(&mut new_registry);
+        
+        for (name, definition) in disk_types {
+            new_registry.register(name, definition);
         }
+        
+        *registry = new_registry;
         Ok(())
     }
 

@@ -19,9 +19,15 @@ export function useWorkspace() {
         workspaceService.getWorkspacePath(),
         workspaceService.getTemplates(),
       ]);
-      setWorkspace(data);
+      setWorkspace(prev => {
+        const nextStr = JSON.stringify(data);
+        return JSON.stringify(prev) === nextStr ? prev : data;
+      });
       setWorkspacePath(path);
-      setTemplates(tmpl);
+      setTemplates(prev => {
+        const nextStr = JSON.stringify(tmpl);
+        return JSON.stringify(prev) === nextStr ? prev : tmpl;
+      });
       setError(null);
     } catch (err) {
       console.error('Failed to fetch workspace:', err);

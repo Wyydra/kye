@@ -65,18 +65,32 @@ pub async fn delete_block(
 }
 
 #[tauri::command]
-pub fn get_block_types(state: tauri::State<'_, AppState>) -> Vec<String> {
-    state.service().map(|s| s.get_block_types()).unwrap_or_default()
+pub async fn get_block_types(state: tauri::State<'_, AppState>) -> AppResult<Vec<String>> {
+    let service = match state.service() {
+        Some(s) => s,
+        None => return Ok(vec![]),
+    };
+    
+    if let Err(e) = service.refresh_types().await {
+        tracing::warn!("Failed to refresh types: {}", e);
+    }
+    
+    Ok(service.get_block_types())
 }
 
 #[tauri::command]
-pub fn get_templates(state: tauri::State<'_, AppState>) -> Vec<TemplateDto> {
+pub async fn get_templates(state: tauri::State<'_, AppState>) -> AppResult<Vec<TemplateDto>> {
     let service = match state.service() {
         Some(s) => s,
-        None => return vec![],
+        None => return Ok(vec![]),
     };
     
-    service.get_block_types().into_iter().filter_map(|name| {
+    // Refresh from disk to handle manual file deletions/modifications
+    if let Err(e) = service.refresh_types().await {
+        tracing::warn!("Failed to refresh types: {}", e);
+    }
+    
+    let result = service.get_block_types().into_iter().filter_map(|name| {
         let def = service.get_type_definition(&name)?;
         let fields = def.fields.iter().map(|(fname, ftype)| FieldDefinitionDto {
             name: fname.to_string(),
@@ -87,7 +101,9 @@ pub fn get_templates(state: tauri::State<'_, AppState>) -> Vec<TemplateDto> {
             fields,
             layout: def.layout.map(|l| l.into()),
         })
-    }).collect()
+    }).collect();
+    
+    Ok(result)
 }
 
 #[tauri::command]

@@ -39,10 +39,11 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
   const handleSelect = async (template: TemplateDto) => {
     try {
       const initialFields: Record<string, any> = {
-        x: Math.round(worldX),
-        y: Math.round(worldY),
-        width: 300,
-        height: 200,
+        _x: Math.round(worldX),
+        _y: Math.round(worldY),
+        _width: 300,
+        _height: 200,
+        _shape: template.name,
       };
 
       template.fields.forEach(field => {

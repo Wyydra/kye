@@ -60,12 +60,13 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     workspace.blocks.forEach(block => {
       try {
         const meta = JSON.parse(block.metadata);
-        if (meta.x !== undefined && meta.y !== undefined) {
+        // Use prefixed fields (_x, _y, _width, _height)
+        if (meta._x !== undefined && meta._y !== undefined) {
           states[block.id] = {
-            x: meta.x,
-            y: meta.y,
-            width: meta.width ?? 300,
-            height: meta.height ?? 200
+            x: meta._x,
+            y: meta._y,
+            width: meta._width ?? 300,
+            height: meta._height ?? 200
           };
         }
       } catch {}
@@ -80,31 +81,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
     openMenuAt(e.clientX - rect.left, e.clientY - rect.top);
   }, [openMenuAt]);
 
-  // Split blocks into nodes and edges
-  const { nodes, edges } = useMemo(() => {
-    const nodes: Block[] = [];
-    const edges: Array<{ id: string, source: string, target: string, content: string }> = [];
-    
-    workspace?.blocks.forEach(block => {
-      try {
-        const meta = JSON.parse(block.metadata);
-        if (meta.from && meta.to) {
-          edges.push({
-            id: block.id,
-            source: meta.from,
-            target: meta.to,
-            content: block.content,
-          });
-        } else if (!meta.parent) {
-          nodes.push(block);
-        }
-      } catch {
-        nodes.push(block);
-      }
-    });
-    
-    return { nodes, edges };
-  }, [workspace]);
+  // No more manual split! The canvas is universal.
 
   // Global listeners for connection drafting
   useEffect(() => {
@@ -217,6 +194,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
               <KyeBlock 
                 key={`${block.id}-svg`} 
                 block={block} 
+                templates={templates}
                 layer="svg"
                 onRefresh={onRefresh}
               />
@@ -229,6 +207,7 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
           <KyeBlock 
             key={`${block.id}-html`} 
             block={block} 
+            templates={templates}
             layer="html"
             zoom={viewport.zoom}
             onRefresh={onRefresh}
