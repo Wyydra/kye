@@ -7,31 +7,39 @@ import { cn } from '../../../lib/utils';
 /**
  * Unified Connection Renderer (Arrows between blocks)
  */
-export const ConnectionRenderer = React.memo(({ block, isSelected, isEditing, setIsEditing, onSelect }: BlockRendererProps) => {
+export const ConnectionRenderer = React.memo(({ block, isSelected, onSelect }: BlockRendererProps) => {
   const nodeStates = useCanvasStore(state => state.nodeStates);
 
   const meta = useMemo(() => {
     try { return JSON.parse(block.metadata); } catch { return {}; }
   }, [block.metadata]);
 
-  // Support both meta.label and block.content (for backward compat)
-  const label = meta.label || block.content;
-  const source = nodeStates[meta.from];
-  const target = nodeStates[meta.to];
+  // Normalize node states with defaults to prevent NaN in geometry
+  const source = useMemo(() => {
+    const s = nodeStates[meta.from];
+    if (!s) return null;
+    return { x: s.x || 0, y: s.y || 0, width: s.width || 300, height: s.height || 200 };
+  }, [nodeStates, meta.from]);
 
-  const { pathData, midPoint, angle } = useMemo(() => {
-    if (!source || !target) return { pathData: '', midPoint: { x: 0, y: 0 }, angle: 0 };
+  const target = useMemo(() => {
+    const t = nodeStates[meta.to];
+    if (!t) return null;
+    return { x: t.x || 0, y: t.y || 0, width: t.width || 300, height: t.height || 200 };
+  }, [nodeStates, meta.to]);
+
+  const { pathData } = useMemo(() => {
+    if (!source || !target) return { pathData: '' };
     
     const p1 = getEdgePoint(source, target);
     const p2 = getEdgePoint(target, source);
-
-    // Calculate angle for better label orientation (optional)
-    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+    
+    // Safety check to prevent NaN paths
+    if (isNaN(p1.x) || isNaN(p1.y) || isNaN(p2.x) || isNaN(p2.y)) {
+      return { pathData: '' };
+    }
 
     return {
-      pathData: getBezierPath(p1, p2),
-      midPoint: getBezierMidpoint(p1, p2),
-      angle
+      pathData: getBezierPath(p1, p2)
     };
   }, [source, target]);
 
@@ -77,41 +85,18 @@ export const ConnectionRenderer = React.memo(({ block, isSelected, isEditing, se
         style={{ pointerEvents: 'none' }}
       />
 
-      {/* Label Badge */}
-      {label && (
-        <g 
-          transform={`translate(${midPoint.x}, ${midPoint.y})`}
-          className="cursor-pointer"
-          style={{ pointerEvents: 'auto' }}
+      <defs>
+        <marker
+          id="arrowhead"
+          markerWidth="10"
+          markerHeight="7"
+          refX="9"
+          refY="3.5"
+          orient="auto"
         >
-          {/* Glassmorphism Background */}
-          <rect
-            x="-45" y="-10" width="90" height="20"
-            rx="10"
-            fill="var(--background)"
-            fillOpacity="0.8"
-            stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--border))"}
-            strokeWidth={isSelected ? "1.5" : "1"}
-            className="shadow-lg backdrop-blur-md transition-all duration-300"
-          />
-          
-          {/* Label text */}
-          <text
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={isSelected ? "hsl(var(--primary))" : "hsl(var(--foreground))"}
-            className="select-none pointer-events-none transition-colors"
-            style={{ 
-              fontSize: '8px', 
-              fontWeight: '900',
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em'
-            }}
-          >
-            {label}
-          </text>
-        </g>
-      )}
+          <polygon points="0 0, 10 3.5, 0 7" className="fill-primary" />
+        </marker>
+      </defs>
     </g>
   );
 });
@@ -119,7 +104,7 @@ export const ConnectionRenderer = React.memo(({ block, isSelected, isEditing, se
 // Auto-registration
 blockRegistry.register({
   priority: 200, 
-  match: (block, meta) => block.shapes.includes('connection') || (!!meta.from && !!meta.to),
+  match: (block) => block.shapes.includes('connection'),
   svg: ConnectionRenderer,
   editorMode: 'popup',
   features: {

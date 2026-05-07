@@ -43,7 +43,6 @@ export const CanvasMenu: React.FC<CanvasMenuProps> = ({
         _y: Math.round(worldY),
         _width: 300,
         _height: 200,
-        _shape: template.name,
       };
 
       template.fields.forEach(field => {

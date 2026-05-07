@@ -106,12 +106,17 @@ export const KyeCanvas = memo(function KyeCanvas({ workspace, templates, onRefre
         const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement;
         const nodeEl = element?.closest('[data-node-id]');
         const targetId = nodeEl?.getAttribute('data-node-id');
-        const currentSourceId = useCanvasStore.getState().connectionDraft?.sourceId;
+        const connectionDraft = useCanvasStore.getState().connectionDraft;
+        const currentSourceId = connectionDraft?.sourceId;
 
         if (targetId && currentSourceId && targetId !== currentSourceId) {
           await workspaceService.createBlock(
-            "", 
-            JSON.stringify({ from: currentSourceId, to: targetId })
+            '',
+            JSON.stringify({
+              title: 'Connection',
+              from: currentSourceId,
+              to: targetId
+            })
           );
           onRefresh();
         }

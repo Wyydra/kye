@@ -4,6 +4,8 @@ export interface Block {
   content: string;
   metadata: string;
   shapes: string[];
+  fields: Record<string, any>;
+  primary_shape: string;
 }
 
 export interface Workspace {

@@ -57,15 +57,7 @@ impl DirectoryWorkspaceRepository {
             );
         }
 
-        // 3. Ensure label exists
-        if fields.get(&domain::models::block::schema::FieldName::new("label")).is_none() {
-            fields.insert(
-                domain::models::block::schema::FieldName::new("label"),
-                domain::models::block::schema::Value::String("".to_string())
-            );
-        }
-
-        // 4. Ensure body exists
+        // 3. Ensure body exists
         fields.insert(
             domain::models::block::schema::FieldName::new("body"), 
             domain::models::block::schema::Value::String(body)
@@ -140,34 +132,44 @@ impl DirectoryWorkspaceRepository {
         (body, sections)
     }
 
-    fn render_block_to_markdown(&self, block: &domain::models::block::Block, _registry: &domain::models::block::type_registry::TypeRegistry) -> String {
+    fn render_block_to_markdown(&self, block: &domain::models::block::Block, registry: &domain::models::block::type_registry::TypeRegistry) -> String {
         let mut draft = String::new();
         
         let mut json_fields = domain::models::block::schema::Fields::new();
-        let mut markdown_fields = Vec::new();
+        let mut markdown_fields = std::collections::BTreeMap::new();
 
+        // 1. Collect ALL fields required by the block's shapes
+        let shapes = registry.identify_block_shapes(block.fields());
+        for shape_name in shapes {
+            if let Some(def) = registry.get(&shape_name) {
+                for field_name in def.fields.keys() {
+                    markdown_fields.insert(field_name.to_string(), String::new());
+                }
+            }
+        }
+
+        // 2. Merge with ACTUAL values from the block
         for (name, value) in block.fields().iter() {
             let name_str = name.to_string();
-            
-            // Structural/Private fields go to JSON
             let is_technical = name_str == "id" || name_str.starts_with('_');
 
             if is_technical {
                 json_fields.insert(name.clone(), value.clone());
             } else {
-                // Public data fields go to Markdown body
-                // SKIP null values for clean Markdown
-                if !value.is_none() {
-                    markdown_fields.push((name_str, value.to_string().trim_matches('"').to_string()));
-                }
+                let val_str = match value {
+                    domain::models::block::schema::Value::None => String::new(),
+                    domain::models::block::schema::Value::String(s) => s.clone(),
+                    v => v.to_string().trim_matches('"').to_string(),
+                };
+                markdown_fields.insert(name_str, val_str);
             }
         }
 
-        // 1. Render JSON metadata comment
+        // 3. Render JSON metadata comment
         let meta_json = crate::metadata::render_json(block.id(), &json_fields);
         draft.push_str(&format!("<!-- {} -->\n", meta_json));
 
-        // 2. Render Markdown content
+        // 4. Render Markdown content
         // Order: Title (H2), Body (Raw), Fields (H3)
         let mut title = String::new();
         let mut main_content = String::new();
@@ -178,7 +180,7 @@ impl DirectoryWorkspaceRepository {
                 title = content;
             } else if name == "body" {
                 main_content = content;
-            } else if !content.is_empty() {
+            } else {
                 other_sections.push((name, content));
             }
         }

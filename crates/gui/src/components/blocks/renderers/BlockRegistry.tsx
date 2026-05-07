@@ -27,9 +27,9 @@ export interface BlockFeatures {
 export interface RegisteredBlock {
   html?: RendererComponent;
   svg?: RendererComponent;
-  match: (block: Block, meta: any) => boolean;
+  match: (block: Block, fields: any) => boolean;
   priority: number;
-  getAnchor?: (block: Block, meta: any, nodeStates: Record<string, any>) => { x: number, y: number, width: number, height: number } | null;
+  getAnchor?: (block: Block, fields: any, nodeStates: Record<string, any>) => { x: number, y: number, width: number, height: number } | null;
   editorMode?: 'popup' | 'inline' | 'auto';
   features?: BlockFeatures;
 }
@@ -49,8 +49,8 @@ class BlockRegistry {
    * 2. Collect all templates that match (via block.shapes).
    * 3. Return the one with the highest priority.
    */
-  findConfig(block: Block, meta: any, templates: TemplateDto[] = [], layer: 'svg' | 'html' = 'html'): RegisteredBlock | null {
-    const candidates: RegisteredBlock[] = [...this.renderers.filter(r => r.match(block, meta))];
+  findConfig(block: Block, templates: TemplateDto[] = [], layer: 'svg' | 'html' = 'html'): RegisteredBlock | null {
+    const candidates: RegisteredBlock[] = [...this.renderers.filter(r => r.match(block, block.fields))];
 
     // Convert matching templates to virtual RegisteredBlocks
     if (layer === 'html') {
@@ -70,7 +70,7 @@ class BlockRegistry {
                   <UniversalRenderer
                     blueprint={template.layout}
                     block={props.block}
-                    metadata={meta}
+                    metadata={block.fields}
                     onRefresh={props.onRefresh}
                   />
                 </div>
@@ -89,21 +89,15 @@ class BlockRegistry {
   }
 
   getRenderer(block: Block, layer: 'svg' | 'html', templates: TemplateDto[] = []): RendererComponent | null {
-    let meta = {};
-    try { meta = JSON.parse(block.metadata); } catch {}
-    
-    const found = this.findConfig(block, meta, templates, layer);
+    const found = this.findConfig(block, templates, layer);
     if (!found) return null;
     
     return layer === 'svg' ? (found.svg ?? null) : (found.html ?? null);
   }
 
   getAnchor(block: Block, nodeStates: Record<string, any>, templates: TemplateDto[] = []): { x: number, y: number, width: number, height: number } | null {
-    let meta = {};
-    try { meta = JSON.parse(block.metadata); } catch {}
-    
-    const found = this.findConfig(block, meta, templates);
-    if (found?.getAnchor) return found.getAnchor(block, meta, nodeStates);
+    const found = this.findConfig(block, templates);
+    if (found?.getAnchor) return found.getAnchor(block, block.fields, nodeStates);
     
     const state = nodeStates[block.id];
     if (state) return { x: state.x, y: state.y, width: state.width, height: state.height };
@@ -112,10 +106,7 @@ class BlockRegistry {
   }
 
   getEditorMode(block: Block, nodeStates: Record<string, any>, templates: TemplateDto[] = []): 'popup' | 'inline' {
-    let meta = {};
-    try { meta = JSON.parse(block.metadata); } catch {}
-    
-    const found = this.findConfig(block, meta, templates);
+    const found = this.findConfig(block, templates);
     const mode = found?.editorMode ?? 'auto';
 
     if (mode === 'popup') return 'popup';
@@ -128,10 +119,7 @@ class BlockRegistry {
   }
 
   getFeatures(block: Block, templates: TemplateDto[] = []): BlockFeatures {
-    let meta = {};
-    try { meta = JSON.parse(block.metadata); } catch {}
-    
-    const found = this.findConfig(block, meta, templates);
+    const found = this.findConfig(block, templates);
     
     const defaults: BlockFeatures = {
       resizable: true,

@@ -30,13 +30,17 @@ impl TypeRegistry {
     }
 
     pub fn identify_block_shapes(&self, fields: &crate::models::block::schema::Fields) -> Vec<TypeName> {
-        let mut shapes = Vec::new();
+        let mut shapes: Vec<(TypeName, usize)> = Vec::new();
         for (name, definition) in &self.types {
             if definition.matches(fields, self) {
-                shapes.push(name.clone());
+                shapes.push((name.clone(), definition.fields.len()));
             }
         }
-        shapes
+        
+        // Sort by specificity (descending: more fields = more specific)
+        shapes.sort_by(|a, b| b.1.cmp(&a.1));
+        
+        shapes.into_iter().map(|(name, _)| name).collect()
     }
 
 

@@ -24,7 +24,6 @@ impl StandardLibrary {
         // Connection (An arrow between two blocks)
         let mut conn_fields = BTreeMap::new();
         conn_fields.insert(FieldName::new("title"), FieldType::String);
-        conn_fields.insert(FieldName::new("label"), FieldType::String);
         conn_fields.insert(FieldName::new("from"), FieldType::BlockId);
         conn_fields.insert(FieldName::new("to"), FieldType::BlockId);
 
