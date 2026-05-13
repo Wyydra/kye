@@ -107,21 +107,46 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
 
       // ── Flèches ───────────────────────────────────────────────────────────
       if (e.key === "ArrowUp") {
-        if (!parentNode) return;
-        const index = parentNode.children.indexOf(node.id);
+        e.preventDefault();
+        const index = parentNode?.children.indexOf(node.id) ?? -1;
+
         if (index > 0) {
-          e.preventDefault();
-          setFocusedNode(parentNode.children[index - 1]);
+          // Aller au frère précédent (ou son dernier descendant)
+          let targetId = parentNode!.children[index - 1];
+          let targetNode = graphState.nodes[targetId];
+          while (targetNode && targetNode.children.length > 0) {
+            targetId = targetNode.children[targetNode.children.length - 1];
+            targetNode = graphState.nodes[targetId];
+          }
+          setFocusedNode(targetId);
+        } else if (node.parent) {
+          // Pas de frère précédent, remonter au parent
+          setFocusedNode(node.parent);
         }
         return;
       }
 
       if (e.key === "ArrowDown") {
-        if (!parentNode) return;
-        const index = parentNode.children.indexOf(node.id);
-        if (index < parentNode.children.length - 1) {
-          e.preventDefault();
-          setFocusedNode(parentNode.children[index + 1]);
+        e.preventDefault();
+
+        if (node.children.length > 0) {
+          // Descendre vers le premier enfant
+          setFocusedNode(node.children[0]);
+        } else {
+          // Trouver le prochain frère (soit le nôtre, soit celui d'un ancêtre)
+          let currentId = node.id;
+          let currentParent = parentNode;
+
+          while (currentParent) {
+            const idx = currentParent.children.indexOf(currentId);
+            if (idx < currentParent.children.length - 1) {
+              setFocusedNode(currentParent.children[idx + 1]);
+              return;
+            }
+            // Remonter d'un niveau
+            currentId = currentParent.id;
+            currentParent = graphState.nodes[currentParent.parent || ""];
+          }
         }
         return;
       }

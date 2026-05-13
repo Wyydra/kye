@@ -53,6 +53,19 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
 
   const baseKeyDown = useBlockKeyDown({ node });
 
+  const handleConvert = useCallback(
+    (spec: any) => {
+      // Nettoyer le "/" avant la conversion
+      const cleanedProps = { ...node.props };
+      const body = cleanedProps["body"];
+      if (body?.t === "Rich" && body.v.spans[0]?.text.startsWith("/")) {
+        cleanedProps["body"] = { t: "Rich", v: { spans: [] } };
+      }
+      convertBlockType({ ...node, props: cleanedProps }, spec);
+    },
+    [node],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       // Slash menu intercepte en priorité
@@ -69,7 +82,7 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
           return;
         } else if (e.key === "Enter") {
           e.preventDefault();
-          convertBlockType(node, slashOptions[slashIndex]);
+          handleConvert(slashOptions[slashIndex]);
           return;
         } else if (e.key === "Escape") {
           e.preventDefault();
@@ -86,14 +99,19 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
       // Délègue le reste au hook commun
       baseKeyDown(e);
     },
-    [node, isSlashActive, slashOptions, slashIndex, setSlashIndex, baseKeyDown],
+    [
+      node,
+      isSlashActive,
+      slashOptions,
+      slashIndex,
+      setSlashIndex,
+      baseKeyDown,
+      handleConvert,
+    ],
   );
 
   return (
-    <div
-      className="py-1 relative"
-      onClick={() => setFocusedNode(node.id)}
-    >
+    <div className="py-1 relative" onClick={() => setFocusedNode(node.id)}>
       <RichTextEditor
         value={richText}
         onChange={handleChange}
@@ -112,7 +130,7 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
             {slashOptions.map((spec, idx) => (
               <button
                 key={spec.id}
-                onClick={() => convertBlockType(node, spec)}
+                onClick={() => handleConvert(spec)}
                 className={`w-full text-left px-3 py-2 text-sm flex items-center gap-3 transition-colors ${
                   idx === slashIndex
                     ? "bg-primary/10 text-primary"
