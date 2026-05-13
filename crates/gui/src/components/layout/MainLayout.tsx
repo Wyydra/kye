@@ -1,128 +1,141 @@
-import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  Search, 
-  Clock, 
-  Settings, 
-  Plus, 
-  LayoutGrid,
-  FolderOpen,
-  Database,
-  Layers3
-} from 'lucide-react';
-import { eventBus } from '../../lib/eventBus';
-import { cn } from '../../lib/utils';
-import { TypeManager } from '../editors/TypeManager';
+import { useEffect, useState } from "react";
+import { useGraphStore } from "../../store/graphStore";
+import { useUIStore } from "../../store/uiStore";
+import { NodeRenderer } from "../renderers/NodeRenderer";
+import { kyeService } from "../../services/kyeService";
+import { FileText, Plus, Trash2 } from "lucide-react";
+import { WorkspaceMeta } from "../../types/domain";
+import { execute } from "../../lib/commands";
 
-interface MainLayoutProps {
-  children: React.ReactNode;
-  onSelectWorkspace: () => void;
-  onRefresh: () => void;
-}
+export const MainLayout: React.FC = () => {
+  const { isLoaded, loadGraph, error, roots, nodes } = useGraphStore();
+  const { activePageId, setActivePage } = useUIStore();
+  const [meta, setMeta] = useState<WorkspaceMeta | null>(null);
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ children, onSelectWorkspace, onRefresh }) => {
-  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isTypeManagerOpen, setTypeManagerOpen] = useState(false);
+  useEffect(() => {
+    kyeService.getMeta().then(setMeta).catch(console.error);
+    loadGraph();
+  }, [loadGraph]);
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed(!isSidebarCollapsed);
-    setTimeout(() => {
-      eventBus.emit('layout:resize');
-    }, 300);
-  };
+  useEffect(() => {
+    if (roots.length > 0 && !activePageId) {
+      setActivePage(roots[0]);
+    }
+  }, [roots, activePageId, setActivePage]);
 
-  const NavItem = ({ icon: Icon, label, onClick, active = false }: any) => (
-    <button 
-      onClick={onClick}
-      className={cn(
-        "group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm font-medium transition-all",
-        active 
-          ? "bg-accent text-accent-foreground" 
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-      )}
-    >
-      <Icon className={cn("h-4 w-4 shrink-0", active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-      {!isSidebarCollapsed && <span className="truncate">{label}</span>}
-    </button>
-  );
+  if (error) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        <div className="p-6 border border-destructive/20 bg-destructive/5 rounded-xl max-w-md">
+          <h2 className="text-xl font-bold text-destructive mb-2">
+            Workspace Error
+          </h2>
+          <p className="text-sm text-destructive/80 font-mono">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground font-sans">
+    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <aside 
-        className={cn(
-          "relative flex flex-col border-r bg-secondary transition-all duration-300 ease-in-out group/sidebar",
-          isSidebarCollapsed ? "w-[60px]" : "w-[240px]"
-        )}
-      >
-        {/* User / Workspace Selector */}
-        <div className="flex items-center gap-2 p-4 mb-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary text-[10px] font-bold text-primary-foreground">
-            K
+      <div className="w-64 border-r border-border bg-muted/20 flex flex-col">
+        <div className="p-4 border-b border-border/50">
+          <h1 className="font-semibold text-sm truncate">
+            {meta?.name || "Kye Workspace"}
+          </h1>
+        </div>
+        <div className="p-2 flex-1 overflow-y-auto">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2 mt-4">
+            Pages
           </div>
-          {!isSidebarCollapsed && (
-            <span className="text-sm font-semibold truncate">Kye Workspace</span>
-          )}
+          <div className="space-y-0.5">
+            {roots.map((id) => {
+              const node = nodes[id];
+              const titleProp = node?.props["title"];
+              const title = titleProp?.t === "Text" ? titleProp.v : "Untitled";
+              const isActive = activePageId === id;
+
+              return (
+                <div key={id} className="group relative">
+                  <button
+                    onClick={() => setActivePage(id)}
+                    className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-2 ${
+                      isActive
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-foreground/80 hover:bg-muted/50"
+                    }`}
+                  >
+                    <FileText className="w-4 h-4 opacity-70" />
+                    <span className="truncate pr-6">{title}</span>
+                  </button>
+
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete "${title}"?`)) {
+                        await execute({
+                          type: "delete_node",
+                          id,
+                          cascade: true,
+                        });
+                        if (isActive) setActivePage(null);
+                      }
+                    }}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-all"
+                    title="Delete page"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Navigation Content */}
-        <div className="flex-1 px-3 space-y-6 overflow-y-auto">
-          {/* Main Actions */}
-          <div className="space-y-1">
-            <NavItem icon={Search} label="Search" onClick={() => {}} />
-            <NavItem icon={Clock} label="Recent" onClick={() => {}} />
-            <NavItem icon={Settings} label="Settings" onClick={() => {}} />
-          </div>
-
-          {/* Workspace Section */}
-          <div className="space-y-1">
-            {!isSidebarCollapsed && (
-              <h3 className="px-2 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                Workspace
-              </h3>
-            )}
-            <NavItem icon={LayoutGrid} label="All Blocks" onClick={onRefresh} active={true} />
-            <NavItem icon={Layers3} label="Types Manager" onClick={() => setTypeManagerOpen(true)} />
-            <NavItem icon={FolderOpen} label="Open Folder" onClick={onSelectWorkspace} />
-          </div>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="p-3 border-t bg-secondary/50">
-          <button 
-            onClick={() => eventBus.emit('canvas:menu:open')}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-md bg-foreground text-background py-2 px-3 text-sm font-bold shadow-sm transition-all hover:opacity-90 active:scale-95",
-              isSidebarCollapsed ? "justify-center px-0" : "justify-start"
-            )}
+        {/* Create Button at the bottom of sidebar */}
+        <div className="p-4 mt-auto border-t border-border/50">
+          <button
+            onClick={async () => {
+              const id = crypto.randomUUID();
+              await execute({
+                type: "create_node",
+                id,
+                kind: "core.page",
+                parent_id: null,
+                index: roots.length,
+                props: {
+                  title: { t: "Text", v: "New Page" },
+                },
+              });
+              setActivePage(id);
+            }}
+            className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
-            <Plus className="h-4 w-4" />
-            {!isSidebarCollapsed && <span>New Node</span>}
+            <Plus className="w-4 h-4" /> New Page
           </button>
         </div>
+      </div>
 
-        {/* Collapse Toggle - Only visible on hover of sidebar or when collapsed */}
-        <button 
-          onClick={toggleSidebar}
-          className={cn(
-            "absolute -right-3 top-12 z-20 flex h-6 w-6 items-center justify-center rounded-full border bg-background shadow-sm transition-all hover:scale-110 opacity-0 group-hover/sidebar:opacity-100",
-            isSidebarCollapsed && "opacity-100 right-[-12px]"
-          )}
-        >
-          <ChevronLeft className={cn("h-3 w-3 transition-transform", isSidebarCollapsed && "rotate-180")} />
-        </button>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-hidden relative">
-        {children}
-      </main>
-
-      {isTypeManagerOpen && (
-        <TypeManager 
-          onClose={() => setTypeManagerOpen(false)} 
-        />
-      )}
+      {/* Main Content Area */}
+      <div className="flex-1 h-full overflow-y-auto relative">
+        {activePageId ? (
+          <NodeRenderer nodeId={activePageId} />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-muted-foreground flex-col gap-2">
+            <span className="text-4xl opacity-20 text-foreground">📄</span>
+            <p>Select a page or create a new one</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

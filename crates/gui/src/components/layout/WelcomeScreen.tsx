@@ -1,11 +1,13 @@
-import React from 'react';
-import { FolderOpen } from 'lucide-react';
+import React from "react";
+import { FolderOpen } from "lucide-react";
 
 interface WelcomeScreenProps {
   onSelectWorkspace: () => void;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectWorkspace }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onSelectWorkspace,
+}) => {
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background p-4">
       <div className="flex h-[500px] w-full max-w-[800px] overflow-hidden rounded-xl border bg-card shadow-2xl">
@@ -22,9 +24,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectWorkspace 
           <p className="mb-8 text-lg text-muted-foreground">
             Select a folder to get started with your graph workspace.
           </p>
-          
+
           <div className="flex flex-col gap-4">
-            <button 
+            <button
               onClick={onSelectWorkspace}
               className="flex items-center justify-start gap-3 rounded-lg border bg-secondary p-4 text-left transition-all hover:border-primary/50 hover:bg-secondary/80 group"
             >
@@ -32,8 +34,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectWorkspace 
                 <FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
               </div>
               <div>
-                <div className="font-semibold text-foreground">Open Workspace</div>
-                <div className="text-sm text-muted-foreground">Choose a local folder to open</div>
+                <div className="font-semibold text-foreground">
+                  Open Workspace
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Choose a local folder to open
+                </div>
               </div>
             </button>
           </div>

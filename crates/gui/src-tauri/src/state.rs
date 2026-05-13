@@ -2,22 +2,26 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::Emitter;
 
-use domain::ports::EventDispatcher;
+use domain::command::Event;
+use domain::ports::EventBus;
 use domain::service::Service;
-use infra::markdown::DirectoryWorkspaceRepository;
-use infra::watcher::FSWatcher;
+use infra::graph::InMemoryGraphRepository;
+use infra::kind::FileKindRepository;
 
-pub type AppService = Arc<Service<DirectoryWorkspaceRepository, DirectoryWorkspaceRepository, TauriEventDispatcher>>;
+use crate::dto::EventDto;
+
+pub type AppService = Arc<Service<InMemoryGraphRepository, FileKindRepository, TauriEventBus>>;
 
 #[derive(Clone)]
-pub struct TauriEventDispatcher {
+pub struct TauriEventBus {
     pub app_handle: tauri::AppHandle,
 }
 
-impl EventDispatcher for TauriEventDispatcher {
-    fn dispatch_workspace_updated(&self) {
-        if let Err(e) = self.app_handle.emit("workspace_updated", ()) {
-            tracing::error!("Failed to emit workspace_updated event: {}", e);
+impl EventBus for TauriEventBus {
+    fn publish(&self, event: &Event) {
+        let dto = EventDto::from(event);
+        if let Err(e) = self.app_handle.emit("kye_event", dto) {
+            tracing::error!("Failed to emit kye_event: {}", e);
         }
     }
 }
@@ -29,17 +33,14 @@ pub struct AppState {
 pub struct AppStateInner {
     pub service: Option<AppService>,
     pub workspace_path: Option<PathBuf>,
-    #[allow(dead_code)]
-    pub watcher: Option<FSWatcher>,
 }
 
 impl AppState {
-    pub fn new(service: Option<AppService>, workspace_path: Option<PathBuf>, watcher: Option<FSWatcher>) -> Self {
+    pub fn new(service: Option<AppService>, workspace_path: Option<PathBuf>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(AppStateInner {
                 service,
                 workspace_path,
-                watcher,
             })),
         }
     }

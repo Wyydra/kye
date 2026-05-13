@@ -1,0 +1,117 @@
+//! Node — unité atomique du graphe.
+
+use chrono::{DateTime, Utc};
+
+use crate::primitives::{Kind, NodeId, PropKey};
+use crate::value::{Props, Value};
+use crate::view::ViewDef;
+
+// ── Node ──────────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct Node {
+    pub id: NodeId,
+    pub kind: Kind,
+    /// `None` = node racine du graphe.
+    pub parent: Option<NodeId>,
+    /// Enfants ordonnés — l'ordre est l'ordre d'affichage dans le document.
+    pub children: Vec<NodeId>,
+    pub props: Props,
+    /// Override de vue par node — ex: database en Kanban plutôt qu'en Table.
+    /// Préférence de vue, pas changement de type.
+    pub view_override: Option<ViewDef>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl Node {
+    // ── Accesseurs ergonomiques ───────────────────────────────────────────────
+
+    pub fn prop(&self, key: &str) -> Option<&Value> {
+        self.props.get(&PropKey::from(key))
+    }
+
+    pub fn prop_text(&self, key: &str) -> Option<&str> {
+        self.prop(key)?.as_text()
+    }
+
+    pub fn prop_bool(&self, key: &str) -> Option<bool> {
+        self.prop(key)?.as_bool()
+    }
+
+    pub fn prop_int(&self, key: &str) -> Option<i64> {
+        self.prop(key)?.as_int()
+    }
+
+    pub fn prop_ref(&self, key: &str) -> Option<NodeId> {
+        self.prop(key)?.as_ref_id()
+    }
+
+    /// Retourne le texte de la prop `"title"` si elle existe.
+    pub fn title(&self) -> Option<&str> {
+        self.prop_text("title")
+    }
+}
+
+// ── NodeBuilder ───────────────────────────────────────────────────────────────
+
+/// Builder chaînable, infaillible. La validation se fait au niveau du Service.
+pub struct NodeBuilder {
+    id: NodeId,
+    kind: Kind,
+    parent: Option<NodeId>,
+    props: Props,
+    view_override: Option<ViewDef>,
+    now: DateTime<Utc>,
+}
+
+impl NodeBuilder {
+    pub fn new(kind: impl Into<Kind>, now: DateTime<Utc>) -> Self {
+        Self {
+            id: NodeId::new(),
+            kind: kind.into(),
+            parent: None,
+            props: Props::new(),
+            view_override: None,
+            now,
+        }
+    }
+
+    pub fn with_id(mut self, id: NodeId) -> Self {
+        self.id = id;
+        self
+    }
+
+    pub fn with_parent(mut self, parent: NodeId) -> Self {
+        self.parent = Some(parent);
+        self
+    }
+
+    pub fn with_prop(mut self, key: impl Into<crate::primitives::PropKey>, value: Value) -> Self {
+        self.props.insert(key.into(), value);
+        self
+    }
+
+    pub fn with_props(mut self, props: Props) -> Self {
+        self.props = props;
+        self
+    }
+
+    pub fn with_view_override(mut self, view: ViewDef) -> Self {
+        self.view_override = Some(view);
+        self
+    }
+
+    pub fn build(self) -> Node {
+        Node {
+            id: self.id,
+            kind: self.kind,
+            parent: self.parent,
+            children: Vec::new(),
+            props: self.props,
+            view_override: self.view_override,
+            created_at: self.now,
+            updated_at: self.now,
+        }
+    }
+}

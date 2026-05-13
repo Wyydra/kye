@@ -9,46 +9,11 @@ use tauri::Manager;
 use tauri_plugin_store::StoreBuilder;
 
 use domain::service::Service;
-use infra::markdown::DirectoryWorkspaceRepository;
-use infra::watcher::FSWatcher;
+use infra::fs::WorkspaceFs;
+use infra::graph::InMemoryGraphRepository;
+use infra::kind::FileKindRepository;
 
-use crate::state::{AppState, TauriEventDispatcher};
-
-pub mod folder_picker {
-    use tauri::{plugin::{Builder, TauriPlugin, PluginHandle}, Runtime};
-    
-    pub struct FolderPicker<R: Runtime>(pub(crate) PluginHandle<R>);
-
-    impl<R: Runtime> FolderPicker<R> {
-        #[allow(dead_code)]
-        pub fn pick_folder(&self) -> Result<crate::commands::workspace::FolderPickResult, String> {
-            #[cfg(mobile)]
-            {
-                self.0.run_mobile_plugin("pickFolder", ())
-                    .map_err(|e| e.to_string())
-            }
-            #[cfg(not(mobile))]
-            {
-                Err("Not on mobile".to_string())
-            }
-        }
-    }
-
-    pub fn init<R: Runtime>() -> TauriPlugin<R> {
-        Builder::new("folderPicker")
-            .setup(|app, api| {
-                #[cfg(target_os = "android")]
-                {
-                    let handle = api.register_android_plugin("dev.wydry.kye", "FolderPickerPlugin")?;
-                    app.manage(FolderPicker(handle));
-                }
-                let _ = api;
-                let _ = app;
-                Ok(())
-            })
-            .build()
-    }
-}
+use crate::state::{AppState, TauriEventBus};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -57,7 +22,6 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
-        .plugin(folder_picker::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
@@ -90,33 +54,48 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
             
-            let (service, watcher) = if let Some(path) = &workspace_path {
-                let dispatcher = TauriEventDispatcher { app_handle: app_handle.clone() };
-                let repo = DirectoryWorkspaceRepository::new(path.clone());
-                let srv = Arc::new(Service::new(repo.clone(), repo.clone(), dispatcher));
-                let w = FSWatcher::new(path.clone(), (*srv).clone());
-                (Some(srv), Some(w))
+            let service = if let Some(path) = &workspace_path {
+                let fs = WorkspaceFs::new(path.clone());
+                if let Err(e) = fs.init() {
+                    tracing::error!("Failed to init WorkspaceFs: {:?}", e);
+                    None
+                } else {
+                    let _ = InMemoryGraphRepository::load(fs.clone()); // First load creates if missing if error is not severe. Let's handle better below.
+                    
+                    let graph_repo = match InMemoryGraphRepository::load(fs.clone()) {
+                        Ok(repo) => repo,
+                        Err(e) => {
+                            tracing::error!("Failed to load graph repository: {:?}", e);
+                            // Fallback to empty if totally corrupted? Let's just pass the error up via tracing.
+                            // In real prod we'd surface this to the user.
+                            return Err(e.to_string().into());
+                        }
+                    };
+                    
+                    let kind_repo = FileKindRepository::new(fs);
+                    let event_bus = TauriEventBus { app_handle: app_handle.clone() };
+                    
+                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus)))
+                }
             } else {
-                (None, None)
+                None
             };
 
-            let app_state = AppState::new(service, workspace_path, watcher);
+            let app_state = AppState::new(service, workspace_path);
             app.manage(app_state);
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::get_workspace,
-            commands::create_block,
-            commands::update_block,
-            commands::delete_block,
-            commands::get_workspace_path,
-            commands::get_block_types,
-            commands::get_templates,
-            commands::identify_block_shapes,
-            commands::select_workspace_folder,
-            commands::register_type,
-            commands::delete_type
+            commands::workspace::get_workspace_path,
+            commands::workspace::get_meta,
+            commands::workspace::get_graph,
+            commands::workspace::select_workspace_folder,
+            commands::node::execute_command,
+            commands::node::execute_batch,
+            commands::kind::get_kinds,
+            commands::kind::register_kind,
+            commands::kind::delete_kind,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

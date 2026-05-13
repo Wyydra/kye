@@ -2,7 +2,6 @@
 members = [
 "crates/domain",
 "crates/infra",
-"crates/cli",
 "crates/gui/src-tauri",
 ]
 

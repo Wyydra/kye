@@ -1,22 +1,46 @@
-import { KyeCanvas } from "./components/canvas/KyeCanvas";
-import { WelcomeScreen } from "./components/layout/WelcomeScreen";
+import { useEffect, useState } from "react";
+import { EditorProvider } from "./context/EditorContext";
 import { MainLayout } from "./components/layout/MainLayout";
-import { useWorkspace } from "./hooks/useWorkspace";
-import { WorkspaceContext } from "./context/WorkspaceContext";
+import { WelcomeScreen } from "./components/layout/WelcomeScreen";
+import { kyeService } from "./services/kyeService";
 
 function App() {
-  const { workspace, workspacePath, templates, noWorkspace, selectWorkspace, refresh } = useWorkspace();
+  const [hasWorkspace, setHasWorkspace] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check if a workspace is configured by trying to get its path
+    kyeService
+      .getWorkspacePath()
+      .then((path) => setHasWorkspace(!!path))
+      .catch(() => setHasWorkspace(false));
+  }, []);
+
+  if (hasWorkspace === null) {
+    // Loading state
+    return <div className="h-screen w-screen bg-background" />;
+  }
+
+  const handleSelectWorkspace = async () => {
+    try {
+      console.log("Invoking select_workspace_folder...");
+      const path = await kyeService.selectWorkspaceFolder();
+      console.log("Selected path:", path);
+      if (path) {
+        setHasWorkspace(true);
+      }
+    } catch (e) {
+      console.error("Failed to select workspace:", e);
+    }
+  };
+
+  if (!hasWorkspace) {
+    return <WelcomeScreen onSelectWorkspace={handleSelectWorkspace} />;
+  }
 
   return (
-    <WorkspaceContext.Provider value={{ workspacePath, templates, refresh }}>
-      {noWorkspace ? (
-        <WelcomeScreen onSelectWorkspace={selectWorkspace} />
-      ) : (
-        <MainLayout onSelectWorkspace={selectWorkspace} onRefresh={refresh}>
-          <KyeCanvas workspace={workspace} templates={templates} onRefresh={refresh} />
-        </MainLayout>
-      )}
-    </WorkspaceContext.Provider>
+    <EditorProvider>
+      <MainLayout />
+    </EditorProvider>
   );
 }
 

@@ -1,80 +1,62 @@
-use std::future::Future;
+//! Ports hexagonaux — interfaces définies par le domain, implémentées par l'infra.
 
-use uuid::Uuid;
+use crate::command::Event;
+use crate::graph::Graph;
+use crate::primitives::Kind;
+use crate::schema::KindDef;
+use crate::workspace::WorkspaceMeta;
 
-use crate::models::block::{
-    CreateBlockError, CreateBlockRequest, DeleteBlockError,
-    UpdateBlockError, UpdateBlockRequest,
-};
-use crate::models::block::schema::{Fields, TypeDefinition};
-use crate::models::workspace::{SaveWorkspaceError, Workspace};
+// ── RepositoryError ───────────────────────────────────────────────────────────
 
-pub trait WorkspaceUseCase: Clone + Send + Sync + 'static {
-    fn get_workspace(&self) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
-    fn create_block(
-        &self,
-        req: &CreateBlockRequest,
-    ) -> impl Future<Output = Result<(Workspace, Uuid), CreateBlockError>> + Send;
-    fn update_block(
-        &self,
-        req: &UpdateBlockRequest,
-    ) -> impl Future<Output = Result<Workspace, UpdateBlockError>> + Send;
-    fn delete_block(
-        &self,
-        id: Uuid,
-    ) -> impl Future<Output = Result<Workspace, DeleteBlockError>> + Send;
+/// Type d'erreur défini par le domain — l'infra mappe ses erreurs concrètes ici.
+/// Aucune dépendance externe (pas d'anyhow).
+#[derive(Debug, thiserror::Error)]
+pub enum RepositoryError {
+    #[error("Not found: {0}")]
+    NotFound(String),
+    #[error("Corrupted data: {0}")]
+    Corrupted(String),
+    #[error("I/O error: {0}")]
+    Io(String),
 }
 
-pub trait TypeManagementUseCase: Clone + Send + Sync + 'static {
-    fn register_type(
-        &self,
-        name: &str,
-        definition: TypeDefinition,
-    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
-    fn delete_type(
-        &self,
-        name: &str,
-    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
+// ── GraphRepository ───────────────────────────────────────────────────────────
+
+/// Port pour la persistance du graph.
+/// L'implémentation peut être :
+///   - `InMemoryGraphRepository` (prod) : cache + flush disk
+///   - `FileGraphRepository` (tests/CLI) : disk pur, sans cache
+pub trait GraphRepository: Send + Sync + 'static {
+    fn load_meta(&self) -> Result<WorkspaceMeta, RepositoryError>;
+    fn save_meta(&self, meta: &WorkspaceMeta) -> Result<(), RepositoryError>;
+
+    /// Charge le graph complet. Peut être O(1) si l'impl cache en mémoire.
+    fn load_graph(&self) -> Result<Graph, RepositoryError>;
+
+    /// Save granulaire — l'infra sait exactement quels nodes ont changé.
+    fn apply_event(&self, event: &Event) -> Result<(), RepositoryError>;
+
+    /// Save complet — pour les migrations et backups.
+    fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError>;
 }
 
-pub trait TypeInspector: Clone + Send + Sync + 'static {
-    fn get_block_types(&self) -> Vec<String>;
-    fn identify_block_shapes(&self, fields: &Fields) -> Vec<String>;
-    fn get_type_definition(&self, type_name: &str) -> Option<TypeDefinition>;
+// ── KindRepository ────────────────────────────────────────────────────────────
+
+/// Port pour la persistance des KindDefs user-defined (plugins lua, etc.).
+pub trait KindRepository: Send + Sync + 'static {
+    fn load_kinds(&self) -> Result<Vec<(Kind, KindDef)>, RepositoryError>;
+    fn save_kind(&self, kind: &Kind, def: &KindDef) -> Result<(), RepositoryError>;
+    fn delete_kind(&self, kind: &Kind) -> Result<(), RepositoryError>;
 }
 
-pub trait ExternalEventHandler: Clone + Send + Sync + 'static {
-    fn on_workspace_file_changed(&self);
+// ── EventBus ──────────────────────────────────────────────────────────────────
+
+/// Port pour publier les Events vers le GUI.
+pub trait EventBus: Send + Sync + 'static {
+    fn publish(&self, event: &Event);
 }
 
-pub trait WorkspaceRepository: Send + Sync + Clone + 'static {
-    fn load_workspace(&self, registry: &crate::models::block::type_registry::TypeRegistry) -> impl Future<Output = Result<Workspace, anyhow::Error>> + Send;
-    fn save_workspace(
-        &self,
-        workspace: &Workspace,
-        registry: &crate::models::block::type_registry::TypeRegistry,
-    ) -> impl Future<Output = Result<(), SaveWorkspaceError>> + Send;
-}
-
-pub trait TypeRepository: Send + Sync + Clone + 'static {
-    fn load_types(
-        &self,
-    ) -> impl Future<Output = Result<std::collections::BTreeMap<crate::models::block::schema::TypeName, crate::models::block::schema::TypeDefinition>, anyhow::Error>> + Send;
-    fn save_type(
-        &self,
-        name: &crate::models::block::schema::TypeName,
-        definition: &crate::models::block::schema::TypeDefinition,
-    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
-    fn delete_type(
-        &self,
-        name: &crate::models::block::schema::TypeName,
-    ) -> impl Future<Output = Result<(), anyhow::Error>> + Send;
-}
-
-pub trait EventDispatcher: Clone + Send + Sync + 'static {
-    fn dispatch_workspace_updated(&self);
-}
-
-impl EventDispatcher for () {
-    fn dispatch_workspace_updated(&self) {}
+/// Impl vide pour les tests — aucun side-effect.
+impl EventBus for () {
+    fn publish(&self, _event: &Event) {}
 }
