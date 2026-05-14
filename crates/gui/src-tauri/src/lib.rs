@@ -12,6 +12,7 @@ use domain::service::Service;
 use infra::fs::WorkspaceFs;
 use infra::graph::InMemoryGraphRepository;
 use infra::kind::FileKindRepository;
+use infra::media::FileMediaRepository;
 
 use crate::state::{AppState, TauriEventBus};
 
@@ -72,10 +73,11 @@ pub fn run() {
                         }
                     };
                     
-                    let kind_repo = FileKindRepository::new(fs);
+                    let kind_repo = FileKindRepository::new(fs.clone());
+                    let media_repo = FileMediaRepository::new(fs);
                     let event_bus = TauriEventBus { app_handle: app_handle.clone() };
                     
-                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus)))
+                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus, media_repo)))
                 }
             } else {
                 None
@@ -96,6 +98,7 @@ pub fn run() {
             commands::kind::get_kinds,
             commands::kind::register_kind,
             commands::kind::delete_kind,
+            commands::media::import_media,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

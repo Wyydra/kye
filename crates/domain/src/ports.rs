@@ -60,3 +60,12 @@ pub trait EventBus: Send + Sync + 'static {
 impl EventBus for () {
     fn publish(&self, _event: &Event) {}
 }
+
+// ── MediaRepository ───────────────────────────────────────────────────────────
+
+/// Port pour la gestion des fichiers médias (images, vidéos, etc.).
+pub trait MediaRepository: Send + Sync + 'static {
+    /// Importe un média depuis un chemin source vers l'espace de stockage
+    /// et retourne l'URL relative à enregistrer dans le domaine.
+    fn import_media(&self, source_path: &str) -> Result<String, RepositoryError>;
+}

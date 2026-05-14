@@ -7,6 +7,7 @@
     "core:default",
     "dialog:allow-ask",
     "dialog:allow-confirm",
+    "dialog:default",
     "store:default"
   ]
 }

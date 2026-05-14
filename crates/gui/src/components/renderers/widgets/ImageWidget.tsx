@@ -1,0 +1,70 @@
+import React from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Node } from "../../../types/domain";
+import { execute } from "../../../lib/commands";
+import { kyeService } from "../../../services/kyeService";
+import { useAssetUrl } from "../../../hooks/useAssetUrl";
+
+export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
+  const urlValue = node.props.url;
+  const titleValue = node.props.title;
+  const url = urlValue?.t === "Text" ? urlValue.v : undefined;
+  const title = titleValue?.t === "Text" ? titleValue.v : undefined;
+  const assetUrl = useAssetUrl(url);
+
+  const handleSelectImage = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'Images', extensions: ['png', 'jpeg', 'jpg', 'gif', 'webp'] }]
+      });
+      if (typeof selected === 'string') {
+        const relativeUrl = await kyeService.importMedia(selected);
+        execute({
+          type: "set_prop",
+          node_id: node.id,
+          key: "url",
+          value: { t: "Text", v: relativeUrl },
+        });
+      }
+    } catch (e) {
+      console.error("Failed to select image", e);
+    }
+  };
+
+  if (!url) {
+    return (
+      <div 
+        className="w-full h-32 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted/20 text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors my-2"
+        onClick={handleSelectImage}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mb-2 opacity-50">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span className="text-sm font-medium">Click to select an image</span>
+        <span className="text-xs opacity-70">or drag and drop one here</span>
+      </div>
+    );
+  }
+
+  if (!assetUrl) {
+    return <div className="text-muted-foreground italic text-sm py-4">Loading image...</div>;
+  }
+
+  return (
+    <div className="flex flex-col items-center my-2 max-w-full">
+      <img 
+        src={assetUrl} 
+        alt={title || "Kye Image"} 
+        className="max-w-full h-auto rounded-md shadow-sm pointer-events-none" 
+        style={{ maxHeight: '600px' }}
+      />
+      {title && (
+        <span className="text-sm text-gray-500 mt-2 italic">{title}</span>
+      )}
+    </div>
+  );
+};

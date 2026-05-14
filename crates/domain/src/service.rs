@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::command::{apply, Command, CommandError, Event};
 use crate::graph::Graph;
-use crate::ports::{EventBus, GraphRepository, KindRepository, RepositoryError};
+use crate::ports::{EventBus, GraphRepository, KindRepository, MediaRepository, RepositoryError};
 use crate::primitives::NodeId;
 use crate::query::{evaluate_query_node, QueryBuilder};
 use crate::registry::{CoreLibrary, KindRegistry};
@@ -34,33 +34,37 @@ pub enum ServiceError {
 ///
 /// Le graph n'est PAS stocké ici — il vient du port `GraphRepository`.
 /// Si l'impl est `InMemoryGraphRepository`, `load_graph()` est O(1).
-pub struct Service<R, K, E>
+pub struct Service<R, K, E, M>
 where
     R: GraphRepository,
     K: KindRepository,
     E: EventBus,
+    M: MediaRepository,
 {
     repo: R,
     kind_repo: K,
     bus: E,
+    media_repo: M,
     /// Registry rechargé depuis `KindRepository` à chaque `execute()`
     /// pour prendre en compte les kinds lua ajoutés à chaud.
     registry: Arc<RwLock<KindRegistry>>,
 }
 
-impl<R, K, E> Service<R, K, E>
+impl<R, K, E, M> Service<R, K, E, M>
 where
     R: GraphRepository,
     K: KindRepository,
     E: EventBus,
+    M: MediaRepository,
 {
-    pub fn new(repo: R, kind_repo: K, bus: E) -> Self {
+    pub fn new(repo: R, kind_repo: K, bus: E, media_repo: M) -> Self {
         let mut registry = KindRegistry::new();
         CoreLibrary::init(&mut registry);
         Self {
             repo,
             kind_repo,
             bus,
+            media_repo,
             registry: Arc::new(RwLock::new(registry)),
         }
     }
@@ -177,5 +181,13 @@ where
         let mut registry = self.registry.write().map_err(|_| ServiceError::LockPoisoned)?;
         registry.unregister(kind);
         Ok(())
+    }
+
+    // ── Médias ────────────────────────────────────────────────────────────────
+
+    /// Importe un fichier média (ex: image) dans l'espace de stockage
+    /// et retourne l'URL relative à utiliser dans les nœuds.
+    pub fn import_media(&self, source_path: &str) -> Result<String, ServiceError> {
+        Ok(self.media_repo.import_media(source_path)?)
     }
 }

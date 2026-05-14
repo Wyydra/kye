@@ -9,6 +9,7 @@ use domain::service::Service;
 use infra::fs::WorkspaceFs;
 use infra::graph::InMemoryGraphRepository;
 use infra::kind::FileKindRepository;
+use infra::media::FileMediaRepository;
 
 use crate::dto::{GraphDto, WorkspaceMetaDto};
 use crate::error::{AppError, AppResult};
@@ -77,10 +78,11 @@ pub async fn select_workspace_folder(
     
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| AppError::Internal(format!("Failed to load graph: {:?}", e)))?;
-    let kind_repo = FileKindRepository::new(fs);
+    let kind_repo = FileKindRepository::new(fs.clone());
+    let media_repo = FileMediaRepository::new(fs);
     let event_bus = TauriEventBus { app_handle: app_handle.clone() };
 
-    let service = Arc::new(Service::new(graph_repo, kind_repo, event_bus));
+    let service = Arc::new(Service::new(graph_repo, kind_repo, event_bus, media_repo));
 
     state.with_inner(|inner| {
         inner.service = Some(service);

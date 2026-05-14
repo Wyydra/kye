@@ -5,6 +5,8 @@ import { execute } from "../../../lib/commands";
 import { NodeRenderer } from "../NodeRenderer";
 import { LayoutProps } from "./index";
 import { useCanvasStore } from "../../../store/canvasStore";
+import { listen } from "@tauri-apps/api/event";
+import { kyeService } from "../../../services/kyeService";
 
 export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
   const selectedNodeId = useCanvasStore(state => state.selectedNodeId);
@@ -24,6 +26,45 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
   const isLocked = !!node.props["is_locked"]?.v;
   const isCard = depth > 0;
   const isEditable = depth <= 1 && !isLocked && (!isCard || isSelected);
+
+  React.useEffect(() => {
+    if (depth !== 0) return; // Only listen on the root document to avoid duplicates
+
+    const unlistens: (() => void)[] = [];
+
+    const handleDrop = async (event: any) => {
+      const paths = event.payload?.paths || event.payload;
+      if (!Array.isArray(paths) || paths.length === 0) return;
+
+      for (let i = 0; i < paths.length; i++) {
+        const path = paths[i];
+        if (typeof path === 'string') {
+          try {
+            const relativeUrl = await kyeService.importMedia(path);
+            
+            execute({
+              type: "create_node",
+              id: crypto.randomUUID(),
+              kind: "core.image",
+              parent_id: node.id,
+              index: node.children.length + i,
+              props: {
+                url: { t: "Text", v: relativeUrl },
+              },
+            });
+          } catch (e) {
+            console.error("Failed to import media", e);
+          }
+        }
+      }
+    };
+
+    listen("tauri://drag-drop", handleDrop).then(fn => unlistens.push(fn));
+
+    return () => {
+      unlistens.forEach(fn => fn());
+    };
+  }, [depth, node.id, node.children.length]);
 
   return (
     <div 

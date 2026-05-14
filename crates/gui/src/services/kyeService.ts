@@ -31,6 +31,12 @@ export const kyeService = {
     return invoke("execute_batch", { commands });
   },
 
+  // ── Médias ──────────────────────────────────────────────────────────────
+
+  async importMedia(sourcePath: string): Promise<string> {
+    return invoke("import_media", { sourcePath });
+  },
+
   // ── Kinds ───────────────────────────────────────────────────────────────
 
   async getKinds(): Promise<[string, KindDef][]> {
