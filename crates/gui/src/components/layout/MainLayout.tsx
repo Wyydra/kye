@@ -5,16 +5,75 @@ import { WorkspaceMeta } from "../../types/domain";
 import { WorldCanvas } from "../renderers/layouts/WorldCanvas";
 import { NodeModal } from "./NodeModal";
 import { DropManager } from "../../lib/dropManager";
+import { Sidebar } from "./Sidebar";
+import { useCanvasStore } from "../../store/canvasStore";
+import { PanelLeft, FolderOpen, Sparkles } from "lucide-react";
+import { WorkspacePicker } from "./WorkspacePicker";
+import { useUIStore } from "../../store/uiStore";
 
 export const MainLayout: React.FC = () => {
   const { isLoaded, loadGraph, error } = useGraphStore();
+  const isSidebarOpen = useUIStore(state => state.isSidebarOpen);
+  const toggleSidebar = useUIStore(state => state.toggleSidebar);
   const [meta, setMeta] = useState<WorkspaceMeta | null>(null);
+  const [workspacePath, setWorkspacePath] = useState<string | null>(null);
+
+  const setWorkspacePickerOpen = useUIStore(state => state.setWorkspacePickerOpen);
 
   useEffect(() => {
     DropManager.init();
     kyeService.getMeta().then(setMeta).catch(console.error);
+    kyeService.getWorkspacePath().then(setWorkspacePath).catch(console.error);
     loadGraph();
   }, [loadGraph]);
+
+  // If no workspace is selected, open the picker automatically
+  useEffect(() => {
+    if (error && error.includes("No workspace selected")) {
+      setWorkspacePickerOpen(true);
+    }
+  }, [error, setWorkspacePickerOpen]);
+
+  if (error && error.includes("No workspace selected")) {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground p-8 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+        
+        <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-primary/20 animate-in zoom-in-50 duration-700">
+          <span className="text-4xl font-black text-primary-foreground italic">K</span>
+        </div>
+
+        <div className="text-center space-y-4 max-w-md animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+          <h1 className="text-4xl font-black tracking-tight flex items-center justify-center gap-3">
+            Welcome to Kye
+          </h1>
+          <p className="text-muted-foreground leading-relaxed">
+            Your creative spatial canvas. To get started, you need to open or create a workspace folder.
+          </p>
+        </div>
+
+        <div className="mt-12 grid gap-4 w-full max-w-sm animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
+          <button 
+            onClick={() => setWorkspacePickerOpen(true)}
+            className="flex items-center justify-between p-6 bg-card border border-border hover:border-primary/50 rounded-2xl transition-all group shadow-sm hover:shadow-xl hover:shadow-primary/5"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors">
+                <FolderOpen className="w-6 h-6 text-primary" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold">Open Workspace</p>
+                <p className="text-xs text-muted-foreground">Select a local project folder</p>
+              </div>
+            </div>
+            <Sparkles className="w-5 h-5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
+
+        <WorkspacePicker />
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -39,13 +98,46 @@ export const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
+      {/* Sidebar */}
+      <div 
+        className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
+          isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+        }`}
+      >
+        <Sidebar />
+      </div>
+
       {/* Universal World Canvas */}
-      <div className="flex-1 h-full relative">
+      <div className="flex-1 h-full relative overflow-hidden">
+        {/* Toggle Sidebar Button */}
+        <button 
+          onClick={toggleSidebar}
+          style={{ top: "calc(0.75rem + var(--safe-top))", left: "calc(0.75rem + var(--safe-left))" }}
+          className={`absolute z-40 p-2 bg-background/80 backdrop-blur-md border border-border rounded-lg shadow-sm hover:bg-muted transition-all ${
+            isSidebarOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          <PanelLeft className="w-4 h-4 text-muted-foreground" />
+        </button>
+
         <WorldCanvas />
       </div>
 
       {/* Global Node Modal */}
       <NodeModal />
+
+      {/* Workspace Picker Modal */}
+      <WorkspacePicker />
+
+      {/* Debug Workspace Path Overlay */}
+      {workspacePath && (
+        <div 
+          style={{ bottom: "calc(0.5rem + var(--safe-bottom))", left: "calc(0.5rem + var(--safe-left))" }}
+          className="absolute pointer-events-none px-2 py-0.5 bg-black/40 backdrop-blur-md rounded-full border border-white/5 text-[9px] font-mono text-white/30 z-50"
+        >
+          WS: {workspacePath}
+        </div>
+      )}
     </div>
   );
 };

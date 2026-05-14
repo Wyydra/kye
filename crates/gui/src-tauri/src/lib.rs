@@ -24,6 +24,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             let settings_path = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("settings.json");
@@ -99,6 +100,8 @@ pub fn run() {
             commands::kind::register_kind,
             commands::kind::delete_kind,
             commands::media::import_media,
+            commands::workspace::list_workspaces,
+            commands::workspace::create_workspace,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

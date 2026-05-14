@@ -43,4 +43,18 @@ impl MediaRepository for FileMediaRepository {
         // L'URL relative à stocker dans le domaine
         Ok(format!("assets/{}", file_name))
     }
+
+    fn save_media(&self, data: &[u8], extension: &str) -> Result<String, RepositoryError> {
+        // Générer un nom unique
+        let file_name = format!("{}.{}", Uuid::new_v4(), extension);
+        
+        // Construire le chemin cible dans le dossier assets/
+        let target_path = self.fs.assets_dir().join(&file_name);
+
+        // Écrire les données
+        fs::write(&target_path, data)
+            .map_err(|e| RepositoryError::Io(format!("Failed to save media bytes: {}", e)))?;
+
+        Ok(format!("assets/{}", file_name))
+    }
 }

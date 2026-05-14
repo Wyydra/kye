@@ -27,6 +27,9 @@ export function useCanvasCamera(
     const container = containerRef.current;
     if (!container) return;
 
+    const activePointers = new Map<number, { x: number; y: number }>();
+    let lastDistance = 0;
+
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       
@@ -64,43 +67,88 @@ export function useCanvasCamera(
     };
 
     const handlePointerDown = (e: PointerEvent) => {
-      // Only pan if clicking the container itself (the background)
-      if (e.target !== container) return;
-      if (e.button !== 0 && e.button !== 1) return; // Left or Middle click
-      
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const { x: camX, y: camY } = cameraRef.current;
+      // Only track pointers that start on the background
+      if (e.target !== container && !(e.target as HTMLElement).classList.contains('canvas-background')) {
+        return;
+      }
 
-      const onPointerMove = (moveEvent: PointerEvent) => {
-        const dx = moveEvent.clientX - startX;
-        const dy = moveEvent.clientY - startY;
-        
-        cameraRef.current = { 
-          ...cameraRef.current, 
-          x: camX + dx, 
-          y: camY + dy 
-        };
-        
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activePointers.size === 1) {
+        // Single finger pan setup is handled in pointermove to avoid conflicts
+      } else if (activePointers.size === 2) {
+        // Initialize distance for pinch zoom
+        const pts = Array.from(activePointers.values());
+        lastDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      }
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!activePointers.has(e.pointerId)) return;
+      
+      const prevPos = activePointers.get(e.pointerId)!;
+      const dx = e.clientX - prevPos.x;
+      const dy = e.clientY - prevPos.y;
+      
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (activePointers.size === 1) {
+        // Single finger pan (only if we are tracking this pointer)
+        const { x, y, zoom } = cameraRef.current;
+        cameraRef.current = { x: x + dx, y: y + dy, zoom };
         updateTransform();
         setViewport(cameraRef.current);
-      };
+      } else if (activePointers.size === 2) {
+        // Pinch zoom
+        const pts = Array.from(activePointers.values());
+        const distance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        
+        if (lastDistance > 0) {
+          const zoomFactor = distance / lastDistance;
+          const { x, y, zoom } = cameraRef.current;
+          const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5);
 
-      const onPointerUp = () => {
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', onPointerUp);
-      };
+          // Zoom anchor point (middle of the two fingers)
+          const rect = container.getBoundingClientRect();
+          const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
+          const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
 
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
+          const worldX = (midX - x) / zoom;
+          const worldY = (midY - y) / zoom;
+
+          const newX = midX - worldX * newZoom;
+          const newY = midY - worldY * newZoom;
+
+          // Also add panning based on the movement of the midpoint
+          // (This is implicitly handled if we track individual pointer moves, 
+          // but for zoom it's cleaner to just update the camera)
+          cameraRef.current = { x: newX, y: newY, zoom: newZoom };
+          updateTransform();
+          setViewport(cameraRef.current);
+        }
+        lastDistance = distance;
+      }
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      activePointers.delete(e.pointerId);
+      if (activePointers.size < 2) {
+        lastDistance = 0;
+      }
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     container.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
     
     return () => {
       container.removeEventListener('wheel', handleWheel);
       container.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [containerRef, updateTransform, setViewport]);
 

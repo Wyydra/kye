@@ -61,7 +61,7 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
       // Find if we are over a node
       const element = document.elementFromPoint(e.clientX, e.clientY);
       const nodeEl = element?.closest("[data-node-id]");
-      const targetId = nodeEl?.getAttribute("data-node-id");
+      const targetId = nodeEl?.getAttribute("data-node-id") || null;
 
       updateConnectionDraft(worldX, worldY, targetId);
     };
@@ -84,13 +84,18 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
       setConnectionDraft(null);
     };
 
+    if (connectionDraft) {
+      document.body.classList.add("is-dragging");
+    }
+
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     return () => {
+      document.body.classList.remove("is-dragging");
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [connectionDraft, setConnectionDraft, updateConnectionDraft]);
+  }, [!!connectionDraft, setConnectionDraft, updateConnectionDraft]);
 
   const draftPath = useMemo(() => {
     if (!connectionDraft) return null;

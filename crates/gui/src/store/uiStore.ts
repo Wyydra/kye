@@ -5,6 +5,11 @@ interface UIState {
   setFocusedNode: (id: string | null) => void;
   modalNodeId: string | null;
   setModalNodeId: (id: string | null) => void;
+  isWorkspacePickerOpen: boolean;
+  setWorkspacePickerOpen: (open: boolean) => void;
+  isSidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -12,4 +17,9 @@ export const useUIStore = create<UIState>((set) => ({
   setFocusedNode: (id) => set({ focusedNodeId: id }),
   modalNodeId: null,
   setModalNodeId: (id) => set({ modalNodeId: id }),
+  isWorkspacePickerOpen: false,
+  setWorkspacePickerOpen: (open) => set({ isWorkspacePickerOpen: open }),
+  isSidebarOpen: true,
+  setSidebarOpen: (open) => set({ isSidebarOpen: open }),
+  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 }));

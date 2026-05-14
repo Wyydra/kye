@@ -33,10 +33,9 @@ interface CanvasState {
   removeNodeState: (id: string) => void;
   setAllNodeStates: (states: Record<string, NodeState>) => void;
 
-  // Connection drafting
   connectionDraft: ConnectionDraft | null;
   setConnectionDraft: (draft: ConnectionDraft | null) => void;
-  updateConnectionDraft: (x: number, y: number, targetId?: string | null) => void;
+  updateConnectionDraft: (x: number, y: number, targetId: string | null) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -62,7 +61,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
 
   connectionDraft: null,
   setConnectionDraft: (connectionDraft) => set({ connectionDraft }),
-  updateConnectionDraft: (x, y, targetId = null) => set((state) => ({
+  updateConnectionDraft: (x, y, targetId) => set((state) => ({
     connectionDraft: state.connectionDraft ? { ...state.connectionDraft, currentX: x, currentY: y, targetId } : null
   })),
 }));

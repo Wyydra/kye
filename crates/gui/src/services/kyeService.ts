@@ -5,12 +5,20 @@ import { Command, Event, Graph, KindDef, WorkspaceMeta } from "../types/domain";
 export const kyeService = {
   // ── Workspace ───────────────────────────────────────────────────────────
 
-  async selectWorkspaceFolder(): Promise<string | null> {
-    return invoke("select_workspace_folder");
+  async selectWorkspaceFolder(path?: string): Promise<string | null> {
+    return invoke("select_workspace_folder", { path });
   },
 
   async getWorkspacePath(): Promise<string | null> {
     return invoke("get_workspace_path");
+  },
+
+  async listWorkspaces(): Promise<string[]> {
+    return invoke("list_workspaces");
+  },
+
+  async createWorkspace(name: string): Promise<string> {
+    return invoke("create_workspace", { name });
   },
 
   async getMeta(): Promise<WorkspaceMeta> {

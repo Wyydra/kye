@@ -190,4 +190,9 @@ where
     pub fn import_media(&self, source_path: &str) -> Result<String, ServiceError> {
         Ok(self.media_repo.import_media(source_path)?)
     }
+
+    /// Sauvegarde des données binaires en tant que média.
+    pub fn save_media(&self, data: &[u8], extension: &str) -> Result<String, ServiceError> {
+        Ok(self.media_repo.save_media(data, extension)?)
+    }
 }
