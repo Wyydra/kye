@@ -75,3 +75,31 @@
     letter-spacing: -0.01em;
   }
 }
+
+/* --- World Canvas Styles --- */
+
+.kye-canvas-node {
+  @apply bg-background border border-border shadow-sm rounded-lg pointer-events-auto;
+}
+
+/* 
+   We only want the ROOT layout component inside the card to be full height.
+   Subsequent nested nodes (like paragraphs) must have natural height.
+*/
+.kye-canvas-node > div > .kye-node,
+.kye-canvas-node > div > .kye-node > .layout-renderer,
+.kye-canvas-node > div > .kye-node > .layout-renderer > .document-layout {
+  @apply h-full w-full flex flex-col;
+}
+
+.kye-canvas-node .document-layout {
+  @apply overflow-y-auto relative bg-background p-6;
+}
+
+.kye-canvas-node .document-layout input {
+  @apply text-xl mb-6 cursor-text font-bold border-none outline-none bg-transparent;
+}
+
+.rich-text {
+  @apply text-sm leading-relaxed;
+}

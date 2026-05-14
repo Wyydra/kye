@@ -1,0 +1,211 @@
+import React, { useState, useCallback, useRef, useEffect } from "react";
+import { Lock } from "lucide-react";
+import { useGraphStore } from "../../../store/graphStore";
+import { execute } from "../../../lib/commands";
+import { NodeRenderer } from "../NodeRenderer";
+import { useCanvasStore } from "../../../store/canvasStore";
+import { useResizable } from "../../../hooks/useResizable";
+import { SelectionFrame } from "./SelectionFrame";
+
+interface CanvasNodeProps {
+  nodeId: string;
+  depth: number;
+}
+
+export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
+  const node = useGraphStore((state) => state.nodes[nodeId]);
+  const { 
+    selectedNodeId, 
+    setSelectedNodeId, 
+    updateNodeState,
+    viewport 
+  } = useCanvasStore();
+  
+  if (!node) return null;
+
+  const isSelected = selectedNodeId === nodeId;
+
+  // Local state for fluid interaction
+  const [localPos, setLocalPos] = useState({
+    x: (node.props["x"]?.v as number) || 0,
+    y: (node.props["y"]?.v as number) || 0,
+  });
+  const [localSize, setLocalSize] = useState({
+    width: (node.props["width"]?.v as number) || 300,
+    height: (node.props["height"]?.v as number) || 200,
+  });
+
+  const isInteracting = useRef(false);
+
+  // Sync to global nodeStates for connection anchors
+  useEffect(() => {
+    updateNodeState(nodeId, { ...localPos, ...localSize });
+  }, [nodeId, localPos, localSize, updateNodeState]);
+
+  // Sync back from props if not interacting
+  useEffect(() => {
+    if (!isInteracting.current) {
+      setLocalPos({
+        x: (node.props["x"]?.v as number) || 0,
+        y: (node.props["y"]?.v as number) || 0,
+      });
+      setLocalSize({
+        width: (node.props["width"]?.v as number) || 300,
+        height: (node.props["height"]?.v as number) || 200,
+      });
+    }
+  }, [node.props]);
+
+  const isLocked = !!node.props["is_locked"]?.v;
+
+  const handleToggleLock = useCallback(() => {
+    execute({
+      type: "set_prop",
+      node_id: nodeId,
+      key: "is_locked",
+      value: { t: "Bool", v: !isLocked },
+    });
+  }, [nodeId, isLocked]);
+
+  const { startResizing } = useResizable(
+    viewport.zoom,
+    localSize,
+    setLocalSize,
+    localPos,
+    setLocalPos,
+    (finalPos, finalSize) => {
+      isInteracting.current = false;
+      execute({
+        type: "set_props",
+        node_id: nodeId,
+        props: {
+          x: { t: "Float", v: Math.round(finalPos.x) },
+          y: { t: "Float", v: Math.round(finalPos.y) },
+          width: { t: "Float", v: Math.round(finalSize.width) },
+          height: { t: "Float", v: Math.round(finalSize.height) },
+        },
+      });
+    }
+  );
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    
+    setSelectedNodeId(nodeId);
+
+    if (isLocked) return;
+
+    const target = e.target as HTMLElement;
+    if (target.closest("input, button, [contenteditable], .interactive-handle")) return;
+
+    e.stopPropagation();
+    isInteracting.current = true;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPos = { ...localPos };
+    
+    let currentX = startPos.x;
+    let currentY = startPos.y;
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const dx = (moveEvent.clientX - startX) / viewport.zoom;
+      const dy = (moveEvent.clientY - startY) / viewport.zoom;
+      currentX = Math.round(startPos.x + dx);
+      currentY = Math.round(startPos.y + dy);
+      setLocalPos({ x: currentX, y: currentY });
+    };
+
+    const onPointerUp = () => {
+      isInteracting.current = false;
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+
+      execute({
+        type: "set_props",
+        node_id: nodeId,
+        props: {
+          x: { t: "Float", v: currentX },
+          y: { t: "Float", v: currentY },
+        },
+      });
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  }, [localPos, nodeId, setSelectedNodeId, viewport.zoom]);
+
+  const onConnectStart = useCallback((e: React.PointerEvent, _side: string) => {
+    const { x, y, zoom } = viewport;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const worldX = (rect.left + rect.width / 2 - x) / zoom;
+    const worldY = (rect.top + rect.height / 2 - y) / zoom;
+    
+    useCanvasStore.getState().setConnectionDraft({
+      sourceId: nodeId,
+      targetId: null,
+      currentX: worldX,
+      currentY: worldY
+    });
+  }, [nodeId, viewport]);
+
+  return (
+    <div
+      className={`absolute kye-canvas-node bg-background border border-border shadow-sm rounded-lg flex flex-col ${
+        isSelected ? "z-30" : "z-10"
+      }`}
+      style={{
+        left: 0,
+        top: 0,
+        width: localSize.width,
+        height: localSize.height,
+        transform: `translate(${localPos.x}px, ${localPos.y}px)`,
+      }}
+      onPointerDown={handlePointerDown}
+      data-node-id={nodeId}
+    >
+      {/* Header / Grab Area */}
+      <div className={`p-2 border-b border-border flex items-center justify-between shrink-0 ${
+        isLocked ? "bg-orange-50/50 cursor-default" : "bg-muted/30 cursor-grab active:cursor-grabbing"
+      }`}>
+         <div className="flex items-center gap-2">
+           {isLocked ? (
+             <div className="w-4 h-4 flex items-center justify-center">
+                <Lock className="w-3 h-3 text-orange-500" />
+             </div>
+           ) : (
+             <div className={`w-2 h-2 rounded-full ${isSelected ? "bg-primary animate-pulse" : "bg-primary/50"}`} />
+           )}
+           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none">
+             {node.kind.split(".").pop()}
+           </span>
+         </div>
+      </div>
+
+      {/* 
+        Content Area Wrapper 
+        We use a separate div for overflow-hidden so the SelectionFrame 
+        (which is a sibling) can still bleed outside the card bounds.
+      */}
+      <div className="flex-1 relative overflow-hidden rounded-lg flex flex-col w-full h-full">
+        <NodeRenderer nodeId={nodeId} depth={depth} />
+        
+        {/* Interaction Blocker: Prevents interaction if not selected OR if locked */}
+        {(!isSelected || isLocked) && (
+          <div className="absolute inset-0 z-10" />
+        )}
+      </div>
+
+      {/* Selection Frame (Overlay with -4px offset) */}
+      {isSelected && (
+        <SelectionFrame 
+          nodeId={nodeId}
+          isLocked={isLocked}
+          onResizeStart={startResizing}
+          onConnectStart={onConnectStart}
+          onToggleLock={handleToggleLock}
+        />
+      )}
+    </div>
+  );
+};
