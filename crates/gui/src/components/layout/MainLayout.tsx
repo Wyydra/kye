@@ -3,12 +3,15 @@ import { useGraphStore } from "../../store/graphStore";
 import { kyeService } from "../../services/kyeService";
 import { WorkspaceMeta } from "../../types/domain";
 import { WorldCanvas } from "../renderers/layouts/WorldCanvas";
+import { NodeModal } from "./NodeModal";
+import { DropManager } from "../../lib/dropManager";
 
 export const MainLayout: React.FC = () => {
   const { isLoaded, loadGraph, error } = useGraphStore();
   const [meta, setMeta] = useState<WorkspaceMeta | null>(null);
 
   useEffect(() => {
+    DropManager.init();
     kyeService.getMeta().then(setMeta).catch(console.error);
     loadGraph();
   }, [loadGraph]);
@@ -40,6 +43,9 @@ export const MainLayout: React.FC = () => {
       <div className="flex-1 h-full relative">
         <WorldCanvas />
       </div>
+
+      {/* Global Node Modal */}
+      <NodeModal />
     </div>
   );
 };

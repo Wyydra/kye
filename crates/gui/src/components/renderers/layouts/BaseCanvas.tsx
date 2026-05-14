@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useCallback, useState, useEffect } from "react"
 import { useCanvasCamera } from "../../../hooks/useCanvasCamera";
 import { CanvasNode } from "./CanvasNode";
 import { CanvasConnection } from "./CanvasConnection";
+import { ConnectionOverlay } from "./ConnectionOverlay";
 import { useGraphStore } from "../../../store/graphStore";
 import { execute } from "../../../lib/commands";
 import { useCanvasStore } from "../../../store/canvasStore";
@@ -187,6 +188,9 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
         <div className="absolute inset-0">
           {contentNodes.map(id => (
             <CanvasNode key={id} nodeId={id} depth={depth + 1} />
+          ))}
+          {connectionNodes.map(id => (
+            <ConnectionOverlay key={id} connectionId={id} />
           ))}
         </div>
       </div>

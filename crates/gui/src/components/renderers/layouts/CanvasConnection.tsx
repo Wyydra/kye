@@ -10,9 +10,12 @@ interface CanvasConnectionProps {
 export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId }) => {
   const connection = useGraphStore(state => state.nodes[connectionId]);
   const nodeStates = useCanvasStore(state => state.nodeStates);
+  const { selectedNodeId, setSelectedNodeId } = useCanvasStore();
 
-  const path = useMemo(() => {
-    if (!connection || connection.kind !== "core.connection") return null;
+  const isSelected = selectedNodeId === connectionId;
+
+  const { path } = useMemo(() => {
+    if (!connection || connection.kind !== "core.connection") return { path: null, midPoint: null };
 
     const fromId = connection.props["from"]?.v as string;
     const toId = connection.props["to"]?.v as string;
@@ -20,7 +23,7 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
     const source = nodeStates[fromId];
     const target = nodeStates[toId];
 
-    if (!source || !target) return null;
+    if (!source || !target) return { path: null, midPoint: null };
 
     // Anchor points (center of nodes)
     const p1 = {
@@ -32,7 +35,7 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
       y: target.y + target.height / 2
     };
 
-    return getBezierPath(p1, p2);
+    return { path: getBezierPath(p1, p2) };
   }, [connection, nodeStates]);
 
   if (!path) return null;
@@ -42,20 +45,23 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
       <path
         d={path}
         fill="none"
-        stroke="hsl(var(--primary))"
-        strokeWidth="2"
-        strokeOpacity="0.3"
+        stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--primary))"}
+        strokeWidth={isSelected ? "3" : "2"}
+        strokeOpacity={isSelected ? "1" : "0.3"}
         markerEnd="url(#arrowhead)"
-        className="transition-all duration-300"
+        className="transition-colors duration-300"
       />
-      {/* Invisible thicker path for easier hovering/interaction if needed */}
+      {/* Invisible thicker path for easier hovering/interaction */}
       <path
         d={path}
         fill="none"
         stroke="transparent"
-        strokeWidth="10"
-        className="cursor-pointer"
-        onPointerEnter={() => {/* Highlight? */}}
+        strokeWidth="20"
+        className="cursor-pointer pointer-events-auto"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          setSelectedNodeId(connectionId);
+        }}
       />
     </g>
   );

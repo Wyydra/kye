@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Node } from "../../../types/domain";
 import { execute } from "../../../lib/commands";
 import { kyeService } from "../../../services/kyeService";
+import { useFileDrop } from "../../../hooks/useFileDrop";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
 
 export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
@@ -12,6 +13,22 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
   const url = urlValue?.t === "Text" ? urlValue.v : undefined;
   const title = titleValue?.t === "Text" ? titleValue.v : undefined;
   const assetUrl = useAssetUrl(url);
+
+  const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
+    if (paths && paths.length > 0) {
+      try {
+        const relativeUrl = await kyeService.importMedia(paths[0]);
+        execute({
+          type: "set_prop",
+          node_id: node.id,
+          key: "url",
+          value: { t: "Text", v: relativeUrl },
+        });
+      } catch (e) {
+        console.error("Failed to import media on drop", e);
+      }
+    }
+  });
 
   const handleSelectImage = async () => {
     try {
@@ -36,6 +53,7 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
   if (!url) {
     return (
       <div 
+        ref={dropRef}
         className="w-full h-32 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted/20 text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors my-2"
         onClick={handleSelectImage}
       >
@@ -55,7 +73,7 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
   }
 
   return (
-    <div className="flex flex-col items-center my-2 max-w-full">
+    <div ref={dropRef} className="flex flex-col items-center my-2 max-w-full">
       <img 
         src={assetUrl} 
         alt={title || "Kye Image"} 

@@ -4,6 +4,8 @@ import { ResizeHandles } from "./ResizeHandles";
 import { ConnectionHandles } from "./ConnectionHandles";
 import { BlockToolbar } from "./BlockToolbar";
 import { execute } from "../../../lib/commands";
+import { useUIStore } from "../../../store/uiStore";
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 interface SelectionFrameProps {
   nodeId: string;
@@ -39,8 +41,10 @@ export const SelectionFrame: React.FC<SelectionFrameProps> = ({
       <BlockToolbar 
         isLocked={isLocked}
         onToggleLock={onToggleLock}
-        onDelete={() => {
-          if (confirm("Delete this node?")) {
+        onEdit={() => useUIStore.getState().setModalNodeId(nodeId)}
+        onDelete={async () => {
+          const yes = await confirm("Delete this node?", { title: "Kye", kind: "warning" });
+          if (yes) {
             execute({ type: "delete_node", id: nodeId, cascade: true });
           }
         }} 
