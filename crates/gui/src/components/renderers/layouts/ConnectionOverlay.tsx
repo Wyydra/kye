@@ -30,6 +30,8 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
     const fromId = val<string>(connection.props["from"]);
     const toId = val<string>(connection.props["to"]);
 
+    if (!fromId || !toId) return null;
+
     const source = nodeStates[fromId];
     const target = nodeStates[toId];
 

@@ -21,6 +21,8 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
     const fromId = val<string>(connection.props["from"]);
     const toId = val<string>(connection.props["to"]);
 
+    if (!fromId || !toId) return { path: null, midPoint: null };
+
     const source = nodeStates[fromId];
     const target = nodeStates[toId];
 
