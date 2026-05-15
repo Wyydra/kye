@@ -102,11 +102,11 @@ export const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
-      {/* Sidebar */}
+    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden relative">
+      {/* Sidebar Overlay */}
       <div 
-        className={`h-full transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0 ${
-          isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0"
+        className={`absolute top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out overflow-hidden ${
+          isSidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full"
         }`}
       >
         <Sidebar />

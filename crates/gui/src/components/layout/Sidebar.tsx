@@ -16,7 +16,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <div className="w-64 h-full bg-muted/30 border-r border-border flex flex-col">
+    <div className="w-full h-full bg-background/60 backdrop-blur-xl border-r border-border/50 flex flex-col shadow-2xl">
       {/* Header - Taking safe area into account */}
       <div 
         className="p-4 border-b border-border/50 flex items-center justify-between"
