@@ -1,6 +1,6 @@
 import React from "react";
 import { Node, Layout } from "../../types/domain";
-import * as layoutRegistry from "./layouts";
+import { getLayout } from "./layouts/registry";
 
 interface LayoutRendererProps {
   node: Node;
@@ -13,7 +13,7 @@ export const LayoutRenderer: React.FC<LayoutRendererProps> = ({
   layout,
   depth,
 }) => {
-  const LayoutComponent = layoutRegistry.getLayout(layout.t);
+  const LayoutComponent = getLayout(layout.t);
 
   if (LayoutComponent) {
     return <LayoutComponent node={node} layout={layout} depth={depth} />;

@@ -1,9 +1,8 @@
 import { useGraphStore } from "../../store/graphStore";
+import { val } from "../../types/domain";
 import { useCanvasStore } from "../../store/canvasStore";
 import { useUIStore } from "../../store/uiStore";
-import { kyeService } from "../../services/kyeService";
 import { FolderIcon, Settings, Plus, ChevronRight, FileText, Image as ImageIcon, PanelLeft } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
 
 export const Sidebar: React.FC = () => {
   const roots = useGraphStore(state => state.roots);
@@ -54,7 +53,7 @@ export const Sidebar: React.FC = () => {
             const node = nodes[id];
             if (!node) return null;
             
-            const title = node.props.title?.t === "Text" ? node.props.title.v : "Untitled";
+            const title = val<string>(node.props.title) || "Untitled";
             const isImage = node.kind === "core.image";
 
             return (

@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Node } from "../../../types/domain";
+import { Node, val, RichText } from "../../../types/domain";
 import { useUIStore } from "../../../store/uiStore";
 import { execute } from "../../../lib/commands";
 import { useEditor } from "../../../context/EditorContext";
@@ -12,11 +12,8 @@ export const HeadingWidget: React.FC<{ node: Node }> = ({ node }) => {
   const { setFocusedNode } = useUIStore.getState();
   const { blockTypes } = useEditor();
 
-  const levelProp = node.props["level"];
-  const level = levelProp?.t === "Int" ? levelProp.v : 1;
-
-  const textProp = node.props["text"];
-  const richText = textProp?.t === "Rich" ? textProp.v : { spans: [] };
+  const level = val<number>(node.props["level"]) || 1;
+  const richText = val<RichText>(node.props["text"]) || { spans: [] };
 
   const sizeClass =
     {

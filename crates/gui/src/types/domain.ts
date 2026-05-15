@@ -34,6 +34,15 @@ export type Value =
   | { t: "DateTime"; v: string }
   | { t: "Color"; v: string };
 
+/**
+ * Helper to safely extract a value from a Value union.
+ * Returns undefined if the value is Null or doesn't have a 'v' property.
+ */
+export function val<T>(value: Value | undefined): T | undefined {
+  if (!value || value.t === "Null") return undefined;
+  return (value as any).v as T;
+}
+
 export interface RichText {
   spans: Span[];
 }

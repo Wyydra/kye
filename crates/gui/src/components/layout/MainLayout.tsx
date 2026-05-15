@@ -1,29 +1,34 @@
 import { useEffect, useState } from "react";
 import { useGraphStore } from "../../store/graphStore";
 import { kyeService } from "../../services/kyeService";
-import { WorkspaceMeta } from "../../types/domain";
+
 import { WorldCanvas } from "../renderers/layouts/WorldCanvas";
 import { NodeModal } from "./NodeModal";
 import { DropManager } from "../../lib/dropManager";
 import { Sidebar } from "./Sidebar";
-import { useCanvasStore } from "../../store/canvasStore";
+
 import { PanelLeft, FolderOpen, Sparkles } from "lucide-react";
 import { WorkspacePicker } from "./WorkspacePicker";
 import { useUIStore } from "../../store/uiStore";
+import { bootstrapLayouts } from "../renderers/layouts";
 
 export const MainLayout: React.FC = () => {
   const { isLoaded, loadGraph, error } = useGraphStore();
   const isSidebarOpen = useUIStore(state => state.isSidebarOpen);
   const toggleSidebar = useUIStore(state => state.toggleSidebar);
-  const [meta, setMeta] = useState<WorkspaceMeta | null>(null);
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
 
   const setWorkspacePickerOpen = useUIStore(state => state.setWorkspacePickerOpen);
 
   useEffect(() => {
+    bootstrapLayouts();
     DropManager.init();
-    kyeService.getMeta().then(setMeta).catch(console.error);
-    kyeService.getWorkspacePath().then(setWorkspacePath).catch(console.error);
+    Promise.all([
+      kyeService.getMeta(),
+      kyeService.getWorkspacePath()
+    ]).then(([_, path]) => {
+      setWorkspacePath(path);
+    }).catch(console.error);
     loadGraph();
   }, [loadGraph]);
 

@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { useGraphStore } from "../../../store/graphStore";
 import { useCanvasStore } from "../../../store/canvasStore";
+import { val } from "../../../types/domain";
 import { getBezierPath } from "../../../lib/geometry";
 
 interface CanvasConnectionProps {
@@ -17,8 +18,8 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
   const { path } = useMemo(() => {
     if (!connection || connection.kind !== "core.connection") return { path: null, midPoint: null };
 
-    const fromId = connection.props["from"]?.v as string;
-    const toId = connection.props["to"]?.v as string;
+    const fromId = val<string>(connection.props["from"]);
+    const toId = val<string>(connection.props["to"]);
 
     const source = nodeStates[fromId];
     const target = nodeStates[toId];

@@ -104,7 +104,7 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
       </svg>
     ),
     markdownTrigger: undefined,
-    propsOnConvert: (node) => ({
+    propsOnConvert: (_node) => ({
       url: { t: "Text" as const, v: "" },
     }),
     propsToDelete: (node) =>

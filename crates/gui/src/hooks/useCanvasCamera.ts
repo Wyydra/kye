@@ -2,8 +2,8 @@ import { useRef, useEffect, useCallback } from "react";
 import { useCanvasStore } from "../store/canvasStore";
 
 export function useCanvasCamera(
-  containerRef: React.RefObject<HTMLDivElement>,
-  layerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  layerRef: React.RefObject<HTMLDivElement | null>,
 ) {
   const { viewport, setViewport } = useCanvasStore();
   

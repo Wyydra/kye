@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Node, Event, KindDef } from "../types/domain";
+import { Node, Event, KindDef, val } from "../types/domain";
 import { kyeService } from "../services/kyeService";
 import { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -32,8 +32,8 @@ const applyEventToState = (
           newRoots.sort((a, b) => {
             const nodeA = newNodes[a];
             const nodeB = newNodes[b];
-            const titleA = (nodeA?.props["title"]?.v as string) || "";
-            const titleB = (nodeB?.props["title"]?.v as string) || "";
+            const titleA = val<string>(nodeA?.props["title"]) || "";
+            const titleB = val<string>(nodeB?.props["title"]) || "";
             return titleA.toLowerCase().localeCompare(titleB.toLowerCase());
           });
         }

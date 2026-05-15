@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { Node } from "../../../types/domain";
+import { Node, val, RichText } from "../../../types/domain";
 import { useUIStore } from "../../../store/uiStore";
 import { execute } from "../../../lib/commands";
 import { useEditor } from "../../../context/EditorContext";
@@ -12,11 +12,8 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
   const { setFocusedNode } = useUIStore.getState();
   const { blockTypes } = useEditor();
 
-  const checkedProp = node.props["checked"];
-  const checked = checkedProp?.t === "Bool" ? checkedProp.v : false;
-
-  const textProp = node.props["text"];
-  const richText = textProp?.t === "Rich" ? textProp.v : { spans: [] };
+  const checked = val<boolean>(node.props["checked"]) || false;
+  const richText = val<RichText>(node.props["text"]) || { spans: [] };
 
   const handleChange = useCallback(
     (newText: any) => {

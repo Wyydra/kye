@@ -4,7 +4,7 @@ import { Mark } from "../../types/domain";
 
 interface ToolbarProps {
   onFormat: (mark: Mark) => void;
-  targetRef: React.RefObject<HTMLDivElement>;
+  targetRef: React.RefObject<HTMLElement | null>;
 }
 
 export const RichTextToolbar: React.FC<ToolbarProps> = ({ onFormat, targetRef }) => {

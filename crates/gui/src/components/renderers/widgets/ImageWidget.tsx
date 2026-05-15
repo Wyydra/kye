@@ -1,17 +1,14 @@
 import React from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Node } from "../../../types/domain";
+import { Node, val } from "../../../types/domain";
 import { execute } from "../../../lib/commands";
 import { kyeService } from "../../../services/kyeService";
 import { useFileDrop } from "../../../hooks/useFileDrop";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
 
 export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const urlValue = node.props.url;
-  const titleValue = node.props.title;
-  const url = urlValue?.t === "Text" ? urlValue.v : undefined;
-  const title = titleValue?.t === "Text" ? titleValue.v : undefined;
+  const url = val<string>(node.props.url);
+  const title = val<string>(node.props.title);
   const assetUrl = useAssetUrl(url);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {

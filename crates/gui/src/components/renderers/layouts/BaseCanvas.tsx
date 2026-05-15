@@ -8,6 +8,7 @@ import { execute } from "../../../lib/commands";
 import { useCanvasStore } from "../../../store/canvasStore";
 import { CanvasCreationMenu } from "./CanvasCreationMenu";
 import { GridBackground } from "./GridBackground";
+import { val } from "../../../types/domain";
 import { getBezierPath } from "../../../lib/geometry";
 
 interface BaseCanvasProps {
@@ -102,10 +103,10 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
     const sourceNode = nodes[connectionDraft.sourceId];
     if (!sourceNode) return null;
 
-    const x1 = (sourceNode.props["x"]?.v as number) || 0;
-    const y1 = (sourceNode.props["y"]?.v as number) || 0;
-    const width = (sourceNode.props["width"]?.v as number) || 300;
-    const height = (sourceNode.props["height"]?.v as number) || 200;
+    const x1 = val<number>(sourceNode.props["x"]) || 0;
+    const y1 = val<number>(sourceNode.props["y"]) || 0;
+    const width = val<number>(sourceNode.props["width"]) || 300;
+    const height = val<number>(sourceNode.props["height"]) || 200;
     
     const startX = x1 + width / 2;
     const startY = y1 + height / 2;

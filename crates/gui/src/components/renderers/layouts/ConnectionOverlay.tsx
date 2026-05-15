@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback } from "react";
 import { useGraphStore } from "../../../store/graphStore";
 import { useCanvasStore } from "../../../store/canvasStore";
+import { val } from "../../../types/domain";
 import { BlockToolbar } from "./BlockToolbar";
 import { execute } from "../../../lib/commands";
 import { useUIStore } from "../../../store/uiStore";
@@ -17,7 +18,7 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
   const setModalNodeId = useUIStore(state => state.setModalNodeId);
 
   const isSelected = selectedNodeId === connectionId;
-  const isLocked = !!connection?.props["is_locked"]?.v;
+  const isLocked = !!val<boolean>(connection?.props["is_locked"]);
 
   const titleProp = connection?.props["title"];
   const title = titleProp?.t === "Text" ? titleProp.v : undefined;
@@ -26,8 +27,8 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
   const midPoint = useMemo(() => {
     if (!connection || connection.kind !== "core.connection") return null;
 
-    const fromId = connection.props["from"]?.v as string;
-    const toId = connection.props["to"]?.v as string;
+    const fromId = val<string>(connection.props["from"]);
+    const toId = val<string>(connection.props["to"]);
 
     const source = nodeStates[fromId];
     const target = nodeStates[toId];

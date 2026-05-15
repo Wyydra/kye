@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { Lock } from "lucide-react";
+import { NodeRenderer } from "../NodeRenderer";
 import { useGraphStore } from "../../../store/graphStore";
 import { execute } from "../../../lib/commands";
-import { NodeRenderer } from "../NodeRenderer";
 import { useCanvasStore } from "../../../store/canvasStore";
+import { val } from "../../../types/domain";
 import { useResizable } from "../../../hooks/useResizable";
 import { SelectionFrame } from "./SelectionFrame";
 
@@ -27,12 +28,12 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
 
   // Local state for fluid interaction
   const [localPos, setLocalPos] = useState({
-    x: (node.props["x"]?.v as number) || 0,
-    y: (node.props["y"]?.v as number) || 0,
+    x: val<number>(node.props["x"]) || 0,
+    y: val<number>(node.props["y"]) || 0,
   });
   const [localSize, setLocalSize] = useState({
-    width: (node.props["width"]?.v as number) || 300,
-    height: (node.props["height"]?.v as number) || 200,
+    width: val<number>(node.props["width"]) || 300,
+    height: val<number>(node.props["height"]) || 200,
   });
 
   const isInteracting = useRef(false);
@@ -46,17 +47,17 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
   useEffect(() => {
     if (!isInteracting.current) {
       setLocalPos({
-        x: (node.props["x"]?.v as number) || 0,
-        y: (node.props["y"]?.v as number) || 0,
+        x: val<number>(node.props["x"]) || 0,
+        y: val<number>(node.props["y"]) || 0,
       });
       setLocalSize({
-        width: (node.props["width"]?.v as number) || 300,
-        height: (node.props["height"]?.v as number) || 200,
+        width: val<number>(node.props["width"]) || 300,
+        height: val<number>(node.props["height"]) || 200,
       });
     }
   }, [node.props]);
 
-  const isLocked = !!node.props["is_locked"]?.v;
+  const isLocked = !!val<boolean>(node.props["is_locked"]);
 
   const handleToggleLock = useCallback(() => {
     execute({

@@ -1,6 +1,6 @@
 import React from "react";
 import { NodeRenderer } from "../NodeRenderer";
-import { LayoutProps } from "./index";
+import { LayoutProps } from "./types";
 
 export const StackLayout: React.FC<LayoutProps> = ({ node, layout, depth }) => {
   if (layout.t !== "Stack") return null;

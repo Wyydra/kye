@@ -1,6 +1,6 @@
 import React from "react";
 import { NodeRenderer } from "../NodeRenderer";
-import { LayoutProps } from "./index";
+import { LayoutProps } from "./types";
 import * as widgetRegistry from "../widgets";
 
 export const WidgetLayout: React.FC<LayoutProps> = ({ node, layout, depth }) => {

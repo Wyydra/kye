@@ -1,9 +1,10 @@
 import React from "react";
 import { useUIStore } from "../../../store/uiStore";
 import { useGraphStore } from "../../../store/graphStore";
+import { val } from "../../../types/domain";
 import { execute } from "../../../lib/commands";
 import { NodeRenderer } from "../NodeRenderer";
-import { LayoutProps } from "./index";
+import { LayoutProps } from "./types";
 import { useCanvasStore } from "../../../store/canvasStore";
 import { kyeService } from "../../../services/kyeService";
 import { useFileDrop } from "../../../hooks/useFileDrop";
@@ -22,8 +23,7 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
         ? titleProp.v.spans.map((s: any) => s.text).join("")
         : "";
 
-  const isActive = useUIStore(state => state.activePageId === node.id);
-  const isLocked = !!node.props["is_locked"]?.v;
+  const isLocked = !!val<boolean>(node.props["is_locked"]);
   const isCard = depth > 0;
   const isEditable = depth <= 1 && !isLocked && (!isCard || isSelected);
 

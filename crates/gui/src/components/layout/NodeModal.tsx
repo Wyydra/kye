@@ -55,7 +55,7 @@ export const NodeModal: React.FC = () => {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
-          <DocumentLayout node={node} depth={0} />
+          <DocumentLayout node={node} depth={0} layout={{ t: "Document" }} />
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutProps } from "./index";
+import { LayoutProps } from "./types";
 import { BaseCanvas } from "./BaseCanvas";
 import { execute } from "../../../lib/commands";
 
