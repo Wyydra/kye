@@ -101,6 +101,16 @@ pub fn run() {
             commands::media::import_media,
             commands::workspace::list_workspaces,
             commands::workspace::create_workspace,
+            commands::sync::get_local_peer_info,
+            commands::sync::generate_pairing_qr,
+            commands::sync::start_p2p_server,
+            commands::sync::stop_p2p_server,
+            commands::sync::is_p2p_server_running,
+            commands::sync::ping_remote_peer,
+            commands::sync::push_to_remote_peer,
+            commands::sync::pull_remote_peer_graph,
+            commands::sync::get_local_tombstones,
+            commands::sync::pull_remote_peer_tombstones,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

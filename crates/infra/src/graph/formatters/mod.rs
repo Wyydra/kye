@@ -6,9 +6,103 @@ pub mod quote;
 pub mod code_block;
 pub mod divider;
 pub mod paragraph;
+pub mod flashcard;
 
-use domain::value::Props;
+use domain::value::{Props, Value, RichText, Span, Mark};
 use once_cell::sync::Lazy;
+use std::sync::Arc;
+use pulldown_cmark::{Parser, Event, Tag, TagEnd, Options};
+
+pub fn rich_to_markdown(rt: &RichText) -> String {
+    let mut out = String::new();
+    for span in &rt.0 {
+        let mut text = span.text.as_ref().to_string();
+        for mark in &span.marks {
+            match mark {
+                Mark::Bold => text = format!("**{}**", text),
+                Mark::Italic => text = format!("*{}*", text),
+                Mark::Code => text = format!("`{}`", text),
+                Mark::Strikethrough => text = format!("~~{}~~", text),
+                Mark::Underline => text = format!("<u>{}</u>", text),
+                Mark::Link(url) => text = format!("[{}]({})", text, url),
+                _ => {}
+            }
+        }
+        out.push_str(&text);
+    }
+    out
+}
+
+pub fn markdown_to_rich(md: &str) -> RichText {
+    let mut spans = Vec::new();
+    let mut current_marks = smallvec::SmallVec::new();
+    let parser = Parser::new_ext(md, Options::empty());
+
+    for event in parser {
+        match event {
+            Event::Start(tag) => {
+                match tag {
+                    Tag::Strong => current_marks.push(Mark::Bold),
+                    Tag::Emphasis => current_marks.push(Mark::Italic),
+                    Tag::Strikethrough => current_marks.push(Mark::Strikethrough),
+                    Tag::Link { dest_url, .. } => current_marks.push(Mark::Link(Arc::from(dest_url.as_ref()))),
+                    _ => {}
+                }
+            }
+            Event::End(tag_end) => {
+                let target_mark = match tag_end {
+                    TagEnd::Strong => Some(Mark::Bold),
+                    TagEnd::Emphasis => Some(Mark::Italic),
+                    TagEnd::Strikethrough => Some(Mark::Strikethrough),
+                    TagEnd::Link => {
+                        if let Some(pos) = current_marks.iter().position(|m| matches!(m, Mark::Link(_))) {
+                            current_marks.remove(pos);
+                        }
+                        None
+                    }
+                    _ => None,
+                };
+                if let Some(m) = target_mark {
+                    if let Some(pos) = current_marks.iter().position(|x| x == &m) {
+                        current_marks.remove(pos);
+                    }
+                }
+            }
+            Event::Text(t) => {
+                spans.push(Span {
+                    text: Arc::from(t.as_ref()),
+                    marks: current_marks.clone(),
+                });
+            }
+            Event::Code(t) => {
+                let mut marks = current_marks.clone();
+                marks.push(Mark::Code);
+                spans.push(Span {
+                    text: Arc::from(t.as_ref()),
+                    marks,
+                });
+            }
+            _ => {}
+        }
+    }
+
+    if spans.is_empty() && !md.is_empty() {
+        spans.push(Span {
+            text: Arc::from(md),
+            marks: smallvec::SmallVec::new(),
+        });
+    }
+
+    RichText(spans)
+}
+
+pub fn value_to_markdown(v: &Value) -> String {
+    match v {
+        Value::Text(t) => t.as_ref().to_string(),
+        Value::Rich(rt) => rich_to_markdown(rt),
+        _ => String::new(),
+    }
+}
 
 /// Describes how a specific block kind maps to and from Markdown text.
 ///
@@ -53,6 +147,7 @@ impl FormatterRegistry {
         reg.formatters.push(Box::new(quote::QuoteFormatter));
         reg.formatters.push(Box::new(code_block::CodeBlockFormatter));
         reg.formatters.push(Box::new(divider::DividerFormatter));
+        reg.formatters.push(Box::new(flashcard::FlashcardFormatter));
         reg
     }
 
@@ -76,3 +171,4 @@ impl FormatterRegistry {
 /// Process-wide singleton. Avoids rebuilding the registry on every block
 /// serialize/deserialize call.
 pub static REGISTRY: Lazy<FormatterRegistry> = Lazy::new(FormatterRegistry::build);
+

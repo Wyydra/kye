@@ -513,35 +513,35 @@ mod tests {
     fn create_node_auto_title_unique() {
         let (mut graph, registry) = setup();
 
-        // First document: no title provided -> gets "Untitled"
+        // First document: no title provided -> stays None in domain (assigned by infra)
         let id1 = NodeId::new();
         let e1 = apply(&mut graph, &registry, Command::CreateNode {
             id: id1, kind: kinds::page(), parent_id: None, index: 0,
             props: Props::new(),
         }, fixed_now()).unwrap();
         let Event::NodeCreated { node: n1, .. } = e1 else { panic!() };
-        assert_eq!(n1.prop_text("title"), Some("Untitled"));
-        assert_eq!(graph.get(id1).unwrap().prop_text("title"), Some("Untitled"));
+        assert_eq!(n1.prop_text("title"), None);
+        assert_eq!(graph.get(id1).unwrap().prop_text("title"), None);
 
-        // Second document: also no title -> gets "Untitled 1"
+        // Second document: also no title -> stays None
         let id2 = NodeId::new();
         let e2 = apply(&mut graph, &registry, Command::CreateNode {
             id: id2, kind: kinds::page(), parent_id: None, index: 1,
             props: Props::new(),
         }, fixed_now()).unwrap();
         let Event::NodeCreated { node: n2, .. } = e2 else { panic!() };
-        assert_eq!(n2.prop_text("title"), Some("Untitled 1"));
+        assert_eq!(n2.prop_text("title"), None);
 
-        // Third document: also no title -> gets "Untitled 2"
+        // Third document: also no title -> stays None
         let id3 = NodeId::new();
         let e3 = apply(&mut graph, &registry, Command::CreateNode {
             id: id3, kind: kinds::page(), parent_id: None, index: 2,
             props: Props::new(),
         }, fixed_now()).unwrap();
         let Event::NodeCreated { node: n3, .. } = e3 else { panic!() };
-        assert_eq!(n3.prop_text("title"), Some("Untitled 2"));
+        assert_eq!(n3.prop_text("title"), None);
 
-        // Fourth document: custom title -> no collision resolution needed
+        // Fourth document: custom title -> preserved
         let id4 = NodeId::new();
         let e4 = apply(&mut graph, &registry, Command::CreateNode {
             id: id4, kind: kinds::page(), parent_id: None, index: 3,
@@ -551,3 +551,4 @@ mod tests {
         assert_eq!(n4.prop_text("title"), Some("My Page"));
     }
 }
+

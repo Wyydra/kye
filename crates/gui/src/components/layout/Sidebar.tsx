@@ -2,7 +2,7 @@ import { useGraphStore } from "../../store/graphStore";
 import { val } from "../../types/domain";
 import { useCanvasStore } from "../../store/canvasStore";
 import { useUIStore } from "../../store/uiStore";
-import { FolderIcon, Settings, Plus, ChevronRight, FileText, Image as ImageIcon, PanelLeft } from "lucide-react";
+import { FolderIcon, Plus, ChevronRight, FileText, Image as ImageIcon, PanelLeft, Network } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
   const roots = useGraphStore(state => state.roots);
@@ -10,6 +10,7 @@ export const Sidebar: React.FC = () => {
   const setSelectedNodeId = useCanvasStore(state => state.setSelectedNodeId);
 
   const setWorkspacePickerOpen = useUIStore(state => state.setWorkspacePickerOpen);
+  const setSyncPanelOpen = useUIStore(state => state.setSyncPanelOpen);
 
   const handleSwitchWorkspace = () => {
     setWorkspacePickerOpen(true);
@@ -34,8 +35,11 @@ export const Sidebar: React.FC = () => {
           </div>
           <span className="font-semibold text-sm tracking-tight">Kye</span>
         </div>
-        <button className="p-1 hover:bg-muted rounded-md transition-colors text-muted-foreground">
-          <Settings className="w-4 h-4" />
+        <button 
+          onClick={() => setSyncPanelOpen(true)}
+          className="p-1 hover:bg-muted rounded-md transition-colors text-muted-foreground"
+        >
+          <Network className="w-4 h-4" />
         </button>
       </div>
 
@@ -78,6 +82,13 @@ export const Sidebar: React.FC = () => {
         className="p-4 border-t border-border/50 bg-muted/10"
         style={{ paddingBottom: "calc(1rem + var(--safe-bottom))", paddingLeft: "calc(1rem + var(--safe-left))" }}
       >
+        <button 
+          onClick={() => setSyncPanelOpen(true)}
+          className="w-full flex items-center gap-3 px-2 py-2 mb-1.5 rounded-lg hover:bg-muted transition-colors text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Network className="w-4 h-4" />
+          <span>Sync Workspace</span>
+        </button>
         <button 
           onClick={handleSwitchWorkspace}
           className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors text-xs text-muted-foreground hover:text-foreground"

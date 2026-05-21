@@ -10,6 +10,8 @@ interface UIState {
   isSidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  isSyncPanelOpen: boolean;
+  setSyncPanelOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -22,4 +24,6 @@ export const useUIStore = create<UIState>((set) => ({
   isSidebarOpen: true,
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  isSyncPanelOpen: false,
+  setSyncPanelOpen: (open) => set({ isSyncPanelOpen: open }),
 }));

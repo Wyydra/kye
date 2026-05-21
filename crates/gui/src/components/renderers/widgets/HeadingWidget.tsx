@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
-import { Node, val, RichText } from "../../../types/domain";
+import { Node, val, valRich } from "../../../types/domain";
+
 import { useUIStore } from "../../../store/uiStore";
 import { execute } from "../../../lib/commands";
 import { useEditor } from "../../../context/EditorContext";
@@ -13,7 +14,7 @@ export const HeadingWidget: React.FC<{ node: Node }> = ({ node }) => {
   const { blockTypes } = useEditor();
 
   const level = val<number>(node.props["level"]) || 1;
-  const richText = val<RichText>(node.props["text"]) || { spans: [] };
+  const richText = valRich(node.props["body"]);
 
   const sizeClass =
     {
@@ -30,12 +31,13 @@ export const HeadingWidget: React.FC<{ node: Node }> = ({ node }) => {
       execute({
         type: "set_prop",
         node_id: node.id,
-        key: "text",
+        key: "body",
         value: { t: "Rich", v: newText },
       });
     },
     [node.id],
   );
+
 
   const paragraphSpec = blockTypes.find((s) => s.id === "paragraph");
   const baseKeyDown = useBlockKeyDown({ node });

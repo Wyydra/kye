@@ -3,6 +3,7 @@ import { ParagraphWidget } from "./ParagraphWidget";
 import { HeadingWidget } from "./HeadingWidget";
 import { TaskWidget } from "./TaskWidget";
 import { ImageWidget } from "./ImageWidget";
+import { FlashcardWidget } from "./FlashcardWidget";
 import { Node } from "../../../types/domain";
 
 export type WidgetComponent = React.FC<{ node: Node }>;
@@ -12,7 +13,9 @@ export const WIDGET_REGISTRY: Record<string, WidgetComponent> = {
   heading: HeadingWidget,
   task: TaskWidget,
   image: ImageWidget,
+  flashcard: FlashcardWidget,
 };
+
 
 export function registerWidget(name: string, component: WidgetComponent) {
   WIDGET_REGISTRY[name] = component;

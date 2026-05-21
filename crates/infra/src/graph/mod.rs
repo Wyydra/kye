@@ -11,7 +11,7 @@ use domain::graph::Graph;
 use domain::ports::{GraphRepository, RepositoryError};
 use domain::workspace::WorkspaceMeta;
 
-use crate::graph::serializer::{deserialize_graph, serialize_event, serialize_graph, load_meta, save_meta};
+use crate::graph::serializer::{deserialize_graph, serialize_event, serialize_graph, load_meta, save_meta, load_tombstones, save_tombstones};
 use crate::fs::WorkspaceFs;
 
 use std::collections::HashMap;
@@ -68,11 +68,44 @@ impl GraphRepository for InMemoryGraphRepository {
 
         let cache = self.cache.read()
             .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
-        serialize_event(&self.fs, event, &cache, &self.path_map)
+        serialize_event(&self.fs, event, &cache, &self.path_map)?;
+
+        let mut deleted_ids = Vec::new();
+        collect_deleted_node_ids(event, &mut deleted_ids);
+        if !deleted_ids.is_empty() {
+            let mut tombstones = load_tombstones(&self.fs).unwrap_or_default();
+            let now = chrono::Utc::now();
+            for id in deleted_ids {
+                tombstones.insert(id, now);
+            }
+            let _ = save_tombstones(&self.fs, &tombstones);
+        }
+
+        Ok(())
     }
 
     fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError> {
         serialize_graph(&self.fs, graph, &self.path_map)
+    }
+
+    fn load_tombstones(&self) -> Result<std::collections::HashMap<domain::primitives::NodeId, chrono::DateTime<chrono::Utc>>, RepositoryError> {
+        load_tombstones(&self.fs)
+    }
+}
+
+fn collect_deleted_node_ids(event: &Event, ids: &mut Vec<domain::primitives::NodeId>) {
+    match event {
+        Event::NodeDeleted { nodes, .. } => {
+            for n in nodes {
+                ids.push(n.id);
+            }
+        }
+        Event::Batch(events) => {
+            for e in events {
+                collect_deleted_node_ids(e, ids);
+            }
+        }
+        _ => {}
     }
 }
 

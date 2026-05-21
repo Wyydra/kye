@@ -685,3 +685,34 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph, path_map:
 
     Ok(())
 }
+
+pub fn load_tombstones(fs: &WorkspaceFs) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError> {
+    let path = fs.kye_dir().join("tombstones.json");
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let content = fs.read_file(&path)?;
+    let raw: HashMap<String, String> = serde_json::from_str(&content)
+        .map_err(|e| RepositoryError::Corrupted(format!("Failed to parse tombstones.json: {}", e)))?;
+    
+    let mut tombstones = HashMap::new();
+    for (k, v) in raw {
+        if let Ok(uuid) = Uuid::parse_str(&k) {
+            if let Ok(dt) = DateTime::parse_from_rfc3339(&v) {
+                tombstones.insert(NodeId::from_uuid(uuid), dt.with_timezone(&Utc));
+            }
+        }
+    }
+    Ok(tombstones)
+}
+
+pub fn save_tombstones(fs: &WorkspaceFs, tombstones: &HashMap<NodeId, DateTime<Utc>>) -> Result<(), RepositoryError> {
+    let mut raw = HashMap::new();
+    for (k, v) in tombstones {
+        raw.insert(k.to_string(), v.to_rfc3339());
+    }
+    let content = serde_json::to_string_pretty(&raw)
+        .map_err(|e| RepositoryError::Corrupted(format!("Failed to serialize tombstones: {}", e)))?;
+    fs.write_file(&fs.kye_dir().join("tombstones.json"), &content)
+}
+

@@ -162,4 +162,8 @@ where
     pub fn save_media(&self, data: &[u8], extension: &str) -> Result<String, ServiceError> {
         Ok(self.media_repo.save_media(data, extension)?)
     }
+
+    pub fn load_tombstones(&self) -> Result<std::collections::HashMap<crate::primitives::NodeId, chrono::DateTime<chrono::Utc>>, ServiceError> {
+        Ok(self.repo.load_tombstones()?)
+    }
 }

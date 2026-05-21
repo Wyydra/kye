@@ -5,7 +5,10 @@ import { BlockTypeSpec, MarkSpec } from "./registry";
 
 function transferText(node: Node, targetPropKey: string): Record<string, Value> {
   const textValue =
-    node.props["body"] || node.props["text"] || { t: "Rich" as const, v: { spans: [] } };
+    node.props["body"] ||
+    node.props["text"] ||
+    node.props["title"] ||
+    node.props["front"] || { t: "Rich" as const, v: { spans: [] } };
   return { [targetPropKey]: textValue };
 }
 
@@ -24,7 +27,7 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
     markdownTrigger: undefined,
     propsOnConvert: (node) => transferText(node, "body"),
     propsToDelete: (node) =>
-      ["text", "level", "checked"].filter((k) => k in node.props),
+      ["text", "level", "checked", "title", "front", "back"].filter((k) => k in node.props),
   },
   {
     id: "heading-1",
@@ -34,10 +37,10 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
     icon: <span className="font-black text-sm leading-none">H1</span>,
     markdownTrigger: "# ",
     propsOnConvert: (node) => ({
-      ...transferText(node, "text"),
+      ...transferText(node, "body"),
       level: { t: "Int" as const, v: 1 },
     }),
-    propsToDelete: (node) => ["body", "checked"].filter((k) => k in node.props),
+    propsToDelete: (node) => ["text", "checked", "title", "front", "back"].filter((k) => k in node.props),
   },
   {
     id: "heading-2",
@@ -47,10 +50,10 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
     icon: <span className="font-bold text-sm leading-none">H2</span>,
     markdownTrigger: "## ",
     propsOnConvert: (node) => ({
-      ...transferText(node, "text"),
+      ...transferText(node, "body"),
       level: { t: "Int" as const, v: 2 },
     }),
-    propsToDelete: (node) => ["body", "checked"].filter((k) => k in node.props),
+    propsToDelete: (node) => ["text", "checked", "title", "front", "back"].filter((k) => k in node.props),
   },
   {
     id: "heading-3",
@@ -60,10 +63,10 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
     icon: <span className="font-semibold text-sm leading-none">H3</span>,
     markdownTrigger: "### ",
     propsOnConvert: (node) => ({
-      ...transferText(node, "text"),
+      ...transferText(node, "body"),
       level: { t: "Int" as const, v: 3 },
     }),
-    propsToDelete: (node) => ["body", "checked"].filter((k) => k in node.props),
+    propsToDelete: (node) => ["text", "checked", "title", "front", "back"].filter((k) => k in node.props),
   },
   {
     id: "task",
@@ -78,10 +81,29 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
     ),
     markdownTrigger: "[] ",
     propsOnConvert: (node) => ({
-      ...transferText(node, "text"),
+      ...transferText(node, "title"),
       checked: { t: "Bool" as const, v: false },
     }),
-    propsToDelete: (node) => ["body", "level"].filter((k) => k in node.props),
+    propsToDelete: (node) => ["body", "text", "level", "front", "back"].filter((k) => k in node.props),
+  },
+  {
+    id: "flashcard",
+    kind: "core.flashcard",
+    label: "Flashcard",
+    keywords: ["flashcard", "card", "quiz", "korean", "vocab", "study"],
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+        <path d="M8 14h.01M12 14h.01M16 14h.01"/>
+      </svg>
+    ),
+    markdownTrigger: "? ",
+    propsOnConvert: (node) => ({
+      ...transferText(node, "front"),
+      back: { t: "Rich" as const, v: { spans: [] } },
+    }),
+    propsToDelete: (node) => ["body", "text", "level", "checked", "title"].filter((k) => k in node.props),
   },
   {
     id: "image",
@@ -100,9 +122,10 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
       url: { t: "Text" as const, v: "" },
     }),
     propsToDelete: (node) =>
-      ["body", "level", "checked", "text"].filter((k) => k in node.props),
+      ["body", "level", "checked", "text", "title", "front", "back"].filter((k) => k in node.props),
   },
 ];
+
 
 export const CORE_MARKS: MarkSpec[] = [
   {

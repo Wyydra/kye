@@ -57,4 +57,44 @@ export const kyeService = {
       callback(e.payload);
     });
   },
+
+  async getLocalPeerInfo(): Promise<string | null> {
+    return invoke("get_local_peer_info");
+  },
+
+  async generatePairingQr(port: number, name: string, pin: string): Promise<string> {
+    return invoke("generate_pairing_qr", { port, name, pin });
+  },
+
+  async startP2pServer(port: number, peerId: string, deviceName: string): Promise<void> {
+    return invoke("start_p2p_server", { port, peerId, deviceName });
+  },
+
+  async stopP2pServer(): Promise<void> {
+    return invoke("stop_p2p_server");
+  },
+
+  async isP2pServerRunning(): Promise<boolean> {
+    return invoke("is_p2p_server_running");
+  },
+
+  async pingRemotePeer(remoteUrl: string): Promise<{ peer_id: string; name: string }> {
+    return invoke("ping_remote_peer", { remoteUrl });
+  },
+
+  async pushToRemotePeer(remoteUrl: string, cmds: Command[]): Promise<void> {
+    return invoke("push_to_remote_peer", { remoteUrl, cmds });
+  },
+
+  async pullRemotePeerGraph(remoteUrl: string): Promise<Graph> {
+    return invoke("pull_remote_peer_graph", { remoteUrl });
+  },
+
+  async getLocalTombstones(): Promise<Record<string, string>> {
+    return invoke("get_local_tombstones");
+  },
+
+  async pullRemotePeerTombstones(remoteUrl: string): Promise<Record<string, string>> {
+    return invoke("pull_remote_peer_tombstones", { remoteUrl });
+  },
 };

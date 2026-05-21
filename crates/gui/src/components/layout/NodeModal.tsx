@@ -37,7 +37,7 @@ export const NodeModal: React.FC = () => {
       ref={overlayRef}
     >
       <div 
-        className="relative w-full max-w-4xl h-[85vh] bg-background border border-border shadow-2xl rounded-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+        className="relative w-full md:max-w-4xl h-full md:h-[85vh] bg-background border-none md:border md:border-border shadow-2xl md:rounded-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
       >
         {}
         <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">

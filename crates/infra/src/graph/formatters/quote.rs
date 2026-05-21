@@ -1,7 +1,6 @@
 use domain::primitives::PropKey;
 use domain::value::{Props, Value};
-use std::sync::Arc;
-use super::BlockFormatter;
+use super::{BlockFormatter, value_to_markdown, markdown_to_rich};
 
 pub struct QuoteFormatter;
 
@@ -14,8 +13,8 @@ impl BlockFormatter for QuoteFormatter {
 
     fn format(&self, props: &Props) -> String {
         let body = props.get(&PropKey::from("body"))
-            .and_then(|v| if let Value::Text(t) = v { Some(t.as_ref()) } else { None })
-            .unwrap_or("");
+            .map(value_to_markdown)
+            .unwrap_or_default();
         body.lines()
             .map(|l| format!("> {}", l))
             .collect::<Vec<_>>()
@@ -28,7 +27,8 @@ impl BlockFormatter for QuoteFormatter {
             .map(|l| l.strip_prefix("> ").unwrap_or(l))
             .collect::<Vec<_>>()
             .join("\n");
-        props.insert(PropKey::from("body"), Value::Text(Arc::from(body.as_str())));
+        props.insert(PropKey::from("body"), Value::Rich(markdown_to_rich(&body)));
         props
     }
 }
+

@@ -1,7 +1,6 @@
 use domain::primitives::PropKey;
 use domain::value::{Props, Value};
-use std::sync::Arc;
-use super::BlockFormatter;
+use super::{BlockFormatter, value_to_markdown, markdown_to_rich};
 
 pub struct HeadingFormatter;
 
@@ -14,8 +13,8 @@ impl BlockFormatter for HeadingFormatter {
 
     fn format(&self, props: &Props) -> String {
         let body = props.get(&PropKey::from("body"))
-            .and_then(|v| if let Value::Text(t) = v { Some(t.as_ref()) } else { None })
-            .unwrap_or("");
+            .map(value_to_markdown)
+            .unwrap_or_default();
         let level = props.get(&PropKey::from("level"))
             .and_then(|v| if let Value::Int(i) = v { Some(*i as usize) } else { None })
             .unwrap_or(1);
@@ -26,7 +25,9 @@ impl BlockFormatter for HeadingFormatter {
         let mut props = Props::new();
         let level = text.chars().take_while(|c| *c == '#').count();
         props.insert(PropKey::from("level"), Value::Int(level as i64));
-        props.insert(PropKey::from("body"), Value::Text(Arc::from(text[level..].trim())));
+        let title_part = text[level..].trim();
+        props.insert(PropKey::from("body"), Value::Rich(markdown_to_rich(title_part)));
         props
     }
 }
+

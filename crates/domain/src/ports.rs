@@ -25,6 +25,8 @@ pub trait GraphRepository: Send + Sync + 'static {
     fn apply_event(&self, event: &Event) -> Result<(), RepositoryError>;
 
     fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError>;
+
+    fn load_tombstones(&self) -> Result<std::collections::HashMap<crate::primitives::NodeId, chrono::DateTime<chrono::Utc>>, RepositoryError>;
 }
 
 pub trait KindRepository: Send + Sync + 'static {

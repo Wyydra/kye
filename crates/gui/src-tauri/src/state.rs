@@ -34,6 +34,7 @@ pub struct AppState {
 pub struct AppStateInner {
     pub service: Option<AppService>,
     pub workspace_path: Option<PathBuf>,
+    pub p2p_server: Option<infra::sync::P2pServer>,
 }
 
 impl AppState {
@@ -42,6 +43,7 @@ impl AppState {
             inner: Arc::new(Mutex::new(AppStateInner {
                 service,
                 workspace_path,
+                p2p_server: None,
             })),
         }
     }

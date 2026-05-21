@@ -6,9 +6,11 @@ import { CanvasLayout } from "../renderers/layouts/CanvasLayout";
 import { NodeModal } from "./NodeModal";
 import { DropManager } from "../../lib/dropManager";
 import { Sidebar } from "./Sidebar";
+import { MobileLayout } from "./MobileLayout";
 
 import { PanelLeft, FolderOpen, Sparkles } from "lucide-react";
 import { WorkspacePicker } from "./WorkspacePicker";
+import { SyncPanel } from "../SyncPanel";
 import { useUIStore } from "../../store/uiStore";
 import { bootstrapLayouts } from "../renderers/layouts";
 
@@ -17,12 +19,25 @@ export const MainLayout: React.FC = () => {
   const isSidebarOpen = useUIStore(state => state.isSidebarOpen);
   const toggleSidebar = useUIStore(state => state.toggleSidebar);
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const setWorkspacePickerOpen = useUIStore(state => state.setWorkspacePickerOpen);
+  const isSyncPanelOpen = useUIStore(state => state.isSyncPanelOpen);
+  const setSyncPanelOpen = useUIStore(state => state.setSyncPanelOpen);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     bootstrapLayouts();
     DropManager.init();
+
     Promise.all([
       kyeService.getMeta(),
       kyeService.getWorkspacePath()
@@ -100,6 +115,16 @@ export const MainLayout: React.FC = () => {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden relative">
+        <MobileLayout />
+        <WorkspacePicker />
+        {isSyncPanelOpen && <SyncPanel onClose={() => setSyncPanelOpen(false)} />}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden relative">
       {}
@@ -142,6 +167,7 @@ export const MainLayout: React.FC = () => {
           WS: {workspacePath}
         </div>
       )}
+      {isSyncPanelOpen && <SyncPanel onClose={() => setSyncPanelOpen(false)} />}
     </div>
   );
 };

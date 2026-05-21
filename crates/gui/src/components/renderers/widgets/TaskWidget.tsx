@@ -1,11 +1,12 @@
 import React, { useCallback } from "react";
-import { Node, val, RichText } from "../../../types/domain";
+import { Node, val, valRich } from "../../../types/domain";
 import { useUIStore } from "../../../store/uiStore";
 import { execute } from "../../../lib/commands";
 import { useEditor } from "../../../context/EditorContext";
 import { convertBlockType } from "../../../extensions/registry";
 import { RichTextEditor } from "../../editors/RichTextEditor";
 import { useBlockKeyDown } from "../../../hooks/useBlockKeyDown";
+import { useTouchSwipe } from "../../../hooks/useTouchSwipe";
 
 export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
   const isFocused = useUIStore((state) => state.focusedNodeId === node.id);
@@ -13,14 +14,14 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
   const { blockTypes } = useEditor();
 
   const checked = val<boolean>(node.props["checked"]) || false;
-  const richText = val<RichText>(node.props["text"]) || { spans: [] };
+  const richText = valRich(node.props["title"]);
 
   const handleChange = useCallback(
     (newText: any) => {
       execute({
         type: "set_prop",
         node_id: node.id,
-        key: "text",
+        key: "title",
         value: { t: "Rich", v: newText },
       });
     },
@@ -31,10 +32,11 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
     node,
     nextKind: "core.task",
     nextProps: {
-      text: { t: "Rich", v: { spans: [] } },
+      title: { t: "Rich", v: { spans: [] } },
       checked: { t: "Bool", v: false },
     },
   });
+
 
   const paragraphSpec = blockTypes.find((s) => s.id === "paragraph");
 
@@ -55,8 +57,25 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
     [node, paragraphSpec, baseKeyDown],
   );
 
+  const handleSwipe = useCallback((direction: "left" | "right") => {
+    if (direction === "right") {
+      execute({
+        type: "set_prop",
+        node_id: node.id,
+        key: "checked",
+        value: { t: "Bool", v: !checked },
+      });
+    }
+  }, [node.id, checked]);
+
+  const { onTouchStart, onTouchEnd } = useTouchSwipe(handleSwipe);
+
   return (
-    <div className="flex items-start gap-2 py-1 group">
+    <div 
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      className="flex items-start gap-2 py-1 group"
+    >
       <div className="mt-[3px]">
         <input
           type="checkbox"

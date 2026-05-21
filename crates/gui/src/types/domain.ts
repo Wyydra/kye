@@ -37,7 +37,19 @@ export function val<T>(value: Value | undefined): T | undefined {
   return (value as any).v as T;
 }
 
+export function valRich(value: Value | undefined): RichText {
+  if (!value || value.t === "Null") return { spans: [] };
+  if (value.t === "Text") {
+    return { spans: [{ text: value.v, marks: [] }] };
+  }
+  if (value.t === "Rich") {
+    return value.v;
+  }
+  return { spans: [] };
+}
+
 export interface RichText {
+
   spans: Span[];
 }
 

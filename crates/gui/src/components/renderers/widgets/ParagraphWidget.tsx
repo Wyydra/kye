@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { Node, val, RichText } from "../../../types/domain";
+import { Node, valRich } from "../../../types/domain";
 import { useUIStore } from "../../../store/uiStore";
 import { execute } from "../../../lib/commands";
 import { RichTextEditor } from "../../editors/RichTextEditor";
@@ -12,7 +12,8 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
   const { setFocusedNode } = useUIStore.getState();
   const { blockTypes } = useEditor();
 
-  const richText = val<RichText>(node.props["body"]) || { spans: [] };
+  const richText = valRich(node.props["body"]);
+
   const text = richText.spans.map((s: any) => s.text).join("");
 
   const isSlashActive = isFocused && text.startsWith("/");
