@@ -691,9 +691,22 @@ pub fn load_tombstones(fs: &WorkspaceFs) -> Result<HashMap<NodeId, DateTime<Utc>
     if !path.exists() {
         return Ok(HashMap::new());
     }
-    let content = fs.read_file(&path)?;
-    let raw: HashMap<String, String> = serde_json::from_str(&content)
-        .map_err(|e| RepositoryError::Corrupted(format!("Failed to parse tombstones.json: {}", e)))?;
+    let content = match fs.read_file(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to read tombstones.json: {:?}", e);
+            return Ok(HashMap::new());
+        }
+    };
+    let raw: HashMap<String, String> = match serde_json::from_str(&content) {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::error!("Failed to parse tombstones.json: {:?}. Backing up and resetting.", e);
+            let backup_path = fs.kye_dir().join("tombstones.json.corrupted");
+            let _ = std::fs::rename(&path, &backup_path);
+            HashMap::new()
+        }
+    };
     
     let mut tombstones = HashMap::new();
     for (k, v) in raw {

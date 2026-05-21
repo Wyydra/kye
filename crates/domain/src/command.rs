@@ -11,7 +11,6 @@ use crate::schema::ValidationError;
 use crate::value::{Props, Value};
 use crate::view::ViewDef;
 
-const DOCUMENT_KINDS: &[&str] = &["core.page", "core.canvas", "core.database"];
 
 /// Generates a unique title from a base string, given a set of already-taken titles.
 /// Rule: "Base" → "Base 1" → "Base 2" …
@@ -220,7 +219,7 @@ pub fn apply(
     now: DateTime<Utc>,
 ) -> Result<Event, CommandError> {
     match cmd {
-        Command::CreateNode { id, kind, parent_id, index, mut props } => {
+        Command::CreateNode { id, kind, parent_id, index, props } => {
 
             if let Some(pid) = parent_id {
                 if !graph.contains(pid) {

@@ -184,8 +184,14 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     try {
       const remoteGraph = await kyeService.pullRemotePeerGraph(peer.url);
-      const localTombstones = await kyeService.getLocalTombstones();
-      const remoteTombstones = await kyeService.pullRemotePeerTombstones(peer.url);
+      const localTombstones = await kyeService.getLocalTombstones().catch(e => {
+        console.warn("Failed to load local tombstones, continuing with empty:", e);
+        return {} as Record<string, string>;
+      });
+      const remoteTombstones = await kyeService.pullRemotePeerTombstones(peer.url).catch(e => {
+        console.warn("Failed to pull remote tombstones, continuing with empty:", e);
+        return {} as Record<string, string>;
+      });
 
       const localGraph = await useGraphStore.getState().loadGraph().then(() => {
         return useGraphStore.getState();

@@ -50,11 +50,16 @@ pub fn pull_graph_from_remote(remote_url: &str) -> Result<GraphDto, String> {
 /// Pulls the tombstones from the remote peer.
 pub fn pull_tombstones_from_remote(remote_url: &str) -> Result<std::collections::HashMap<String, String>, String> {
     let url = format!("{}/api/p2p/tombstones", remote_url.trim_end_matches('/'));
-    let response: std::collections::HashMap<String, String> = ureq::get(&url)
-        .timeout(Duration::from_secs(5))
-        .call()
-        .map_err(|e| format!("Failed to fetch remote tombstones: {:?}", e))?
+    let response = match ureq::get(&url).timeout(Duration::from_secs(5)).call() {
+        Ok(res) => res,
+        Err(ureq::Error::Status(404, _)) => {
+            tracing::warn!("Remote peer does not support tombstones endpoint. Returning empty.");
+            return Ok(std::collections::HashMap::new());
+        }
+        Err(e) => return Err(format!("Failed to fetch remote tombstones: {:?}", e)),
+    };
+    let parsed: std::collections::HashMap<String, String> = response
         .into_json()
         .map_err(|e| format!("Failed to parse remote tombstones JSON: {:?}", e))?;
-    Ok(response)
+    Ok(parsed)
 }
