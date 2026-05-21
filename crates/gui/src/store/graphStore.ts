@@ -23,12 +23,14 @@ const applyEventToState = (
 
   switch (event.type) {
     case "node_created":
-      if (newNodes[event.node.id]) return state; 
+      // Dedup: the backend pushes the authoritative event via Tauri.
+      // If the node already exists (shouldn't happen without optimistic updates),
+      // skip to avoid double-inserting.
+      if (newNodes[event.node.id]) return state;
       newNodes[event.node.id] = event.node;
       if (!event.node.parent) {
         if (!newRoots.includes(event.node.id)) {
           newRoots.push(event.node.id);
-
           newRoots.sort((a, b) => {
             const nodeA = newNodes[a];
             const nodeB = newNodes[b];
@@ -43,10 +45,7 @@ const applyEventToState = (
           const newChildren = [...parent.children];
           const idx = Math.min(event.index, newChildren.length);
           newChildren.splice(idx, 0, event.node.id);
-          newNodes[parent.id] = {
-            ...parent,
-            children: newChildren,
-          };
+          newNodes[parent.id] = { ...parent, children: newChildren };
         }
       }
       break;

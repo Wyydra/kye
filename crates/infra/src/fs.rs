@@ -6,13 +6,12 @@ use std::fs;
 use domain::ports::RepositoryError;
 
 pub const KYE_DIR: &str = ".kye";
-const NODES_DIR: &str = "nodes";
 const META_FILE: &str = "meta.json";
 const ASSETS_DIR: &str = "assets";
 
 #[derive(Clone, Debug)]
 pub struct WorkspaceFs {
-    root: PathBuf,
+    pub root: PathBuf,
 }
 
 impl WorkspaceFs {
@@ -21,7 +20,7 @@ impl WorkspaceFs {
     }
 
     pub fn init(&self) -> Result<(), RepositoryError> {
-        fs::create_dir_all(self.nodes_dir())
+        fs::create_dir_all(self.kye_dir())
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
         fs::create_dir_all(self.assets_dir())
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
@@ -46,20 +45,12 @@ impl WorkspaceFs {
         self.root.join(KYE_DIR)
     }
 
-    pub fn nodes_dir(&self) -> PathBuf {
-        self.kye_dir().join(NODES_DIR)
-    }
-
     pub fn assets_dir(&self) -> PathBuf {
         self.root.join(ASSETS_DIR)
     }
 
     pub fn meta_path(&self) -> PathBuf {
         self.kye_dir().join(META_FILE)
-    }
-
-    pub fn node_path(&self, id: &str) -> PathBuf {
-        self.nodes_dir().join(format!("{}.json", id))
     }
 
     pub fn read_file(&self, path: &Path) -> Result<String, RepositoryError> {
@@ -76,26 +67,28 @@ impl WorkspaceFs {
             .map_err(|e| RepositoryError::Io(e.to_string()))
     }
 
-    pub fn delete_node_file(&self, id: &str) -> Result<(), RepositoryError> {
-        let path = self.node_path(id);
+    pub fn delete_file(&self, path: &Path) -> Result<(), RepositoryError> {
         if path.exists() {
-            fs::remove_file(&path)
+            fs::remove_file(path)
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
         Ok(())
     }
 
     pub fn list_node_files(&self) -> Result<Vec<PathBuf>, RepositoryError> {
-        let dir = self.nodes_dir();
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-        let entries = fs::read_dir(&dir)
-            .map_err(|e| RepositoryError::Io(e.to_string()))?
+        let mut entries = Vec::new();
+        for entry in walkdir::WalkDir::new(&self.root)
+            .into_iter()
+            .filter_entry(|e| {
+                let name = e.file_name().to_string_lossy();
+                !name.starts_with('.') && name != "target" && name != "node_modules"
+            })
             .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| p.extension().map(|ext| ext == "json").unwrap_or(false))
-            .collect();
+        {
+            if entry.path().is_file() && entry.path().extension().map(|ext| ext == "md").unwrap_or(false) {
+                entries.push(entry.into_path());
+            }
+        }
         Ok(entries)
     }
 }

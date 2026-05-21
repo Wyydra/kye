@@ -1,5 +1,6 @@
 
 
+pub mod formatters;
 pub mod serializer;
 
 use std::sync::{Arc, RwLock};
@@ -13,26 +14,33 @@ use domain::workspace::WorkspaceMeta;
 use crate::graph::serializer::{deserialize_graph, serialize_event, serialize_graph, load_meta, save_meta};
 use crate::fs::WorkspaceFs;
 
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 #[derive(Clone)]
 pub struct InMemoryGraphRepository {
     fs: WorkspaceFs,
     cache: Arc<RwLock<Graph>>,
+    path_map: Arc<RwLock<HashMap<domain::primitives::NodeId, PathBuf>>>,
 }
 
 impl InMemoryGraphRepository {
 
     pub fn load(fs: WorkspaceFs) -> Result<Self, RepositoryError> {
-        let graph = deserialize_graph(&fs)?;
+        let (graph, path_map) = deserialize_graph(&fs)?;
         Ok(Self {
             fs,
             cache: Arc::new(RwLock::new(graph)),
+            path_map: Arc::new(RwLock::new(path_map)),
         })
     }
 
     pub fn invalidate_cache(&self) -> Result<(), RepositoryError> {
-        let graph = deserialize_graph(&self.fs)?;
+        let (graph, path_map) = deserialize_graph(&self.fs)?;
         let mut cache = self.cache.write().map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
         *cache = graph;
+        let mut pm = self.path_map.write().map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
+        *pm = path_map;
         Ok(())
     }
 }
@@ -60,11 +68,11 @@ impl GraphRepository for InMemoryGraphRepository {
 
         let cache = self.cache.read()
             .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
-        serialize_event(&self.fs, event, &cache)
+        serialize_event(&self.fs, event, &cache, &self.path_map)
     }
 
     fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError> {
-        serialize_graph(&self.fs, graph)
+        serialize_graph(&self.fs, graph, &self.path_map)
     }
 }
 

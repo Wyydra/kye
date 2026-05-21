@@ -48,19 +48,10 @@ function commandToOptimisticEvent(cmd: Command): Event | null {
         old_view: state.nodes[cmd.node_id]?.view_override || null,
       };
     case "create_node":
-      return {
-        type: "node_created",
-        node: {
-          id: cmd.id,
-          kind: cmd.kind,
-          parent: cmd.parent_id,
-          children: [],
-          props: cmd.props,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        index: cmd.index,
-      };
+      // No optimistic update: the backend resolves authoritative props (e.g.
+      // unique title) and pushes the event via the Tauri event system.
+      // Applying a speculative node here would diverge from the real state.
+      return null;
     case "delete_node": {
 
       const node = state.nodes[cmd.id];
@@ -113,14 +104,23 @@ function commandToOptimisticEvent(cmd: Command): Event | null {
 
 export const execute = async (cmd: Command): Promise<void> => {
   try {
+    // Apply optimistic event for commands where the backend outcome is
+    // fully predictable from the frontend (prop mutations, deletes, etc.).
     const optEvent = commandToOptimisticEvent(cmd);
     if (optEvent) {
       useGraphStore.getState().applyEvent(optEvent);
     }
-    await kyeService.executeCommand(cmd);
+
+    // Always apply the backend's authoritative response. For commands like
+    // create_node where the domain mutates props (e.g. unique title), this
+    // is the only way to get the correct final state into the store.
+    const backendEvent = await kyeService.executeCommand(cmd);
+    if (!optEvent) {
+      // No optimistic event was applied, so apply the backend event directly.
+      useGraphStore.getState().applyEvent(backendEvent);
+    }
   } catch (e: any) {
     console.error("Command failed:", e);
-
     useGraphStore.getState().loadGraph();
   }
 };

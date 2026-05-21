@@ -11,6 +11,24 @@ use crate::schema::ValidationError;
 use crate::value::{Props, Value};
 use crate::view::ViewDef;
 
+const DOCUMENT_KINDS: &[&str] = &["core.page", "core.canvas", "core.database"];
+
+/// Generates a unique title from a base string, given a set of already-taken titles.
+/// Rule: "Base" → "Base 1" → "Base 2" …
+pub fn unique_title(existing: &[String], base: &str) -> String {
+    if !existing.iter().any(|t| t == base) {
+        return base.to_string();
+    }
+    let mut counter = 1u32;
+    loop {
+        let candidate = format!("{} {}", base, counter);
+        if !existing.iter().any(|t| t == &candidate) {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum CommandError {
     #[error("Graph error: {0}")]
@@ -202,13 +220,17 @@ pub fn apply(
     now: DateTime<Utc>,
 ) -> Result<Event, CommandError> {
     match cmd {
-        Command::CreateNode { id, kind, parent_id, index, props } => {
+        Command::CreateNode { id, kind, parent_id, index, mut props } => {
 
             if let Some(pid) = parent_id {
                 if !graph.contains(pid) {
                     return Err(CommandError::Graph(GraphError::NotFound(pid)));
                 }
             }
+
+            // Note: title uniqueness is enforced by the serializer (infra layer)
+            // which has access to the filesystem path_map and can detect filename collisions
+            // across all node kinds, not just document-titled nodes.
 
             let constraint_cmd = Command::CreateNode { id, kind: kind.clone(), parent_id, index, props: props.clone() };
             let errs = registry.check_command(graph, &constraint_cmd);
@@ -470,5 +492,62 @@ mod tests {
 
         let backlinks: Vec<_> = graph.backlinks(page_id).collect();
         assert!(backlinks.contains(&ref_id));
+    }
+
+    #[test]
+    fn unique_title_no_collision() {
+        assert_eq!(unique_title(&[], "Untitled"), "Untitled");
+        assert_eq!(unique_title(&["Other".into()], "Untitled"), "Untitled");
+    }
+
+    #[test]
+    fn unique_title_with_collision() {
+        let existing = vec!["Untitled".into()];
+        assert_eq!(unique_title(&existing, "Untitled"), "Untitled 1");
+
+        let existing = vec!["Untitled".into(), "Untitled 1".into()];
+        assert_eq!(unique_title(&existing, "Untitled"), "Untitled 2");
+    }
+
+    #[test]
+    fn create_node_auto_title_unique() {
+        let (mut graph, registry) = setup();
+
+        // First document: no title provided -> gets "Untitled"
+        let id1 = NodeId::new();
+        let e1 = apply(&mut graph, &registry, Command::CreateNode {
+            id: id1, kind: kinds::page(), parent_id: None, index: 0,
+            props: Props::new(),
+        }, fixed_now()).unwrap();
+        let Event::NodeCreated { node: n1, .. } = e1 else { panic!() };
+        assert_eq!(n1.prop_text("title"), Some("Untitled"));
+        assert_eq!(graph.get(id1).unwrap().prop_text("title"), Some("Untitled"));
+
+        // Second document: also no title -> gets "Untitled 1"
+        let id2 = NodeId::new();
+        let e2 = apply(&mut graph, &registry, Command::CreateNode {
+            id: id2, kind: kinds::page(), parent_id: None, index: 1,
+            props: Props::new(),
+        }, fixed_now()).unwrap();
+        let Event::NodeCreated { node: n2, .. } = e2 else { panic!() };
+        assert_eq!(n2.prop_text("title"), Some("Untitled 1"));
+
+        // Third document: also no title -> gets "Untitled 2"
+        let id3 = NodeId::new();
+        let e3 = apply(&mut graph, &registry, Command::CreateNode {
+            id: id3, kind: kinds::page(), parent_id: None, index: 2,
+            props: Props::new(),
+        }, fixed_now()).unwrap();
+        let Event::NodeCreated { node: n3, .. } = e3 else { panic!() };
+        assert_eq!(n3.prop_text("title"), Some("Untitled 2"));
+
+        // Fourth document: custom title -> no collision resolution needed
+        let id4 = NodeId::new();
+        let e4 = apply(&mut graph, &registry, Command::CreateNode {
+            id: id4, kind: kinds::page(), parent_id: None, index: 3,
+            props: crate::props!("title" => Value::text("My Page")),
+        }, fixed_now()).unwrap();
+        let Event::NodeCreated { node: n4, .. } = e4 else { panic!() };
+        assert_eq!(n4.prop_text("title"), Some("My Page"));
     }
 }
