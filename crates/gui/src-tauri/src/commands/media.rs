@@ -12,8 +12,7 @@ pub async fn import_media(
     state: State<'_, AppState>,
 ) -> AppResult<String> {
     let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-    
-    // Use tauri-plugin-fs to read bytes, as it handles content:// URIs on Android
+
     let bytes = if source_path.contains("://") {
         let url = tauri::Url::parse(&source_path)
             .map_err(|e| AppError::Internal(format!("Failed to parse media URI: {}", e)))?;
@@ -22,7 +21,6 @@ pub async fn import_media(
         app_handle.fs().read(Path::new(&source_path))
     }.map_err(|e| AppError::Internal(format!("Failed to read source media: {}", e)))?;
 
-    // Extract extension
     let extension = Path::new(&source_path)
         .extension()
         .and_then(|e| e.to_str())
@@ -31,6 +29,6 @@ pub async fn import_media(
     let relative_url = service
         .save_media(&bytes, extension)
         .map_err(|e| AppError::Internal(format!("Failed to save media: {}", e)))?;
-        
+
     Ok(relative_url)
 }

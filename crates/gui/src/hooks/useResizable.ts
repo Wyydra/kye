@@ -22,7 +22,7 @@ export function useResizable(
 ) {
   const startResizing = useCallback((e: React.PointerEvent, type: HandleType) => {
     e.stopPropagation();
-    
+
     const startX = e.clientX;
     const startY = e.clientY;
     const startW = size.width;
@@ -33,7 +33,7 @@ export function useResizable(
     const onMove = (moveEvent: PointerEvent) => {
       const dx = (moveEvent.clientX - startX) / zoom;
       const dy = (moveEvent.clientY - startY) / zoom;
-      
+
       let newW = startW;
       let newH = startH;
       let newX = startXpos;
@@ -55,7 +55,7 @@ export function useResizable(
           newY = startYpos + dy;
         }
       }
-      
+
       setPos({ x: newX, y: newY });
       setSize({ width: newW, height: newH });
     };
@@ -63,10 +63,10 @@ export function useResizable(
     const onUp = (upEvent: PointerEvent) => {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
-      
+
       const dx = (upEvent.clientX - startX) / zoom;
       const dy = (upEvent.clientY - startY) / zoom;
-      
+
       let finalW = startW;
       let finalH = startH;
       let finalX = startXpos;

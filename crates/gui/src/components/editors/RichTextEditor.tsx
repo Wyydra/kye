@@ -20,7 +20,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const [isComposing, setIsComposing] = useState(false);
 
-  // Convert RichText to HTML
   const spansToHtml = (spans: Span[]): string => {
     if (!spans || spans.length === 0) return "";
     return spans
@@ -49,25 +48,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const htmlContent = spansToHtml(value?.spans || []);
 
-  // Synchronize external value to DOM if needed
   useEffect(() => {
     if (editorRef.current && !isComposing) {
       if (editorRef.current.innerHTML !== htmlContent) {
         const newText = value?.spans.map((s) => s.text).join("") || "";
-        
-        // If the update is just the text we just typed, don't update DOM to avoid cursor jump
+
         if (isFocused && lastSentText.current === newText && editorRef.current.textContent === newText) {
           return;
         }
 
         editorRef.current.innerHTML = htmlContent;
 
-        // Restore selection to the end
         if (isFocused) {
           try {
             const range = document.createRange();
             range.selectNodeContents(editorRef.current);
-            range.collapse(false); // Move to end
+            range.collapse(false);
             const sel = window.getSelection();
             sel?.removeAllRanges();
             sel?.addRange(range);
@@ -77,7 +73,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [htmlContent, isFocused, isComposing, value]);
 
-  // Handle focus
   useEffect(() => {
     if (
       isFocused &&
@@ -96,7 +91,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const text = editorRef.current.textContent || "";
     lastSentText.current = text;
 
-    // Preserve marks from the first span for now, so we don't lose formatting completely on typing
     const oldMarks = value?.spans[0]?.marks || [];
     onChange({ spans: [{ text, marks: oldMarks }] });
   }, [onChange, value]);
@@ -116,7 +110,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         return { ...s, marks: newMarks };
       });
 
-      lastSentText.current = null; // Force DOM update for formatting
+      lastSentText.current = null;
       onChange({ spans: newSpans });
     },
     [value, onChange],

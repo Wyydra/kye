@@ -37,7 +37,6 @@ export const HeadingWidget: React.FC<{ node: Node }> = ({ node }) => {
     [node.id],
   );
 
-  // Backspace sur bloc vide → rétrograde en paragraphe via le registre
   const paragraphSpec = blockTypes.find((s) => s.id === "paragraph");
   const baseKeyDown = useBlockKeyDown({ node });
 

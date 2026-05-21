@@ -29,7 +29,7 @@ pub fn run() {
         .setup(|app| {
             let settings_path = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("settings.json");
             let store_rc = StoreBuilder::new(app, settings_path).build();
-            
+
             let workspace_path = match &store_rc {
                 Ok(store) => {
                     let _ = store.reload();
@@ -55,29 +55,28 @@ pub fn run() {
             };
 
             let app_handle = app.handle().clone();
-            
+
             let service = if let Some(path) = &workspace_path {
                 let fs = WorkspaceFs::new(path.clone());
                 if let Err(e) = fs.init() {
                     tracing::error!("Failed to init WorkspaceFs: {:?}", e);
                     None
                 } else {
-                    let _ = InMemoryGraphRepository::load(fs.clone()); // First load creates if missing if error is not severe. Let's handle better below.
-                    
+                    let _ = InMemoryGraphRepository::load(fs.clone()); 
+
                     let graph_repo = match InMemoryGraphRepository::load(fs.clone()) {
                         Ok(repo) => repo,
                         Err(e) => {
                             tracing::error!("Failed to load graph repository: {:?}", e);
-                            // Fallback to empty if totally corrupted? Let's just pass the error up via tracing.
-                            // In real prod we'd surface this to the user.
+
                             return Err(e.to_string().into());
                         }
                     };
-                    
+
                     let kind_repo = FileKindRepository::new(fs.clone());
                     let media_repo = FileMediaRepository::new(fs);
                     let event_bus = TauriEventBus { app_handle: app_handle.clone() };
-                    
+
                     Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus, media_repo)))
                 }
             } else {

@@ -27,7 +27,6 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
     [node.id],
   );
 
-  // Enter crée une nouvelle tâche (pas un paragraphe)
   const baseKeyDown = useBlockKeyDown({
     node,
     nextKind: "core.task",
@@ -41,7 +40,7 @@ export const TaskWidget: React.FC<{ node: Node }> = ({ node }) => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // Backspace sur tâche vide → rétrograde en paragraphe
+
       if (
         e.key === "Backspace" &&
         (e.currentTarget.textContent || "").length === 0 &&

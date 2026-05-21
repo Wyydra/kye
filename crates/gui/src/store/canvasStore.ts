@@ -23,11 +23,10 @@ interface ConnectionDraft {
 interface CanvasState {
   viewport: Viewport;
   setViewport: (viewport: Viewport) => void;
-  
+
   selectedNodeId: string | null;
   setSelectedNodeId: (id: string | null) => void;
 
-  // Transient state for fluid movement and edge calculations
   nodeStates: Record<string, NodeState>;
   updateNodeState: (id: string, state: Partial<NodeState>) => void;
   removeNodeState: (id: string) => void;
@@ -41,7 +40,7 @@ interface CanvasState {
 export const useCanvasStore = create<CanvasState>((set) => ({
   viewport: { x: 0, y: 0, zoom: 1 },
   setViewport: (viewport) => set({ viewport }),
-  
+
   selectedNodeId: null,
   setSelectedNodeId: (selectedNodeId) => set({ selectedNodeId }),
 

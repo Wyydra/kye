@@ -70,8 +70,6 @@ export const NodeRenderer = React.memo(function NodeRenderer({
     });
   };
 
-
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -90,7 +88,6 @@ export const NodeRenderer = React.memo(function NodeRenderer({
     e.preventDefault();
     e.stopPropagation();
 
-    // Fallback if dragged outside bounds or state not set
     const currentDragState = dragState;
     setDragState("none");
 
@@ -141,7 +138,7 @@ export const NodeRenderer = React.memo(function NodeRenderer({
         <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary z-50 pointer-events-none" />
       )}
 
-      {/* Block Menu (Left side) */}
+      {}
       {depth > 0 && (
         <div
           className={`absolute -left-12 top-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity`}
@@ -166,7 +163,7 @@ export const NodeRenderer = React.memo(function NodeRenderer({
               <GripVertical className="w-3.5 h-3.5" />
             </button>
 
-            {/* Popover Menu on hover of Grip — driven by the extension registry */}
+            {}
             <div className="absolute left-full top-0 ml-1 hidden group-hover/menu:flex flex-col bg-popover border border-border shadow-md rounded-md py-1 z-50 w-44">
               <button
                 className="text-xs text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2"
@@ -196,7 +193,7 @@ export const NodeRenderer = React.memo(function NodeRenderer({
         </div>
       )}
 
-      {/* Content */}
+      {}
       <div className="flex-1 min-w-0">
         <LayoutRenderer node={node} layout={activeLayout} depth={depth} />
       </div>

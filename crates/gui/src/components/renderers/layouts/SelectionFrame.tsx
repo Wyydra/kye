@@ -32,12 +32,12 @@ export const SelectionFrame: React.FC<SelectionFrameProps> = ({
         bottom: -4,
       }}
     >
-      {/* 1. Selection Visual Border */}
+      {}
       <div className={`absolute inset-0 border-2 rounded-xl ring-4 animate-in fade-in zoom-in-95 duration-200 ${
         isLocked ? "border-orange-500/30 ring-orange-500/5" : "border-primary/30 ring-primary/5"
       }`} />
 
-      {/* 2. Floating Action Toolbar */}
+      {}
       <BlockToolbar 
         isLocked={isLocked}
         onToggleLock={onToggleLock}
@@ -49,14 +49,14 @@ export const SelectionFrame: React.FC<SelectionFrameProps> = ({
           }
         }} 
         onDuplicate={() => {
-          // Logic for duplication
+
         }}
       />
 
-      {/* 3. Resize Controls (Disabled visually if locked) */}
+      {}
       {!isLocked && <ResizeHandles onResizeStart={onResizeStart} />}
 
-      {/* 4. Connection Controls */}
+      {}
       <ConnectionHandles onConnectStart={onConnectStart} />
     </div>
   );

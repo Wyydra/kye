@@ -6,11 +6,9 @@ export function useCanvasCamera(
   layerRef: React.RefObject<HTMLDivElement | null>,
 ) {
   const { viewport, setViewport } = useCanvasStore();
-  
-  // Use a ref for high-frequency updates to avoid React render cycle bottlenecks
+
   const cameraRef = useRef(viewport);
-  
-  // Update ref when store changes (e.g. from external reset)
+
   useEffect(() => {
     cameraRef.current = viewport;
     updateTransform();
@@ -32,42 +30,41 @@ export function useCanvasCamera(
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      
+
       const { x, y, zoom } = cameraRef.current;
-      
+
       if (e.ctrlKey || e.metaKey) {
-        // Zoom
+
         const zoomSpeed = 0.001;
         const delta = -e.deltaY;
         const newZoom = Math.min(Math.max(zoom * Math.pow(2, delta * zoomSpeed), 0.1), 5);
-        
-        // Zoom towards mouse
+
         const rect = container.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        
+
         const worldX = (mouseX - x) / zoom;
         const worldY = (mouseY - y) / zoom;
-        
+
         const newX = mouseX - worldX * newZoom;
         const newY = mouseY - worldY * newZoom;
-        
+
         cameraRef.current = { x: newX, y: newY, zoom: newZoom };
       } else {
-        // Pan with wheel
+
         cameraRef.current = { 
           x: x - e.deltaX, 
           y: y - e.deltaY, 
           zoom 
         };
       }
-      
+
       updateTransform();
       setViewport(cameraRef.current);
     };
 
     const handlePointerDown = (e: PointerEvent) => {
-      // Only track pointers that start on the background
+
       if (e.target !== container && !(e.target as HTMLElement).classList.contains('canvas-background')) {
         return;
       }
@@ -75,9 +72,9 @@ export function useCanvasCamera(
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (activePointers.size === 1) {
-        // Single finger pan setup is handled in pointermove to avoid conflicts
+
       } else if (activePointers.size === 2) {
-        // Initialize distance for pinch zoom
+
         const pts = Array.from(activePointers.values());
         lastDistance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
       }
@@ -85,30 +82,29 @@ export function useCanvasCamera(
 
     const handlePointerMove = (e: PointerEvent) => {
       if (!activePointers.has(e.pointerId)) return;
-      
+
       const prevPos = activePointers.get(e.pointerId)!;
       const dx = e.clientX - prevPos.x;
       const dy = e.clientY - prevPos.y;
-      
+
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (activePointers.size === 1) {
-        // Single finger pan (only if we are tracking this pointer)
+
         const { x, y, zoom } = cameraRef.current;
         cameraRef.current = { x: x + dx, y: y + dy, zoom };
         updateTransform();
         setViewport(cameraRef.current);
       } else if (activePointers.size === 2) {
-        // Pinch zoom
+
         const pts = Array.from(activePointers.values());
         const distance = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-        
+
         if (lastDistance > 0) {
           const zoomFactor = distance / lastDistance;
           const { x, y, zoom } = cameraRef.current;
           const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.1), 5);
 
-          // Zoom anchor point (middle of the two fingers)
           const rect = container.getBoundingClientRect();
           const midX = (pts[0].x + pts[1].x) / 2 - rect.left;
           const midY = (pts[0].y + pts[1].y) / 2 - rect.top;
@@ -119,9 +115,6 @@ export function useCanvasCamera(
           const newX = midX - worldX * newZoom;
           const newY = midY - worldY * newZoom;
 
-          // Also add panning based on the movement of the midpoint
-          // (This is implicitly handled if we track individual pointer moves, 
-          // but for zoom it's cleaner to just update the camera)
           cameraRef.current = { x: newX, y: newY, zoom: newZoom };
           updateTransform();
           setViewport(cameraRef.current);
@@ -142,7 +135,7 @@ export function useCanvasCamera(
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerUp);
-    
+
     return () => {
       container.removeEventListener('wheel', handleWheel);
       container.removeEventListener('pointerdown', handlePointerDown);
@@ -152,7 +145,6 @@ export function useCanvasCamera(
     };
   }, [containerRef, updateTransform, setViewport]);
 
-  // Initial transform
   useEffect(() => {
     updateTransform();
   }, [updateTransform]);

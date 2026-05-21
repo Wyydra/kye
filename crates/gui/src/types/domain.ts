@@ -19,8 +19,6 @@ export interface Node {
   view_override?: ViewDef;
 }
 
-// ── Values ──────────────────────────────────────────────────────────────────
-
 export type Value =
   | { t: "Null" }
   | { t: "Bool"; v: boolean }
@@ -34,10 +32,6 @@ export type Value =
   | { t: "DateTime"; v: string }
   | { t: "Color"; v: string };
 
-/**
- * Helper to safely extract a value from a Value union.
- * Returns undefined if the value is Null or doesn't have a 'v' property.
- */
 export function val<T>(value: Value | undefined): T | undefined {
   if (!value || value.t === "Null") return undefined;
   return (value as any).v as T;
@@ -61,8 +55,6 @@ export type Mark =
   | { t: "Link"; v: string }
   | { t: "Color"; v: string }
   | { t: "Ref"; v: string };
-
-// ── Views ───────────────────────────────────────────────────────────────────
 
 export interface ViewDef {
   layout: Layout;
@@ -92,8 +84,6 @@ export interface KindDef {
   title_prop: string;
   view?: ViewDef;
 }
-
-// ── Commands & Events ───────────────────────────────────────────────────────
 
 export type Command =
   | {

@@ -1,13 +1,4 @@
-/**
- * useBlockKeyDown — hook partagé entre tous les widgets de blocs.
- *
- * Centralise la logique de navigation clavier commune :
- *   Enter   → crée un paragraphe en dessous, déplace le focus
- *   Backspace (vide) → supprime le bloc et remonte le focus
- *   Tab     → indente (devient enfant du frère précédent)
- *   Shift+Tab → désindente (remonte au niveau du grand-parent)
- *   ↑ / ↓  → change le focus entre frères
- */
+
 
 import { useCallback } from "react";
 import { useGraphStore } from "../store/graphStore";
@@ -17,9 +8,9 @@ import { Node } from "../types/domain";
 
 interface Options {
   node: Node;
-  /** Kind à créer quand on appuie sur Enter (défaut : core.paragraph) */
+
   nextKind?: string;
-  /** Props du nœud créé par Enter */
+
   nextProps?: Record<string, any>;
 }
 
@@ -31,7 +22,6 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
       const graphState = useGraphStore.getState();
       const parentNode = graphState.nodes[node.parent || ""];
 
-      // ── Enter ────────────────────────────────────────────────────────────
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (!parentNode) return;
@@ -49,7 +39,6 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
         return;
       }
 
-      // ── Backspace sur bloc vide ───────────────────────────────────────────
       if (
         e.key === "Backspace" &&
         (e.currentTarget.textContent || "").length === 0
@@ -65,14 +54,13 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
         return;
       }
 
-      // ── Tab / Shift+Tab ───────────────────────────────────────────────────
       if (e.key === "Tab") {
         e.preventDefault();
         if (!parentNode) return;
         const index = parentNode.children.indexOf(node.id);
 
         if (e.shiftKey) {
-          // Désindenter
+
           if (parentNode.parent) {
             const grandParent = graphState.nodes[parentNode.parent];
             if (grandParent) {
@@ -87,7 +75,7 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
             }
           }
         } else {
-          // Indenter
+
           if (index > 0) {
             const prevSiblingId = parentNode.children[index - 1];
             const prevSibling = graphState.nodes[prevSiblingId];
@@ -105,13 +93,12 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
         return;
       }
 
-      // ── Flèches ───────────────────────────────────────────────────────────
       if (e.key === "ArrowUp") {
         e.preventDefault();
         const index = parentNode?.children.indexOf(node.id) ?? -1;
 
         if (index > 0) {
-          // Aller au frère précédent (ou son dernier descendant)
+
           let targetId = parentNode!.children[index - 1];
           let targetNode = graphState.nodes[targetId];
           while (targetNode && targetNode.children.length > 0) {
@@ -120,7 +107,7 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
           }
           setFocusedNode(targetId);
         } else if (node.parent) {
-          // Pas de frère précédent, remonter au parent
+
           setFocusedNode(node.parent);
         }
         return;
@@ -130,10 +117,10 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
         e.preventDefault();
 
         if (node.children.length > 0) {
-          // Descendre vers le premier enfant
+
           setFocusedNode(node.children[0]);
         } else {
-          // Trouver le prochain frère (soit le nôtre, soit celui d'un ancêtre)
+
           let currentId = node.id;
           let currentParent = parentNode;
 
@@ -143,7 +130,7 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
               setFocusedNode(currentParent.children[idx + 1]);
               return;
             }
-            // Remonter d'un niveau
+
             currentId = currentParent.id;
             currentParent = graphState.nodes[currentParent.parent || ""];
           }

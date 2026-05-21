@@ -1,12 +1,9 @@
-//! Newtypes fondamentaux dont tout le reste dépend.
+
 
 use std::fmt;
 use std::sync::Arc;
 use uuid::Uuid;
 
-// ── NodeId ────────────────────────────────────────────────────────────────────
-
-/// Identifiant unique d'un node — `Copy` pour l'ergonomie (pas de clone partout).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NodeId(Uuid);
 
@@ -36,10 +33,6 @@ impl fmt::Display for NodeId {
     }
 }
 
-// ── Kind ──────────────────────────────────────────────────────────────────────
-
-/// Type sémantique d'un node. String ouvert namespaced : `"core.page"`, `"mbse.state"`.
-/// `Arc<str>` pour le clonage O(1) — extensible par plugins sans recompiler.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Kind(Arc<str>);
 
@@ -61,9 +54,6 @@ impl fmt::Display for Kind {
     }
 }
 
-// ── PropKey ───────────────────────────────────────────────────────────────────
-
-/// Clé d'une propriété — même design que `Kind`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct PropKey(Arc<str>);
 
@@ -85,12 +75,9 @@ impl fmt::Display for PropKey {
     }
 }
 
-// ── Constantes : kinds ────────────────────────────────────────────────────────
-
 pub mod kinds {
     use super::Kind;
 
-    // Document
     pub fn page() -> Kind { Kind::from("core.page") }
     pub fn paragraph() -> Kind { Kind::from("core.paragraph") }
     pub fn heading() -> Kind { Kind::from("core.heading") }
@@ -102,26 +89,21 @@ pub mod kinds {
     pub fn callout() -> Kind { Kind::from("core.callout") }
     pub fn embed() -> Kind { Kind::from("core.embed") }
 
-    // Widgets
     pub fn flashcard() -> Kind { Kind::from("core.flashcard") }
     pub fn form() -> Kind { Kind::from("core.form") }
     pub fn form_field() -> Kind { Kind::from("core.form_field") }
 
-    // Database
     pub fn database() -> Kind { Kind::from("core.database") }
     pub fn row() -> Kind { Kind::from("core.row") }
     pub fn column() -> Kind { Kind::from("core.column") }
     pub fn query() -> Kind { Kind::from("core.query") }
 
-    // Canvas
     pub fn canvas() -> Kind { Kind::from("core.canvas") }
     pub fn frame() -> Kind { Kind::from("core.frame") }
     pub fn connection() -> Kind { Kind::from("core.connection") }
 
-    // Workflow
     pub fn inbox() -> Kind { Kind::from("core.inbox") }
 
-    // MBSE
     pub fn state() -> Kind { Kind::from("mbse.state") }
     pub fn port() -> Kind { Kind::from("mbse.port") }
     pub fn transition() -> Kind { Kind::from("mbse.transition") }
@@ -129,8 +111,6 @@ pub mod kinds {
     pub fn requirement() -> Kind { Kind::from("mbse.requirement") }
     pub fn interface() -> Kind { Kind::from("mbse.interface") }
 }
-
-// ── Constantes : props ────────────────────────────────────────────────────────
 
 pub mod props {
     use super::PropKey;

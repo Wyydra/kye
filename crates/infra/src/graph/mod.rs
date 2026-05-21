@@ -1,8 +1,4 @@
-//! InMemoryGraphRepository — adaptateur production du port GraphRepository.
-//!
-//! Cache le graph en mémoire derrière un `Arc<RwLock<Graph>>`.
-//! Le Service appelle `load_graph()` → clone O(1) du cache.
-//! `apply_event()` met à jour le cache puis flush sur disk.
+
 
 pub mod serializer;
 
@@ -17,8 +13,6 @@ use domain::workspace::WorkspaceMeta;
 use crate::graph::serializer::{deserialize_graph, serialize_event, serialize_graph, load_meta, save_meta};
 use crate::fs::WorkspaceFs;
 
-// ── InMemoryGraphRepository ───────────────────────────────────────────────────
-
 #[derive(Clone)]
 pub struct InMemoryGraphRepository {
     fs: WorkspaceFs,
@@ -26,7 +20,7 @@ pub struct InMemoryGraphRepository {
 }
 
 impl InMemoryGraphRepository {
-    /// Crée le repo et charge le graph depuis le disk une seule fois.
+
     pub fn load(fs: WorkspaceFs) -> Result<Self, RepositoryError> {
         let graph = deserialize_graph(&fs)?;
         Ok(Self {
@@ -35,7 +29,6 @@ impl InMemoryGraphRepository {
         })
     }
 
-    /// Recharge le cache depuis le disk (appelé par `on_fs_changed`).
     pub fn invalidate_cache(&self) -> Result<(), RepositoryError> {
         let graph = deserialize_graph(&self.fs)?;
         let mut cache = self.cache.write().map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
@@ -53,20 +46,18 @@ impl GraphRepository for InMemoryGraphRepository {
         save_meta(&self.fs, meta)
     }
 
-    /// O(1) — clone du cache, pas d'I/O.
     fn load_graph(&self) -> Result<Graph, RepositoryError> {
         let cache = self.cache.read().map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
         Ok(cache.clone())
     }
 
-    /// Met à jour le cache puis flush sur disk.
     fn apply_event(&self, event: &Event) -> Result<(), RepositoryError> {
         {
             let mut cache = self.cache.write()
                 .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
             apply_event_to_graph(&mut cache, event);
         }
-        // Flush les nodes affectés sur disk
+
         let cache = self.cache.read()
             .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
         serialize_event(&self.fs, event, &cache)
@@ -77,8 +68,6 @@ impl GraphRepository for InMemoryGraphRepository {
     }
 }
 
-/// Rejoue un Event sur un Graph en mémoire — miroir de apply() mais sans validation.
-/// Utilisé pour garder le cache synchronisé après un apply_event.
 fn apply_event_to_graph(graph: &mut Graph, event: &Event) {
     match event {
         Event::NodeCreated { node, index } => {
@@ -90,7 +79,7 @@ fn apply_event_to_graph(graph: &mut Graph, event: &Event) {
             }
         }
         Event::NodeDeleted { nodes, .. } => {
-            // Supprimer uniquement le root du sous-arbre — remove_subtree gère les enfants
+
             if let Some(root) = nodes.first() {
                 let _ = graph.remove_subtree(root.id);
             }

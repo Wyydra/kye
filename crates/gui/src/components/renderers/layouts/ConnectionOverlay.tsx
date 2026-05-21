@@ -23,7 +23,6 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
   const titleProp = connection?.props["title"];
   const title = titleProp?.t === "Text" ? titleProp.v : undefined;
 
-  // Compute exact bezier midpoint
   const midPoint = useMemo(() => {
     if (!connection || connection.kind !== "core.connection") return null;
 
@@ -49,14 +48,13 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
     return getBezierMidpoint(p1, p2);
   }, [connection, nodeStates]);
 
-  // Handlers
   const handleEdit = useCallback(() => setModalNodeId(connectionId), [connectionId, setModalNodeId]);
-  
+
   const handleDelete = useCallback(() => {
     execute({ type: "delete_node", id: connectionId, cascade: false });
     setSelectedNodeId(null);
   }, [connectionId, setSelectedNodeId]);
-  
+
   const handleToggleLock = useCallback(() => {
     execute({
       type: "set_prop",
@@ -77,14 +75,14 @@ export const ConnectionOverlay: React.FC<ConnectionOverlayProps> = ({ connection
         transform: 'translate(-50%, -50%)'
       }}
     >
-      {/* Title Label */}
+      {}
       {title && (
         <div className={`pointer-events-auto bg-background/90 backdrop-blur border shadow-sm rounded-md px-2 py-1 flex items-center justify-center transition-all ${isSelected ? 'border-primary/50 ring-2 ring-primary/20' : 'border-border'}`}>
           <span className="text-xs text-muted-foreground font-medium max-w-[150px] truncate">{title}</span>
         </div>
       )}
 
-      {/* Action Toolbar */}
+      {}
       {isSelected && (
         <div className="relative mt-2 pointer-events-auto">
           <BlockToolbar

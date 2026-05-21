@@ -6,7 +6,7 @@ import { Folder, Plus, X, ChevronRight, Loader2, HardDrive, Monitor } from "luci
 export const WorkspacePicker: React.FC = () => {
   const isOpen = useUIStore((state) => state.isWorkspacePickerOpen);
   const setOpen = useUIStore((state) => state.setWorkspacePickerOpen);
-  
+
   const [workspaces, setWorkspaces] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
@@ -39,9 +39,7 @@ export const WorkspacePicker: React.FC = () => {
 
   const handleSelect = async (name: string) => {
     try {
-      // The backend now knows its base directory, we just pass the name
-      // or we let the backend handle the 'name to path' conversion.
-      // Actually, for simplicity, let's have a command that takes just the name.
+
       await kyeService.selectWorkspaceFolder(name);
       window.location.reload();
     } catch (e) {
@@ -70,8 +68,8 @@ export const WorkspacePicker: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-background/80 backdrop-blur-xl animate-in fade-in duration-300">
       <div className="w-full max-w-xl bg-card border border-border shadow-2xl rounded-3xl overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-        
-        {/* Header */}
+
+        {}
         <div className="p-8 border-b border-border/50 flex items-center justify-between bg-muted/20">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Workspaces</h2>
@@ -85,12 +83,12 @@ export const WorkspacePicker: React.FC = () => {
           </button>
         </div>
 
-        {/* Desktop Browse Button */}
+        {}
         {isDesktop && (
           <div className="px-8 py-4 bg-primary/5 border-b border-border/50">
             <button 
               onClick={async () => {
-                const res = await kyeService.selectWorkspaceFolder(); // No name = open dialog
+                const res = await kyeService.selectWorkspaceFolder(); 
                 if (res) window.location.reload();
               }}
               className="w-full flex items-center justify-center gap-2 py-3 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-sm font-bold transition-all border border-primary/20"
@@ -101,10 +99,10 @@ export const WorkspacePicker: React.FC = () => {
           </div>
         )}
 
-        {/* Content */}
+        {}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          
-          {/* Create New Section */}
+
+          {}
           <form onSubmit={handleCreate} className="relative">
             <input 
               type="text"
@@ -127,7 +125,7 @@ export const WorkspacePicker: React.FC = () => {
             </button>
           </form>
 
-          {/* List Section */}
+          {}
           <div className="space-y-2">
             <div className="flex items-center gap-2 px-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-50 mb-3">
               <HardDrive className="w-3 h-3" />
@@ -167,7 +165,7 @@ export const WorkspacePicker: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer info */}
+        {}
         <div className="p-6 bg-muted/30 border-t border-border/50 text-[10px] text-center text-muted-foreground/60 italic">
           Files are stored in your device's Documents/Kye/ directory.
         </div>

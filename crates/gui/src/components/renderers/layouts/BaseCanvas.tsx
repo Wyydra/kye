@@ -28,14 +28,12 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
   const updateConnectionDraft = useCanvasStore(state => state.updateConnectionDraft);
   const viewport = useCanvasStore(state => state.viewport);
 
-  // Initialize camera logic
   useCanvasCamera(containerRef, layerRef);
 
-  // Separate children into content nodes and connection nodes
   const { contentNodes, connectionNodes } = useMemo(() => {
     const content: string[] = [];
     const connections: string[] = [];
-    
+
     childrenIds.forEach(childId => {
       const child = nodes[childId];
       if (child?.kind === "core.connection") {
@@ -44,7 +42,7 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
         content.push(childId);
       }
     });
-    
+
     return { contentNodes: content, connectionNodes: connections };
   }, [childrenIds, nodes]);
 
@@ -55,11 +53,10 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const { x, y, zoom } = useCanvasStore.getState().viewport;
-      
+
       const worldX = (e.clientX - rect.left - x) / zoom;
       const worldY = (e.clientY - rect.top - y) / zoom;
 
-      // Find if we are over a node
       const element = document.elementFromPoint(e.clientX, e.clientY);
       const nodeEl = element?.closest("[data-node-id]");
       const targetId = nodeEl?.getAttribute("data-node-id") || null;
@@ -107,7 +104,7 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
     const y1 = val<number>(sourceNode.props["y"]) || 0;
     const width = val<number>(sourceNode.props["width"]) || 300;
     const height = val<number>(sourceNode.props["height"]) || 200;
-    
+
     const startX = x1 + width / 2;
     const startY = y1 + height / 2;
 
@@ -118,17 +115,17 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
   }, [connectionDraft, nodes]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-    // Only open if we didn't click on a node or handle
+
     const target = e.target as HTMLElement;
     if (target.closest("[data-node-id], .interactive-handle")) return;
-    
+
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     const { x, y, zoom } = useCanvasStore.getState().viewport;
-    
+
     const worldX = (mouseX - x) / zoom;
     const worldY = (mouseY - y) / zoom;
 
@@ -147,10 +144,10 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
         }
       }}
     >
-      {/* SVG Grid Background */}
+      {}
       <GridBackground x={viewport.x} y={viewport.y} zoom={viewport.zoom} />
 
-      {/* Main Transformation Layer */}
+      {}
       <div
         ref={layerRef}
         className="absolute inset-0 pointer-events-none"
@@ -158,7 +155,7 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
           transformOrigin: "0 0",
         }}
       >
-        {/* Connection Layer (SVG) */}
+        {}
         <svg className="absolute inset-0 w-[100000px] h-[100000px] -translate-x-[50000px] -translate-y-[50000px] pointer-events-none overflow-visible">
           <defs>
             <marker
@@ -190,7 +187,7 @@ export const BaseCanvas: React.FC<BaseCanvasProps> = ({ childrenIds, depth, onDo
           </g>
         </svg>
 
-        {/* Node Layer (HTML) */}
+        {}
         <div className="absolute inset-0">
           {contentNodes.map(id => (
             <CanvasNode key={id} nodeId={id} depth={depth + 1} />

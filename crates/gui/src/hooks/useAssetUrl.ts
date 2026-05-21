@@ -11,7 +11,6 @@ export function useAssetUrl(url: string | undefined): string | null {
       return;
     }
 
-    // Pour l'instant on ne gère que les chemins relatifs locaux (ex: "assets/123.png")
     let isMounted = true;
 
     kyeService.getWorkspacePath().then((workspacePath) => {
@@ -20,7 +19,7 @@ export function useAssetUrl(url: string | undefined): string | null {
       const absolutePath = workspacePath.endsWith('/') 
         ? `${workspacePath}${url}`
         : `${workspacePath}/${url}`;
-        
+
       setAssetUrl(convertFileSrc(absolutePath));
     }).catch(console.error);
 

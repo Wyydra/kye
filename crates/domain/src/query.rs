@@ -1,11 +1,9 @@
-//! QueryBuilder — requêtes en mémoire contre le Graph.
+
 
 use crate::graph::Graph;
 use crate::primitives::{Kind, NodeId, PropKey};
 use crate::value::Value;
 use crate::node::Node;
-
-// ── SortDir ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SortDir {
@@ -13,10 +11,6 @@ pub enum SortDir {
     Desc,
 }
 
-// ── QueryBuilder ──────────────────────────────────────────────────────────────
-
-/// Builder fluide qui s'exécute contre le `Graph` en mémoire.
-/// `execute()` retourne `Vec<NodeId>` (pas `&Node`) pour éviter les borrow conflicts.
 #[derive(Default)]
 pub struct QueryBuilder {
     kind_filter: Option<Kind>,
@@ -59,7 +53,6 @@ impl QueryBuilder {
         self
     }
 
-    /// Limite les résultats aux descendants d'un node (sous-arbre).
     pub fn ancestor(mut self, ancestor_id: NodeId) -> Self {
         self.ancestor_filter = Some(ancestor_id);
         self
@@ -75,13 +68,12 @@ impl QueryBuilder {
         self
     }
 
-    /// Exécute la query contre le graph et retourne les NodeIds correspondants.
     pub fn execute(self, graph: &Graph) -> Vec<NodeId> {
-        // Pool de candidats : sous-arbre ou graph entier
+
         let candidates: Vec<NodeId> = match self.ancestor_filter {
             Some(ancestor_id) => graph.subtree_of(ancestor_id)
                 .into_iter()
-                .filter(|&id| id != ancestor_id) // exclure le root lui-même
+                .filter(|&id| id != ancestor_id) 
                 .collect(),
             None => graph.iter().map(|n| n.id).collect(),
         };
@@ -92,7 +84,6 @@ impl QueryBuilder {
             .filter(|node| self.matches(node))
             .collect();
 
-        // Tri
         if let Some((ref key, ref dir)) = self.sort_by {
             results.sort_by(|a, b| {
                 let va = a.props.get(key).and_then(|v| v.as_text()).unwrap_or("");
@@ -102,7 +93,6 @@ impl QueryBuilder {
             });
         }
 
-        // Limit
         let results: Vec<NodeId> = results.iter().map(|n| n.id).collect();
         match self.limit {
             Some(n) => results.into_iter().take(n).collect(),
@@ -149,10 +139,6 @@ impl QueryBuilder {
     }
 }
 
-// ── evaluate_query_node ───────────────────────────────────────────────────────
-
-/// Lit les props d'un node `core.query` et les traduit en QueryBuilder.
-/// Permet aux vues sauvegardées d'être évaluées à la volée.
 pub fn evaluate_query_node(graph: &Graph, query_node_id: NodeId) -> Vec<NodeId> {
     let node = match graph.get(query_node_id) {
         Some(n) => n,

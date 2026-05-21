@@ -1,4 +1,4 @@
-//! KindRegistry — registre des KindDefs + CoreLibrary (25 kinds natifs).
+
 
 use std::collections::HashMap;
 
@@ -8,8 +8,6 @@ use crate::schema::{Constraint, KindDef, PropDef, ValidationError, ValueType};
 use crate::view::{Direction, Layout, ViewDef};
 use crate::graph::Graph;
 use crate::command::Command;
-
-// ── KindRegistry ──────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default)]
 pub struct KindRegistry {
@@ -41,11 +39,10 @@ impl KindRegistry {
         self.kinds.contains_key(kind)
     }
 
-    /// Valide un node contre son KindDef (types et champs requis).
     pub fn validate_node(&self, node: &Node) -> Vec<ValidationError> {
         let def = match self.kinds.get(&node.kind) {
             Some(d) => d,
-            None => return Vec::new(), // Kind inconnu = pas de contrainte (extensible)
+            None => return Vec::new(), 
         };
 
         let mut errors = Vec::new();
@@ -57,14 +54,12 @@ impl KindRegistry {
         errors
     }
 
-    /// Vérifie les contraintes structurelles d'une commande avant application.
-    /// Appelé par `apply()` — seulement si l'intégrité structurelle est déjà vérifiée.
     pub fn check_command(&self, graph: &Graph, cmd: &Command) -> Vec<ValidationError> {
         let mut errors = Vec::new();
 
         match cmd {
             Command::CreateNode { kind, parent_id, .. } => {
-                // Vérifier AllowedChildKinds du parent
+
                 if let Some(pid) = parent_id {
                     if let Some(parent) = graph.get(*pid) {
                         if let Some(parent_def) = self.kinds.get(&parent.kind) {
@@ -85,7 +80,7 @@ impl KindRegistry {
                                 }
                             }
                         }
-                        // Vérifier AllowedParentKinds du nouveau node
+
                         if let Some(child_def) = self.kinds.get(kind) {
                             for c in &child_def.constraints {
                                 if let Constraint::AllowedParentKinds(allowed) = c {
@@ -124,14 +119,11 @@ impl KindRegistry {
     }
 }
 
-// ── CoreLibrary ───────────────────────────────────────────────────────────────
-
-/// Enregistre les 25 kinds natifs dans un registry.
 pub struct CoreLibrary;
 
 impl CoreLibrary {
     pub fn init(registry: &mut KindRegistry) {
-        // ── Document ──────────────────────────────────────────────────────────
+
         registry.register(kinds::page(), KindDef::new("Page", props::title())
             .with_icon("📄")
             .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Title"))
@@ -192,7 +184,6 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "embed".into() }))
         );
 
-        // ── Widgets ───────────────────────────────────────────────────────────
         registry.register(kinds::flashcard(), KindDef::new("Flashcard", props::front())
             .with_icon("🗂")
             .with_prop(props::front(), PropDef::new(ValueType::Rich).with_label("Front"))
@@ -213,7 +204,6 @@ impl CoreLibrary {
             .with_constraint(Constraint::AllowedParentKinds(vec![kinds::form()]))
         );
 
-        // ── Database ──────────────────────────────────────────────────────────
         registry.register(kinds::database(), KindDef::new("Database", props::title())
             .with_icon("🗃")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
@@ -230,7 +220,6 @@ impl CoreLibrary {
             .with_constraint(Constraint::AllowedParentKinds(vec![kinds::database()]))
         );
 
-        // ── Vues ──────────────────────────────────────────────────────────────
         registry.register(kinds::query(), KindDef::new("Query", props::title())
             .with_icon("🔍")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
@@ -240,7 +229,6 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Table))
         );
 
-        // ── Canvas ────────────────────────────────────────────────────────────
         registry.register(kinds::canvas(), KindDef::new("Canvas", props::title())
             .with_icon("🎨")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
@@ -260,14 +248,12 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "connection".into() }))
         );
 
-        // ── Workflow ──────────────────────────────────────────────────────────
         registry.register(kinds::inbox(), KindDef::new("Inbox", props::title())
             .with_icon("📥")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
             .with_view(ViewDef::new(Layout::Stack { direction: Direction::Vertical }))
         );
 
-        // ── MBSE ──────────────────────────────────────────────────────────────
         registry.register(kinds::state(), KindDef::new("State", props::title())
             .with_icon("⬡")
             .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
@@ -308,8 +294,6 @@ impl CoreLibrary {
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -319,21 +303,17 @@ mod tests {
         let mut registry = KindRegistry::new();
         CoreLibrary::init(&mut registry);
 
-        // Document
         assert!(registry.contains(&kinds::page()));
         assert!(registry.contains(&kinds::task()));
         assert!(registry.contains(&kinds::flashcard()));
 
-        // Database
         assert!(registry.contains(&kinds::database()));
         assert!(registry.contains(&kinds::row()));
         assert!(registry.contains(&kinds::column()));
 
-        // Canvas
         assert!(registry.contains(&kinds::canvas()));
         assert!(registry.contains(&kinds::connection()));
 
-        // MBSE
         assert!(registry.contains(&kinds::state()));
         assert!(registry.contains(&kinds::transition()));
         assert!(registry.contains(&kinds::requirement()));

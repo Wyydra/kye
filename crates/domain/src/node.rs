@@ -1,4 +1,4 @@
-//! Node — unité atomique du graphe.
+
 
 use chrono::{DateTime, Utc};
 
@@ -6,26 +6,22 @@ use crate::primitives::{Kind, NodeId, PropKey};
 use crate::value::{Props, Value};
 use crate::view::ViewDef;
 
-// ── Node ──────────────────────────────────────────────────────────────────────
-
 #[derive(Debug, Clone)]
 pub struct Node {
     pub id: NodeId,
     pub kind: Kind,
-    /// `None` = node racine du graphe.
+
     pub parent: Option<NodeId>,
-    /// Enfants ordonnés — l'ordre est l'ordre d'affichage dans le document.
+
     pub children: Vec<NodeId>,
     pub props: Props,
-    /// Override de vue par node — ex: database en Kanban plutôt qu'en Table.
-    /// Préférence de vue, pas changement de type.
+
     pub view_override: Option<ViewDef>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
 impl Node {
-    // ── Accesseurs ergonomiques ───────────────────────────────────────────────
 
     pub fn prop(&self, key: &str) -> Option<&Value> {
         self.props.get(&PropKey::from(key))
@@ -47,15 +43,11 @@ impl Node {
         self.prop(key)?.as_ref_id()
     }
 
-    /// Retourne le texte de la prop `"title"` si elle existe.
     pub fn title(&self) -> Option<&str> {
         self.prop_text("title")
     }
 }
 
-// ── NodeBuilder ───────────────────────────────────────────────────────────────
-
-/// Builder chaînable, infaillible. La validation se fait au niveau du Service.
 pub struct NodeBuilder {
     id: NodeId,
     kind: Kind,

@@ -14,7 +14,6 @@ use crate::dto::{GraphDto, WorkspaceMetaDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, TauriEventBus};
 
-/// Helper to get the base directory for Kye workspaces
 fn get_kye_base_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     app_handle.path().document_dir()
         .map(|p| p.join("Kye"))
@@ -48,7 +47,7 @@ pub async fn select_workspace_folder(
 ) -> AppResult<Option<String>> {
     let path: PathBuf = match path {
         Some(p) => {
-            // If path is just a name (no separators), resolve it in Kye base dir
+
             if !p.contains('/') && !p.contains('\\') {
                 get_kye_base_dir(&app_handle).join(p)
             } else {
@@ -62,7 +61,7 @@ pub async fn select_workspace_folder(
                 app_handle.dialog().file().pick_folder(move |picked| {
                     let _ = tx.send(picked);
                 });
-                
+
                 let picked = rx.await.map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
                 match picked {
                     Some(p) => p.into_path().map_err(|_| AppError::Internal("Invalid path".into()))?,
@@ -76,16 +75,14 @@ pub async fn select_workspace_folder(
         }
     };
 
-    // Save to store
     let settings_path = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("settings.json");
     let store = StoreBuilder::new(&app_handle, settings_path).build().map_err(|e| AppError::Internal(e.to_string()))?;
     let _ = store.set("workspace_path", serde_json::json!(path.to_string_lossy().to_string()));
     let _ = store.save();
 
-    // Initialize adapters
     let fs = WorkspaceFs::new(path.clone());
     fs.init().map_err(|e| AppError::Internal(format!("Failed to init FS: {:?}", e)))?;
-    
+
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| AppError::Internal(format!("Failed to load graph: {:?}", e)))?;
     let kind_repo = FileKindRepository::new(fs.clone());
@@ -121,7 +118,7 @@ pub async fn list_workspaces(app_handle: tauri::AppHandle) -> AppResult<Vec<Stri
             }
         }
     }
-    
+
     workspaces.sort();
     Ok(workspaces)
 }
@@ -129,11 +126,11 @@ pub async fn list_workspaces(app_handle: tauri::AppHandle) -> AppResult<Vec<Stri
 #[tauri::command]
 pub async fn create_workspace(name: String, app_handle: tauri::AppHandle) -> AppResult<String> {
     let new_path = get_kye_base_dir(&app_handle).join(&name);
-    
+
     if !new_path.exists() {
         std::fs::create_dir_all(&new_path)
             .map_err(|e| AppError::Internal(format!("Failed to create workspace: {}", e)))?;
     }
-    
+
     Ok(new_path.to_string_lossy().to_string())
 }

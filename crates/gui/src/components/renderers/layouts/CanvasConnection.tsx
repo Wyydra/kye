@@ -28,7 +28,6 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
 
     if (!source || !target) return { path: null, midPoint: null };
 
-    // Anchor points (center of nodes)
     const p1 = {
       x: source.x + source.width / 2,
       y: source.y + source.height / 2
@@ -54,7 +53,7 @@ export const CanvasConnection: React.FC<CanvasConnectionProps> = ({ connectionId
         markerEnd="url(#arrowhead)"
         className="transition-colors duration-300"
       />
-      {/* Invisible thicker path for easier hovering/interaction */}
+      {}
       <path
         d={path}
         fill="none"

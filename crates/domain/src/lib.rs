@@ -1,4 +1,4 @@
-//! Kye Domain — re-exports publics.
+
 
 pub mod primitives;
 pub mod value;
@@ -14,7 +14,6 @@ pub mod command;
 pub mod ports;
 pub mod service;
 
-// Re-exports de commodité
 pub use primitives::{NodeId, Kind, PropKey, kinds, props};
 pub use value::{Value, RichText, Span, Mark, Color, Props};
 pub use node::{Node, NodeBuilder};

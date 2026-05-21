@@ -21,12 +21,11 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
     updateNodeState,
     viewport 
   } = useCanvasStore();
-  
+
   if (!node) return null;
 
   const isSelected = selectedNodeId === nodeId;
 
-  // Local state for fluid interaction
   const [localPos, setLocalPos] = useState({
     x: val<number>(node.props["x"]) || 0,
     y: val<number>(node.props["y"]) || 0,
@@ -38,12 +37,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
 
   const isInteracting = useRef(false);
 
-  // Sync to global nodeStates for connection anchors
   useEffect(() => {
     updateNodeState(nodeId, { ...localPos, ...localSize });
   }, [nodeId, localPos, localSize, updateNodeState]);
 
-  // Sync back from props if not interacting
   useEffect(() => {
     if (!isInteracting.current) {
       setLocalPos({
@@ -91,7 +88,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return;
-    
+
     setSelectedNodeId(nodeId);
 
     if (isLocked) return;
@@ -105,7 +102,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
     const startX = e.clientX;
     const startY = e.clientY;
     const startPos = { ...localPos };
-    
+
     let currentX = startPos.x;
     let currentY = startPos.y;
 
@@ -141,7 +138,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const worldX = (rect.left + rect.width / 2 - x) / zoom;
     const worldY = (rect.top + rect.height / 2 - y) / zoom;
-    
+
     useCanvasStore.getState().setConnectionDraft({
       sourceId: nodeId,
       targetId: null,
@@ -165,7 +162,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
       onPointerDown={handlePointerDown}
       data-node-id={nodeId}
     >
-      {/* Header / Grab Area */}
+      {}
       <div className={`p-2 border-b border-border flex items-center justify-between shrink-0 ${
         isLocked ? "bg-orange-50/50 cursor-default" : "bg-muted/30 cursor-grab active:cursor-grabbing"
       }`}>
@@ -183,21 +180,17 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
          </div>
       </div>
 
-      {/* 
-        Content Area Wrapper 
-        We use a separate div for overflow-hidden so the SelectionFrame 
-        (which is a sibling) can still bleed outside the card bounds.
-      */}
+      {}
       <div className="flex-1 relative overflow-hidden rounded-lg flex flex-col w-full h-full">
         <NodeRenderer nodeId={nodeId} depth={depth} />
-        
-        {/* Interaction Blocker: Prevents interaction if not selected OR if locked */}
+
+        {}
         {(!isSelected || isLocked) && (
           <div className="absolute inset-0 z-10" />
         )}
       </div>
 
-      {/* Selection Frame (Overlay with -4px offset) */}
+      {}
       {isSelected && (
         <SelectionFrame 
           nodeId={nodeId}

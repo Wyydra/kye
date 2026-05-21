@@ -12,10 +12,10 @@ import { useFileDrop } from "../../../hooks/useFileDrop";
 export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
   const selectedNodeId = useCanvasStore(state => state.selectedNodeId);
   const isSelected = selectedNodeId === node.id;
-  
+
   const kindDef = useGraphStore((state) => state.kinds[node.kind]);
   const titleProp = node.props["title"];
-  
+
   const titleValue =
     titleProp?.t === "Text"
       ? titleProp.v
@@ -28,14 +28,14 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
   const isEditable = depth <= 1 && !isLocked && (!isCard || isSelected);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
-    if (depth !== 0) return; // Only process drops at the root document layout
-    
+    if (depth !== 0) return; 
+
     for (let i = 0; i < paths.length; i++) {
       const path = paths[i];
       if (typeof path === 'string') {
         try {
           const relativeUrl = await kyeService.importMedia(path);
-          
+
           execute({
             type: "create_node",
             id: crypto.randomUUID(),
@@ -60,7 +60,7 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
         depth === 0 ? "max-w-3xl mx-auto px-8 py-12" : "p-2"
       }`}
     >
-      {/* Editable Title */}
+      {}
       <input
         className={`${isCard ? 'text-xl' : 'text-4xl'} font-bold mb-4 text-foreground/90 bg-transparent border-none outline-none w-full placeholder:opacity-20`}
         value={titleValue}
@@ -76,14 +76,14 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
         placeholder={kindDef?.label ? `Untitled ${kindDef.label}` : "Untitled Page"}
       />
 
-      {/* Render Children Recursively */}
+      {}
       <div className="flex flex-col w-full">
         {node.children.map((childId) => (
           <NodeRenderer key={childId} nodeId={childId} depth={depth + 1} />
         ))}
       </div>
 
-      {/* Clickable area at the end (Only if editable) */}
+      {}
       {isEditable && (
         <div
           className={`cursor-text mt-4 text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors ${

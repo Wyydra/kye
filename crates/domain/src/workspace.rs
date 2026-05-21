@@ -1,4 +1,4 @@
-//! WorkspaceMeta — identité du workspace. Concept domain, pas orchestration.
+
 
 use uuid::Uuid;
 

@@ -7,10 +7,9 @@ interface GridBackgroundProps {
 }
 
 export const GridBackground = memo(function GridBackground({ zoom, x, y }: GridBackgroundProps) {
-  // We use a large SVG that covers the background. 
-  // The pattern is shifted by x,y and scaled by zoom.
+
   const size = 32 * zoom;
-  
+
   return (
     <div style={{
       position: 'absolute',

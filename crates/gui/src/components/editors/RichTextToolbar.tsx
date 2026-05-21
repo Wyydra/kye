@@ -23,7 +23,6 @@ export const RichTextToolbar: React.FC<ToolbarProps> = ({ onFormat, targetRef })
         return;
       }
 
-      // Check if selection is within our target editor
       if (!targetRef.current.contains(selection.anchorNode)) {
         setPosition(null);
         return;
@@ -53,7 +52,7 @@ export const RichTextToolbar: React.FC<ToolbarProps> = ({ onFormat, targetRef })
       ref={toolbarRef}
       className="fixed z-50 flex items-center gap-0.5 p-1 bg-popover border border-border shadow-lg rounded-lg -translate-x-1/2"
       style={{ top: Math.max(10, position.top), left: position.left }}
-      onMouseDown={(e) => e.preventDefault()} // Prevent blur
+      onMouseDown={(e) => e.preventDefault()} 
     >
       {marks.map((spec) => (
         <button

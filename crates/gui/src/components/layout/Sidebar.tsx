@@ -17,7 +17,7 @@ export const Sidebar: React.FC = () => {
 
   return (
     <div className="w-full h-full bg-background/60 backdrop-blur-xl border-r border-border/50 flex flex-col shadow-2xl">
-      {/* Header - Taking safe area into account */}
+      {}
       <div 
         className="p-4 border-b border-border/50 flex items-center justify-between"
         style={{ paddingTop: "calc(1rem + var(--safe-top))", paddingLeft: "calc(1rem + var(--safe-left))" }}
@@ -39,7 +39,7 @@ export const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Navigation */}
+      {}
       <div className="flex-1 overflow-y-auto py-4">
         <div className="px-4 mb-2 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
           <span>Documents</span>
@@ -52,7 +52,7 @@ export const Sidebar: React.FC = () => {
           {roots.map(id => {
             const node = nodes[id];
             if (!node) return null;
-            
+
             const title = val<string>(node.props.title) || "Untitled";
             const isImage = node.kind === "core.image";
 
@@ -73,7 +73,7 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer */}
+      {}
       <div 
         className="p-4 border-t border-border/50 bg-muted/10"
         style={{ paddingBottom: "calc(1rem + var(--safe-bottom))", paddingLeft: "calc(1rem + var(--safe-left))" }}

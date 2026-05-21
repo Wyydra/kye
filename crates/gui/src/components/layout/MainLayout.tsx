@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useGraphStore } from "../../store/graphStore";
 import { kyeService } from "../../services/kyeService";
 
-import { WorldCanvas } from "../renderers/layouts/WorldCanvas";
+import { CanvasLayout } from "../renderers/layouts/CanvasLayout";
 import { NodeModal } from "./NodeModal";
 import { DropManager } from "../../lib/dropManager";
 import { Sidebar } from "./Sidebar";
@@ -32,7 +32,6 @@ export const MainLayout: React.FC = () => {
     loadGraph();
   }, [loadGraph]);
 
-  // If no workspace is selected, open the picker automatically
   useEffect(() => {
     if (error && error.includes("No workspace selected")) {
       setWorkspacePickerOpen(true);
@@ -43,7 +42,7 @@ export const MainLayout: React.FC = () => {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground p-8 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-        
+
         <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-primary/20 animate-in zoom-in-50 duration-700">
           <span className="text-4xl font-black text-primary-foreground italic">K</span>
         </div>
@@ -103,7 +102,7 @@ export const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden relative">
-      {/* Sidebar Overlay */}
+      {}
       <div 
         className={`absolute top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out overflow-hidden ${
           isSidebarOpen ? "w-72 translate-x-0" : "w-0 -translate-x-full"
@@ -112,9 +111,9 @@ export const MainLayout: React.FC = () => {
         <Sidebar />
       </div>
 
-      {/* Universal World Canvas */}
+      {}
       <div className="flex-1 h-full relative overflow-hidden">
-        {/* Toggle Sidebar Button */}
+        {}
         <button 
           onClick={toggleSidebar}
           style={{ top: "calc(0.75rem + var(--safe-top))", left: "calc(0.75rem + var(--safe-left))" }}
@@ -125,16 +124,16 @@ export const MainLayout: React.FC = () => {
           <PanelLeft className="w-4 h-4 text-muted-foreground" />
         </button>
 
-        <WorldCanvas />
+        <CanvasLayout />
       </div>
 
-      {/* Global Node Modal */}
+      {}
       <NodeModal />
 
-      {/* Workspace Picker Modal */}
+      {}
       <WorkspacePicker />
 
-      {/* Debug Workspace Path Overlay */}
+      {}
       {workspacePath && (
         <div 
           style={{ bottom: "calc(0.5rem + var(--safe-bottom))", left: "calc(0.5rem + var(--safe-left))" }}

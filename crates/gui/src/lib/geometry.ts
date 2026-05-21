@@ -10,9 +10,6 @@ export interface Rect {
   height: number;
 }
 
-/**
- * Calculates the intersection point on a rectangle boundary towards a target point or another rectangle.
- */
 export function getEdgePoint(source: Rect, target: Rect | Point): Point {
   const sc = {
     x: source.x + source.width / 2,
@@ -42,9 +39,6 @@ export function getEdgePoint(source: Rect, target: Rect | Point): Point {
   }
 }
 
-/**
- * Generates a cubic bezier path between two points with automatic curvature.
- */
 export function getBezierPath(p1: Point, p2: Point): string {
   const dx = Math.abs(p2.x - p1.x);
   const curvature = Math.max(dx * 0.5, 40);
@@ -55,9 +49,6 @@ export function getBezierPath(p1: Point, p2: Point): string {
   return `M ${p1.x} ${p1.y} C ${cp1x} ${p1.y}, ${cp2x} ${p2.y}, ${p2.x} ${p2.y}`;
 }
 
-/**
- * Calculates the midpoint of a cubic bezier curve for label placement.
- */
 export function getBezierMidpoint(p1: Point, p2: Point): Point {
   const dx = Math.abs(p2.x - p1.x);
   const curvature = Math.max(dx * 0.5, 40);
@@ -65,7 +56,6 @@ export function getBezierMidpoint(p1: Point, p2: Point): Point {
   const cp1x = p1.x + (p2.x > p1.x ? curvature : -curvature);
   const cp2x = p2.x - (p2.x > p1.x ? curvature : -curvature);
 
-  // Simple approximation of the midpoint for a cubic bezier
   return {
     x: (p1.x + cp1x + cp2x + p2.x) / 4,
     y: (p1.y + p1.y + p2.y + p2.y) / 4,

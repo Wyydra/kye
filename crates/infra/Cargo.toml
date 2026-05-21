@@ -13,3 +13,5 @@ chrono = { version = "0.4", features = ["serde"] }
 walkdir = "2.3.3"
 notify = "8.2.0"
 tracing = "0.1"
+serde_yaml = "0.9"
+pulldown-cmark = "0.10"

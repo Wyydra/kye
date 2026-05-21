@@ -3,7 +3,6 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, WorkspaceMeta } from "../types/domain";
 
 export const kyeService = {
-  // ── Workspace ───────────────────────────────────────────────────────────
 
   async selectWorkspaceFolder(path?: string): Promise<string | null> {
     return invoke("select_workspace_folder", { path });
@@ -29,8 +28,6 @@ export const kyeService = {
     return invoke("get_graph");
   },
 
-  // ── Mutations ───────────────────────────────────────────────────────────
-
   async executeCommand(command: Command): Promise<Event> {
     return invoke("execute_command", { command });
   },
@@ -39,13 +36,9 @@ export const kyeService = {
     return invoke("execute_batch", { commands });
   },
 
-  // ── Médias ──────────────────────────────────────────────────────────────
-
   async importMedia(sourcePath: string): Promise<string> {
     return invoke("import_media", { sourcePath });
   },
-
-  // ── Kinds ───────────────────────────────────────────────────────────────
 
   async getKinds(): Promise<[string, KindDef][]> {
     return invoke("get_kinds");
@@ -58,8 +51,6 @@ export const kyeService = {
   async deleteKind(kind: string): Promise<void> {
     return invoke("delete_kind", { kind });
   },
-
-  // ── Events ──────────────────────────────────────────────────────────────
 
   async listenToEvents(callback: (event: Event) => void): Promise<UnlistenFn> {
     return listen<Event>("kye_event", (e) => {

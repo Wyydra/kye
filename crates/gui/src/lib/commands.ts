@@ -62,8 +62,7 @@ function commandToOptimisticEvent(cmd: Command): Event | null {
         index: cmd.index,
       };
     case "delete_node": {
-      // Simplified: we only optimistically delete the specific node
-      // The backend will cascade, and the real event will fix it up
+
       const node = state.nodes[cmd.id];
       if (!node) return null;
 
@@ -121,7 +120,7 @@ export const execute = async (cmd: Command): Promise<void> => {
     await kyeService.executeCommand(cmd);
   } catch (e: any) {
     console.error("Command failed:", e);
-    // Reload graph to fix state mismatch
+
     useGraphStore.getState().loadGraph();
   }
 };

@@ -10,8 +10,6 @@ use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
 use domain::view::{ActionDef, ActionKind, Direction, Layout, ViewDef};
 use domain::workspace::WorkspaceMeta;
 
-// ── Graph & Node DTOs ─────────────────────────────────────────────────────────
-
 #[derive(Serialize, Clone)]
 pub struct WorkspaceMetaDto {
     pub id: String,
@@ -68,8 +66,6 @@ impl From<&WorkspaceMeta> for WorkspaceMetaDto {
         }
     }
 }
-
-// ── Value DTOs ────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "t", content = "v")]
@@ -179,8 +175,6 @@ impl From<&Mark> for MarkDto {
     }
 }
 
-// ── ViewDef DTOs ──────────────────────────────────────────────────────────────
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ViewDefDto {
     pub layout: LayoutDto,
@@ -284,7 +278,7 @@ impl From<&ActionDef> for ActionDefDto {
 
 impl From<ActionDefDto> for ActionDef {
     fn from(dto: ActionDefDto) -> Self {
-        // Simplified mapping for frontend input
+
         ActionDef {
             id: dto.id,
             label: dto.label,
@@ -292,8 +286,6 @@ impl From<ActionDefDto> for ActionDef {
         }
     }
 }
-
-// ── Command & Event DTOs ──────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]

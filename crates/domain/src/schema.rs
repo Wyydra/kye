@@ -1,11 +1,9 @@
-//! KindDef — contrat d'un Kind : props attendues, contraintes, rendu par défaut.
+
 
 use indexmap::IndexMap;
 
 use crate::primitives::{Kind, PropKey};
 use crate::view::ViewDef;
-
-// ── Erreurs de validation ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
@@ -24,9 +22,6 @@ impl std::fmt::Display for ValidationError {
     }
 }
 
-// ── ValueType ─────────────────────────────────────────────────────────────────
-
-/// Type attendu pour une prop dans un KindDef.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueType {
     Bool,
@@ -35,9 +30,8 @@ pub enum ValueType {
     Text,
     Rich,
     Ref,
-    /// Ref vers un node d'un Kind spécifique.
     RefTo(Kind),
-    /// Une valeur parmi un ensemble de strings.
+
     OneOf(Vec<String>),
     Array(Box<ValueType>),
     Optional(Box<ValueType>),
@@ -45,8 +39,6 @@ pub enum ValueType {
     DateTime,
     Color,
 }
-
-// ── PropDef ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct PropDef {
@@ -77,39 +69,33 @@ impl PropDef {
     }
 }
 
-// ── Constraint ────────────────────────────────────────────────────────────────
-
-/// Règles structurelles d'un Kind.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Constraint {
-    /// Seuls ces Kinds sont autorisés comme enfants.
+
     AllowedChildKinds(Vec<Kind>),
-    /// Seuls ces Kinds peuvent être le parent.
+
     AllowedParentKinds(Vec<Kind>),
-    /// Pour les connections : kinds autorisés comme source.
+
     ConnectionSourceKinds(Vec<Kind>),
-    /// Pour les connections : kinds autorisés comme cible.
+
     ConnectionTargetKinds(Vec<Kind>),
-    /// Nombre maximum d'enfants.
+
     MaxChildren(usize),
 }
 
-// ── KindDef ───────────────────────────────────────────────────────────────────
-
-/// Contrat complet d'un Kind.
 #[derive(Debug, Clone)]
 pub struct KindDef {
-    /// Label affiché dans l'UI.
+
     pub label: String,
-    /// Icône (nom ou emoji).
+
     pub icon: Option<String>,
-    /// Quelle prop afficher comme titre dans les listes.
+
     pub title_prop: PropKey,
-    /// Props dans l'ordre d'affichage.
+
     pub props: IndexMap<PropKey, PropDef>,
-    /// Vue par défaut pour ce kind.
+
     pub view: Option<ViewDef>,
-    /// Contraintes structurelles.
+
     pub constraints: Vec<Constraint>,
 }
 

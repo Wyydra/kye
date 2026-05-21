@@ -30,7 +30,6 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
     (newText: any) => {
       const newPlainText = newText.spans.map((s: any) => s.text).join("");
 
-      // Markdown shortcuts — délégués au registre
       const matchedSpec = blockTypes.find(
         (spec) => spec.markdownTrigger && newPlainText === spec.markdownTrigger,
       );
@@ -54,7 +53,7 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
 
   const handleConvert = useCallback(
     (spec: any) => {
-      // Nettoyer le "/" avant la conversion
+
       const cleanedProps = { ...node.props };
       const body = cleanedProps["body"];
       if (body?.t === "Rich" && body.v.spans[0]?.text.startsWith("/")) {
@@ -67,7 +66,7 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // Slash menu intercepte en priorité
+
       if (isSlashActive && slashOptions.length > 0) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
@@ -95,7 +94,6 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
         }
       }
 
-      // Délègue le reste au hook commun
       baseKeyDown(e);
     },
     [
@@ -119,7 +117,7 @@ export const ParagraphWidget: React.FC<{ node: Node }> = ({ node }) => {
         isFocused={isFocused}
       />
 
-      {/* Slash Command Menu */}
+      {}
       {isSlashActive && slashOptions.length > 0 && (
         <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border shadow-lg rounded-lg overflow-hidden z-50">
           <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase bg-muted/50 border-b border-border/50">

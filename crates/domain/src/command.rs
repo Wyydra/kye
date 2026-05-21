@@ -1,4 +1,4 @@
-//! Command, Event, apply() — toutes les mutations du domaine passent ici.
+
 
 use chrono::{DateTime, Utc};
 use thiserror::Error;
@@ -11,8 +11,6 @@ use crate::schema::ValidationError;
 use crate::value::{Props, Value};
 use crate::view::ViewDef;
 
-// ── Erreurs ───────────────────────────────────────────────────────────────────
-
 #[derive(Debug, Error)]
 pub enum CommandError {
     #[error("Graph error: {0}")]
@@ -23,22 +21,19 @@ pub enum CommandError {
     NotFound(NodeId),
 }
 
-// ── Command ───────────────────────────────────────────────────────────────────
-
-/// Décrit l'intention de mutation — sérialisable pour le sync et l'undo.
 #[derive(Debug, Clone)]
 pub enum Command {
     CreateNode {
         id: NodeId,
         kind: Kind,
         parent_id: Option<NodeId>,
-        /// Position dans les enfants du parent (ou dans les roots).
+
         index: usize,
         props: Props,
     },
     DeleteNode {
         id: NodeId,
-        /// Si true, supprime récursivement tout le sous-arbre.
+
         cascade: bool,
     },
     MoveNode {
@@ -55,7 +50,7 @@ pub enum Command {
         node_id: NodeId,
         key: PropKey,
     },
-    /// Merge de plusieurs props en une seule commande.
+
     SetProps {
         node_id: NodeId,
         props: Props,
@@ -70,9 +65,6 @@ pub enum Command {
     },
 }
 
-// ── Event ─────────────────────────────────────────────────────────────────────
-
-/// Décrit ce qui s'est passé — contient assez d'info pour annuler (undo).
 #[derive(Debug, Clone)]
 pub enum Event {
     NodeCreated {
@@ -80,11 +72,11 @@ pub enum Event {
         index: usize,
     },
     NodeDeleted {
-        /// Tous les nodes supprimés (en cas de cascade), dans l'ordre de suppression.
+
         nodes: Vec<Node>,
-        /// Parent d'origine du node racine supprimé.
+
         old_parent: Option<NodeId>,
-        /// Position d'origine dans les children du parent.
+
         old_index: usize,
     },
     NodeMoved {
@@ -98,7 +90,7 @@ pub enum Event {
         node_id: NodeId,
         key: PropKey,
         new_value: Value,
-        /// Valeur précédente (None si la prop n'existait pas).
+
         old_value: Option<Value>,
     },
     PropDeleted {
@@ -108,7 +100,7 @@ pub enum Event {
     },
     PropsSet {
         node_id: NodeId,
-        /// (key, new_value, old_value)
+
         changes: Vec<(PropKey, Value, Option<Value>)>,
     },
     ViewOverrideSet {
@@ -125,14 +117,14 @@ pub enum Event {
 }
 
 impl Event {
-    /// Dérive la Command qui annule cet Event → undo/redo sans infra supplémentaire.
+
     pub fn inverse(&self) -> Vec<Command> {
         match self {
             Event::NodeCreated { node, .. } => vec![
                 Command::DeleteNode { id: node.id, cascade: true }
             ],
             Event::NodeDeleted { nodes, old_parent: _, old_index } => {
-                // Recréer les nodes dans l'ordre inverse de suppression
+
                 nodes.iter().rev().map(|n| Command::CreateNode {
                     id: n.id,
                     kind: n.kind.clone(),
@@ -196,21 +188,13 @@ impl Event {
                 }
             ],
             Event::Batch(events) => {
-                // Inverser l'ordre ET chaque event
+
                 events.iter().rev().flat_map(|e| e.inverse()).collect()
             }
         }
     }
 }
 
-// ── apply() ───────────────────────────────────────────────────────────────────
-
-/// Pure function — aucun I/O, aucun side-effect.
-/// Prend `now` en paramètre → testable avec timestamp fixe (snapshot testing).
-///
-/// Ordre de validation :
-///   1. Intégrité structurelle (not found, cycle, index) — en premier
-///   2. Contraintes KindDef (allowed children, max children) — en second
 pub fn apply(
     graph: &mut Graph,
     registry: &KindRegistry,
@@ -219,14 +203,13 @@ pub fn apply(
 ) -> Result<Event, CommandError> {
     match cmd {
         Command::CreateNode { id, kind, parent_id, index, props } => {
-            // 1. Intégrité structurelle
+
             if let Some(pid) = parent_id {
                 if !graph.contains(pid) {
                     return Err(CommandError::Graph(GraphError::NotFound(pid)));
                 }
             }
 
-            // 2. Contraintes KindDef
             let constraint_cmd = Command::CreateNode { id, kind: kind.clone(), parent_id, index, props: props.clone() };
             let errs = registry.check_command(graph, &constraint_cmd);
             if !errs.is_empty() {
@@ -249,7 +232,7 @@ pub fn apply(
         }
 
         Command::DeleteNode { id, cascade: _ } => {
-            // 1. Intégrité structurelle
+
             if !graph.contains(id) {
                 return Err(CommandError::Graph(GraphError::NotFound(id)));
             }
@@ -263,7 +246,7 @@ pub fn apply(
         }
 
         Command::MoveNode { node_id, new_parent_id, new_index } => {
-            // 1. Intégrité structurelle
+
             if !graph.contains(node_id) {
                 return Err(CommandError::Graph(GraphError::NotFound(node_id)));
             }
@@ -276,7 +259,6 @@ pub fn apply(
                 }
             }
 
-            // 2. Contraintes KindDef
             let errs = registry.check_command(graph, &Command::MoveNode { node_id, new_parent_id, new_index });
             if !errs.is_empty() {
                 return Err(CommandError::Validation(errs));
@@ -291,20 +273,20 @@ pub fn apply(
         }
 
         Command::SetProp { node_id, key, value } => {
-            // 1. Intégrité structurelle
+
             if !graph.contains(node_id) {
                 return Err(CommandError::Graph(GraphError::NotFound(node_id)));
             }
 
             let old_value = graph.set_prop(node_id, key.clone(), value.clone())?;
-            // Mettre à jour updated_at
+
             graph.get_mut(node_id).unwrap().updated_at = now;
 
             Ok(Event::PropSet { node_id, key, new_value: value, old_value })
         }
 
         Command::DeleteProp { node_id, key } => {
-            // 1. Intégrité structurelle
+
             if !graph.contains(node_id) {
                 return Err(CommandError::Graph(GraphError::NotFound(node_id)));
             }
@@ -317,7 +299,7 @@ pub fn apply(
         }
 
         Command::SetProps { node_id, props } => {
-            // 1. Intégrité structurelle
+
             if !graph.contains(node_id) {
                 return Err(CommandError::Graph(GraphError::NotFound(node_id)));
             }
@@ -333,7 +315,7 @@ pub fn apply(
         }
 
         Command::SetViewOverride { node_id, view } => {
-            // 1. Intégrité structurelle
+
             let node = graph.get_mut(node_id)
                 .ok_or(CommandError::Graph(GraphError::NotFound(node_id)))?;
 
@@ -344,7 +326,7 @@ pub fn apply(
             Ok(Event::ViewOverrideSet { node_id, new_view: view, old_view })
         }
         Command::SetKind { node_id, new_kind } => {
-            // 1. Intégrité structurelle
+
             let node = graph.get_mut(node_id)
                 .ok_or(CommandError::Graph(GraphError::NotFound(node_id)))?;
 
@@ -357,8 +339,6 @@ pub fn apply(
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 fn find_child_index(graph: &Graph, node_id: NodeId, parent: Option<NodeId>) -> usize {
     match parent {
         Some(pid) => graph.get(pid)
@@ -370,8 +350,6 @@ fn find_child_index(graph: &Graph, node_id: NodeId, parent: Option<NodeId>) -> u
             .unwrap_or(0),
     }
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
@@ -446,7 +424,6 @@ mod tests {
         assert!(!graph.contains(parent_id));
         assert!(!graph.contains(child_id));
 
-        // Undo doit recréer les deux nodes
         let undo_cmds = event.inverse();
         assert!(!undo_cmds.is_empty());
     }
@@ -469,7 +446,6 @@ mod tests {
 
         assert_eq!(graph.get(id).unwrap().prop_text("title"), Some("Updated"));
 
-        // Undo
         for undo_cmd in event.inverse() {
             apply(&mut graph, &registry, undo_cmd, fixed_now()).unwrap();
         }

@@ -24,34 +24,27 @@ impl MediaRepository for FileMediaRepository {
             return Err(RepositoryError::NotFound(format!("File not found: {:?}", source_path)));
         }
 
-        // Extraire l'extension du fichier source
         let ext = source_path
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("bin");
 
-        // Générer un nom unique
         let file_name = format!("{}.{}", Uuid::new_v4(), ext);
-        
-        // Construire le chemin cible dans le dossier assets/
+
         let target_path = self.fs.assets_dir().join(&file_name);
 
-        // Copier le fichier
         fs::copy(source_path, &target_path)
             .map_err(|e| RepositoryError::Io(format!("Failed to copy media: {}", e)))?;
 
-        // L'URL relative à stocker dans le domaine
         Ok(format!("assets/{}", file_name))
     }
 
     fn save_media(&self, data: &[u8], extension: &str) -> Result<String, RepositoryError> {
-        // Générer un nom unique
+
         let file_name = format!("{}.{}", Uuid::new_v4(), extension);
-        
-        // Construire le chemin cible dans le dossier assets/
+
         let target_path = self.fs.assets_dir().join(&file_name);
 
-        // Écrire les données
         fs::write(&target_path, data)
             .map_err(|e| RepositoryError::Io(format!("Failed to save media bytes: {}", e)))?;
 

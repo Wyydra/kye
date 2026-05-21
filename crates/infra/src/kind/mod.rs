@@ -1,4 +1,3 @@
-//! FileKindRepository — persistance des KindDefs user-defined.
 
 
 use std::path::PathBuf;
@@ -28,7 +27,7 @@ impl FileKindRepository {
     }
 
     fn kind_path(&self, kind: &Kind) -> PathBuf {
-        // Remplace les points par des slashes pour le namespace
+
         let filename = kind.as_str().replace('.', "__");
         self.kinds_dir().join(format!("{}.json", filename))
     }
@@ -78,8 +77,6 @@ impl KindRepository for FileKindRepository {
         Ok(())
     }
 }
-
-// ── DTO ───────────────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize)]
 struct KindDefJson {

@@ -1,4 +1,4 @@
-//! WorkspaceFs — abstraction du dossier `.kye/` sur le filesystem.
+
 
 use std::path::{Path, PathBuf};
 use std::fs;
@@ -20,7 +20,6 @@ impl WorkspaceFs {
         Self { root: workspace_root.as_ref().to_path_buf() }
     }
 
-    /// Crée la structure de dossiers et le fichier meta.json si nécessaire.
     pub fn init(&self) -> Result<(), RepositoryError> {
         fs::create_dir_all(self.nodes_dir())
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
@@ -51,7 +50,6 @@ impl WorkspaceFs {
         self.kye_dir().join(NODES_DIR)
     }
 
-    /// Dossier des assets physiques à la racine du workspace.
     pub fn assets_dir(&self) -> PathBuf {
         self.root.join(ASSETS_DIR)
     }
@@ -60,18 +58,15 @@ impl WorkspaceFs {
         self.kye_dir().join(META_FILE)
     }
 
-    /// Chemin du fichier JSON d'un node.
     pub fn node_path(&self, id: &str) -> PathBuf {
         self.nodes_dir().join(format!("{}.json", id))
     }
 
-    /// Lit un fichier et retourne son contenu.
     pub fn read_file(&self, path: &Path) -> Result<String, RepositoryError> {
         fs::read_to_string(path)
             .map_err(|e| RepositoryError::Io(e.to_string()))
     }
 
-    /// Écrit un fichier (crée les parents si nécessaire).
     pub fn write_file(&self, path: &Path, content: &str) -> Result<(), RepositoryError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
@@ -81,7 +76,6 @@ impl WorkspaceFs {
             .map_err(|e| RepositoryError::Io(e.to_string()))
     }
 
-    /// Supprime un fichier de node.
     pub fn delete_node_file(&self, id: &str) -> Result<(), RepositoryError> {
         let path = self.node_path(id);
         if path.exists() {
@@ -91,7 +85,6 @@ impl WorkspaceFs {
         Ok(())
     }
 
-    /// Liste tous les fichiers `.json` dans le dossier nodes.
     pub fn list_node_files(&self) -> Result<Vec<PathBuf>, RepositoryError> {
         let dir = self.nodes_dir();
         if !dir.exists() {

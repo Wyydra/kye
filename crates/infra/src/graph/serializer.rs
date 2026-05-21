@@ -1,4 +1,4 @@
-//! Sérialisation/désérialisation JSON des Nodes et WorkspaceMeta.
+
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,8 +17,6 @@ use domain::view::{Direction, Layout, ViewDef};
 use domain::workspace::WorkspaceMeta;
 
 use crate::fs::WorkspaceFs;
-
-// ── WorkspaceMeta ─────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize)]
 struct MetaJson {
@@ -43,8 +41,6 @@ pub fn save_meta(fs: &WorkspaceFs, meta: &WorkspaceMeta) -> Result<(), Repositor
         .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
     fs.write_file(&fs.meta_path(), &content)
 }
-
-// ── Node JSON DTO ─────────────────────────────────────────────────────────────
 
 #[derive(Serialize, Deserialize)]
 struct NodeJson {
@@ -92,8 +88,6 @@ fn json_to_node(j: NodeJson) -> Node {
     node
 }
 
-// ── Value JSON ─────────────────────────────────────────────────────────────────
-
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "t", content = "v")]
 enum ValueJson {
@@ -105,8 +99,8 @@ enum ValueJson {
     Rich(RichTextJson),
     Ref(Uuid),
     Array(Vec<ValueJson>),
-    Date(String),       // ISO 8601
-    DateTime(String),   // RFC 3339
+    Date(String),       
+    DateTime(String),   
     Color(String),
 }
 
@@ -204,8 +198,6 @@ fn json_to_mark(j: MarkJson) -> Mark {
     }
 }
 
-// ── ViewDef JSON ──────────────────────────────────────────────────────────────
-
 #[derive(Serialize, Deserialize)]
 struct ViewDefJson {
     layout: LayoutJson,
@@ -286,14 +278,10 @@ fn json_to_layout(j: LayoutJson) -> Layout {
     }
 }
 
-// ── Graph load/save ───────────────────────────────────────────────────────────
-
-/// Charge tous les nodes depuis `.kye/nodes/*.json` et reconstruit le Graph.
 pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<Graph, RepositoryError> {
     let files = fs.list_node_files()?;
     let mut all_nodes = HashMap::new();
 
-    // 1. Charger tous les NodeJson en mémoire
     for path in files {
         let content = fs.read_file(&path)?;
         let node_json: NodeJson = serde_json::from_str(&content)
@@ -303,13 +291,11 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<Graph, RepositoryError> {
 
     let mut graph = Graph::new();
 
-    // 2. Identifier les racines et les ordonner par date de création (faute de mieux pour l'instant)
     let mut roots: Vec<NodeId> = all_nodes.values()
         .filter(|j| j.parent.is_none())
         .map(|j| NodeId::from_uuid(j.id))
         .collect();
-    
-    // Trier les racines par titre alphabétique
+
     roots.sort_by(|a, b| {
         let title_a = all_nodes.get(a).and_then(|j| j.props.get("title")).and_then(|v| match v {
             ValueJson::Text(t) => Some(t.as_str()),
@@ -319,31 +305,26 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<Graph, RepositoryError> {
             ValueJson::Text(t) => Some(t.as_str()),
             _ => None,
         }).unwrap_or("");
-        
+
         title_a.to_lowercase().cmp(&title_b.to_lowercase())
             .then_with(|| {
-                // Fallback sur la date de création si titres identiques
+
                 let ca = all_nodes.get(a).map(|j| j.created_at).unwrap_or_else(Utc::now);
                 let cb = all_nodes.get(b).map(|j| j.created_at).unwrap_or_else(Utc::now);
                 ca.cmp(&cb)
             })
     });
 
-    // 3. Reconstruire la hiérarchie en partant des racines (BFS)
-    // On utilise un VecDeque pour un parcours en largeur, ou un Vec pour un parcours en profondeur.
-    // L'important est de traiter les enfants dans l'ordre défini par le parent.
     let mut todo: std::collections::VecDeque<NodeId> = roots.into_iter().collect();
     let mut processed = std::collections::HashSet::new();
 
     while let Some(id) = todo.pop_front() {
         if processed.contains(&id) { continue; }
-        
+
         if let Some(mut j) = all_nodes.remove(&id) {
             let parent_id = j.parent.map(NodeId::from_uuid);
             let children_ids = j.children.clone();
-            
-            // On vide les enfants du JSON car Graph::insert_child/root les reconstruira
-            // lors de l'insertion de chaque enfant.
+
             j.children.clear();
             let node = json_to_node(j);
 
@@ -353,7 +334,7 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<Graph, RepositoryError> {
                     graph.insert_child(node, pid, index)
                         .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 } else {
-                    // Parent manquant ? On insère en root pour ne pas perdre le nœud
+
                     graph.insert_root(node)
                         .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 }
@@ -364,28 +345,24 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<Graph, RepositoryError> {
 
             processed.insert(id);
 
-            // Ajouter les enfants à traiter
             for cid in children_ids {
                 todo.push_back(NodeId::from_uuid(cid));
             }
         }
     }
 
-    // 4. Gérer les nœuds orphelins (cycles ou branches détachées)
-    // S'il reste des nœuds dans all_nodes, ils ne sont pas atteignables depuis les roots.
     let remaining_ids: Vec<NodeId> = all_nodes.keys().cloned().collect();
     for id in remaining_ids {
         if let Some(mut j) = all_nodes.remove(&id) {
             j.children.clear();
             let node = json_to_node(j);
-            let _ = graph.insert_root(node); // On insère en root par sécurité
+            let _ = graph.insert_root(node); 
         }
     }
 
     Ok(graph)
 }
 
-/// Sérialise le graph complet sur disk (un fichier JSON par node).
 pub fn serialize_graph(fs: &WorkspaceFs, graph: &Graph) -> Result<(), RepositoryError> {
     fs.init()?;
     for node in graph.iter() {
@@ -401,12 +378,11 @@ pub fn serialize_node(fs: &WorkspaceFs, node: &Node) -> Result<(), RepositoryErr
     fs.write_file(&fs.node_path(&node.id.to_string()), &content)
 }
 
-/// Flush granulaire — sérialise seulement les nodes affectés par l'Event.
 pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph) -> Result<(), RepositoryError> {
     match event {
         Event::NodeCreated { node, .. } => {
             serialize_node(fs, node)?;
-            // Mettre à jour le parent pour persister sa liste de children
+
             if let Some(pid) = node.parent {
                 if let Some(p) = graph.get(pid) {
                     serialize_node(fs, p)?;
@@ -417,7 +393,7 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph) -> Result
             for node in nodes {
                 fs.delete_node_file(&node.id.to_string())?;
             }
-            // Mettre à jour le parent pour persister le retrait de l'enfant
+
             if let Some(pid) = old_parent {
                 if let Some(p) = graph.get(*pid) {
                     serialize_node(fs, p)?;
@@ -425,7 +401,7 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph) -> Result
             }
         }
         Event::NodeMoved { node_id, old_parent, new_parent, .. } => {
-            // Mettre à jour le node déplacé et ses anciens/nouveaux parents
+
             if let Some(node) = graph.get(*node_id) { serialize_node(fs, node)?; }
             if let Some(pid) = old_parent {
                 if let Some(p) = graph.get(*pid) { serialize_node(fs, p)?; }

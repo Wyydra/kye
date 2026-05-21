@@ -23,12 +23,12 @@ const applyEventToState = (
 
   switch (event.type) {
     case "node_created":
-      if (newNodes[event.node.id]) return state; // Idempotency check
+      if (newNodes[event.node.id]) return state; 
       newNodes[event.node.id] = event.node;
       if (!event.node.parent) {
         if (!newRoots.includes(event.node.id)) {
           newRoots.push(event.node.id);
-          // Sort roots alphabetically by title
+
           newRoots.sort((a, b) => {
             const nodeA = newNodes[a];
             const nodeB = newNodes[b];
@@ -69,7 +69,7 @@ const applyEventToState = (
       break;
 
     case "node_moved": {
-      // 1. Remove from all possible places to ensure idempotency
+
       if (event.old_parent === null) {
         newRoots = newRoots.filter((id) => id !== event.node_id);
       } else {
@@ -93,7 +93,6 @@ const applyEventToState = (
         newRoots = newRoots.filter((id) => id !== event.node_id);
       }
 
-      // 2. Add to new parent
       if (event.new_parent === null) {
         const idx = Math.min(event.new_index, newRoots.length);
         newRoots.splice(idx, 0, event.node_id);
@@ -107,7 +106,6 @@ const applyEventToState = (
         }
       }
 
-      // 3. Update node's parent ref
       const movedNode = newNodes[event.node_id];
       if (movedNode) {
         newNodes[event.node_id] = { ...movedNode, parent: event.new_parent };
@@ -195,7 +193,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   error: null,
 
   loadGraph: async () => {
-    if (get().isLoaded && unlisten) return; // Already loading or loaded
+    if (get().isLoaded && unlisten) return; 
 
     try {
       const [graph, kindsArray] = await Promise.all([
@@ -216,7 +214,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         error: null,
       });
 
-      // Setup global event listener (only once)
       if (!unlisten) {
         const promise = kyeService.listenToEvents((event) => {
           get().applyEvent(event);

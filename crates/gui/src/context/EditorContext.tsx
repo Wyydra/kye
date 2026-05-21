@@ -1,10 +1,4 @@
-/**
- * EditorContext — fournit à tout l'arbre de rendu :
- *  - les BlockTypeSpec disponibles
- *  - les MarkSpec disponibles
- *
- * Tous les composants lisent depuis ici au lieu d'être hardcodés.
- */
+
 
 import React, { createContext, useContext } from "react";
 import { BlockTypeSpec, MarkSpec } from "../extensions/registry";

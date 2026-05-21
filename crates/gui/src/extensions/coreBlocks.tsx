@@ -1,21 +1,13 @@
-/**
- * Définition des blocs et marks core de Kye.
- * C'est ici qu'on enregistre concrètement chaque type de bloc.
- */
 
-/** @jsxRuntime automatic */
+
 import { Node, Value } from "../types/domain";
 import { BlockTypeSpec, MarkSpec } from "./registry";
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 function transferText(node: Node, targetPropKey: string): Record<string, Value> {
   const textValue =
     node.props["body"] || node.props["text"] || { t: "Rich" as const, v: { spans: [] } };
   return { [targetPropKey]: textValue };
 }
-
-// ── Block Types ────────────────────────────────────────────────────────────────
 
 export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
   {
@@ -111,8 +103,6 @@ export const CORE_BLOCK_TYPES: BlockTypeSpec[] = [
       ["body", "level", "checked", "text"].filter((k) => k in node.props),
   },
 ];
-
-// ── Mark Specs ─────────────────────────────────────────────────────────────────
 
 export const CORE_MARKS: MarkSpec[] = [
   {
