@@ -115,3 +115,45 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("Tauri Error");
 }
+
+pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init();
+
+    if !workspace_path.exists() {
+        return Err(format!("Workspace path '{}' does not exist.", workspace_path.display()));
+    }
+
+    let fs = WorkspaceFs::new(workspace_path.clone());
+    fs.init().map_err(|e| format!("Failed to initialize workspace: {:?}", e))?;
+
+    let graph_repo = InMemoryGraphRepository::load(fs.clone())
+        .map_err(|e| format!("Failed to load graph repository: {:?}", e))?;
+
+    use domain::ports::GraphRepository;
+    let meta = graph_repo.load_meta()
+        .map_err(|e| format!("Failed to load workspace metadata: {:?}", e))?;
+
+    let peer_id = meta.id.to_string();
+    let device_name = meta.name.clone();
+
+    tracing::info!("Starting Kye headless server for workspace: {}", device_name);
+    tracing::info!("Workspace ID: {}", peer_id);
+    tracing::info!("Workspace Path: {}", workspace_path.display());
+
+    let kind_repo = FileKindRepository::new(fs.clone());
+    let media_repo = FileMediaRepository::new(fs);
+
+    let service = Arc::new(Service::new(graph_repo, kind_repo, (), media_repo));
+
+    let _server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
+        .map_err(|e| format!("Failed to start sync server: {}", e))?;
+
+    tracing::info!("Kye headless server is running on port {}", port);
+    tracing::info!("Press Ctrl+C to stop.");
+
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(3600));
+    }
+}

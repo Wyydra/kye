@@ -27,6 +27,7 @@ pub struct PushResponse {
 
 pub struct P2pServer {
     is_running: Arc<AtomicBool>,
+    port: u16,
     // Store the server instance so that dropping P2pServer will drop the server socket.
     _server: Arc<Server>,
 }
@@ -55,11 +56,16 @@ impl P2pServer {
         
         thread::spawn(move || {
             let server = server_clone;
-            while is_running_clone.load(Ordering::Relaxed) {
+            while is_running_clone.load(Ordering::SeqCst) {
                 let request = match server.recv() {
                     Ok(req) => req,
                     Err(_) => break,
                 };
+                
+                // If we woke up because of a stop signal, don't handle the request
+                if !is_running_clone.load(Ordering::SeqCst) {
+                    break;
+                }
                 
                 if let Err(e) = handle_request(&service, &peer_id, &device_name, request) {
                     tracing::error!("P2P server error: {}", e);
@@ -69,12 +75,25 @@ impl P2pServer {
         
         Ok(Self { 
             is_running,
+            port,
             _server: server,
         })
     }
 
     pub fn stop(&self) {
-        self.is_running.store(false, Ordering::Relaxed);
+        if self.is_running.swap(false, Ordering::SeqCst) {
+            let port = self.port;
+            // Spawn a temporary thread to make a loopback connection and wake up the blocking server.recv()
+            thread::spawn(move || {
+                let _ = std::net::TcpStream::connect(format!("127.0.0.1:{}", port));
+            });
+        }
+    }
+}
+
+impl Drop for P2pServer {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
