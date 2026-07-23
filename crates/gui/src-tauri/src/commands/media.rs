@@ -1,34 +1,60 @@
-use tauri::{AppHandle, State};
-use tauri_plugin_fs::FsExt;
-use std::path::Path;
-
+use tauri::State;
+use domain::AssetInfo;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
 #[tauri::command]
 pub async fn import_media(
     source_path: String,
-    app_handle: AppHandle,
     state: State<'_, AppState>,
 ) -> AppResult<String> {
     let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
-    let bytes = if source_path.contains("://") {
-        let url = tauri::Url::parse(&source_path)
-            .map_err(|e| AppError::Internal(format!("Failed to parse media URI: {}", e)))?;
-        app_handle.fs().read(url)
-    } else {
-        app_handle.fs().read(Path::new(&source_path))
-    }.map_err(|e| AppError::Internal(format!("Failed to read source media: {}", e)))?;
+    let asset_info = service
+        .import_asset(&source_path)
+        .map_err(|e| AppError::Internal(format!("Failed to import asset: {}", e)))?;
 
-    let extension = Path::new(&source_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("bin");
+    Ok(asset_info.target_path)
+}
 
-    let relative_url = service
-        .save_media(&bytes, extension)
-        .map_err(|e| AppError::Internal(format!("Failed to save media: {}", e)))?;
+#[tauri::command]
+pub async fn import_asset(
+    source_path: String,
+    state: State<'_, AppState>,
+) -> AppResult<AssetInfo> {
+    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
-    Ok(relative_url)
+    let asset_info = service
+        .import_asset(&source_path)
+        .map_err(|e| AppError::Internal(format!("Failed to import asset: {}", e)))?;
+
+    Ok(asset_info)
+}
+
+#[tauri::command]
+pub async fn open_asset(
+    target_path: String,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+
+    service
+        .open_external(&target_path)
+        .map_err(|e| AppError::Internal(format!("Failed to open asset: {}", e)))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reveal_asset(
+    target_path: String,
+    state: State<'_, AppState>,
+) -> AppResult<()> {
+    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+
+    service
+        .reveal_in_explorer(&target_path)
+        .map_err(|e| AppError::Internal(format!("Failed to reveal asset: {}", e)))?;
+
+    Ok(())
 }

@@ -2,7 +2,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, WorkspaceMeta } from "../types/domain";
 
+export interface AssetInfo {
+  target_path: string;
+  sidecar_path: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
 export const kyeService = {
+
 
   async selectWorkspaceFolder(path?: string): Promise<string | null> {
     return invoke("select_workspace_folder", { path });
@@ -39,6 +47,19 @@ export const kyeService = {
   async importMedia(sourcePath: string): Promise<string> {
     return invoke("import_media", { sourcePath });
   },
+
+  async importAsset(sourcePath: string): Promise<AssetInfo> {
+    return invoke("import_asset", { sourcePath });
+  },
+
+  async openAsset(targetPath: string): Promise<void> {
+    return invoke("open_asset", { targetPath });
+  },
+
+  async revealAsset(targetPath: string): Promise<void> {
+    return invoke("reveal_asset", { targetPath });
+  },
+
 
   async getKinds(): Promise<[string, KindDef][]> {
     return invoke("get_kinds");

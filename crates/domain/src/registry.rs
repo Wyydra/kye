@@ -155,6 +155,22 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "image".into() }))
         );
 
+        registry.register(kinds::file(), KindDef::new("File", props::title())
+            .with_icon("📎")
+            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
+            .with_prop(props::title(), PropDef::new(ValueType::Text).optional().with_label("Filename"))
+            .with_view(ViewDef::new(Layout::Widget { name: "file".into() }))
+        );
+
+        registry.register(kinds::asset(), KindDef::new("Asset", props::title())
+            .with_icon("📎")
+            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
+            .with_prop(props::title(), PropDef::new(ValueType::Text).optional().with_label("Filename"))
+            .with_view(ViewDef::new(Layout::Widget { name: "asset".into() }))
+        );
+
+
+
         registry.register(kinds::code_block(), KindDef::new("Code Block", props::body())
             .with_icon("</> ")
             .with_prop(props::body(), PropDef::new(ValueType::Text).with_label("Code"))

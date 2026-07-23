@@ -5,7 +5,7 @@ use tiny_http::{Server, Response, Header, Method};
 use serde::{Serialize, Deserialize};
 
 use domain::service::Service;
-use domain::ports::{GraphRepository, KindRepository, EventBus, MediaRepository};
+use domain::ports::{AssetRepository, EventBus, GraphRepository, KindRepository};
 use domain::command::Command;
 use crate::dto::{CommandDto, GraphDto};
 
@@ -33,8 +33,8 @@ pub struct P2pServer {
 }
 
 impl P2pServer {
-    pub fn start<R, K, E, M>(
-        service: Arc<Service<R, K, E, M>>,
+    pub fn start<R, K, E, A>(
+        service: Arc<Service<R, K, E, A>>,
         peer_id: String,
         device_name: String,
         port: u16,
@@ -43,7 +43,7 @@ impl P2pServer {
         R: GraphRepository,
         K: KindRepository,
         E: EventBus,
-        M: MediaRepository,
+        A: AssetRepository,
     {
         let server = Server::http(format!("0.0.0.0:{}", port))
             .map_err(|e| format!("Failed to start P2P server: {:?}", e))?;
@@ -97,8 +97,8 @@ impl Drop for P2pServer {
     }
 }
 
-fn handle_request<R, K, E, M>(
-    service: &Arc<Service<R, K, E, M>>,
+fn handle_request<R, K, E, A>(
+    service: &Arc<Service<R, K, E, A>>,
     peer_id: &str,
     device_name: &str,
     mut request: tiny_http::Request,
@@ -107,7 +107,7 @@ where
     R: GraphRepository,
     K: KindRepository,
     E: EventBus,
-    M: MediaRepository,
+    A: AssetRepository,
 {
     let url = request.url();
     let method = request.method();

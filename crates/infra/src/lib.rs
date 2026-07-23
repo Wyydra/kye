@@ -10,4 +10,4 @@ pub mod dto;
 pub use fs::WorkspaceFs;
 pub use graph::InMemoryGraphRepository;
 pub use kind::FileKindRepository;
-pub use media::FileMediaRepository;
+pub use media::FileAssetRepository;

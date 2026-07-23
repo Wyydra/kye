@@ -12,7 +12,7 @@ use domain::service::Service;
 use infra::fs::WorkspaceFs;
 use infra::graph::InMemoryGraphRepository;
 use infra::kind::FileKindRepository;
-use infra::media::FileMediaRepository;
+use infra::media::FileAssetRepository;
 
 use crate::state::{AppState, TauriEventBus};
 
@@ -74,10 +74,12 @@ pub fn run() {
                     };
 
                     let kind_repo = FileKindRepository::new(fs.clone());
-                    let media_repo = FileMediaRepository::new(fs);
+                    let asset_repo = FileAssetRepository::new(fs);
                     let event_bus = TauriEventBus { app_handle: app_handle.clone() };
 
-                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus, media_repo)))
+                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus, asset_repo)))
+
+
                 }
             } else {
                 None
@@ -99,6 +101,9 @@ pub fn run() {
             commands::kind::register_kind,
             commands::kind::delete_kind,
             commands::media::import_media,
+            commands::media::import_asset,
+            commands::media::open_asset,
+            commands::media::reveal_asset,
             commands::workspace::list_workspaces,
             commands::workspace::create_workspace,
             commands::sync::get_local_peer_info,
@@ -143,9 +148,10 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
     tracing::info!("Workspace Path: {}", workspace_path.display());
 
     let kind_repo = FileKindRepository::new(fs.clone());
-    let media_repo = FileMediaRepository::new(fs);
+    let asset_repo = FileAssetRepository::new(fs);
 
-    let service = Arc::new(Service::new(graph_repo, kind_repo, (), media_repo));
+    let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo));
+
 
     let _server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
         .map_err(|e| format!("Failed to start sync server: {}", e))?;

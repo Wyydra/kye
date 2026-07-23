@@ -7,7 +7,6 @@ use domain::ports::RepositoryError;
 
 pub const KYE_DIR: &str = ".kye";
 const META_FILE: &str = "meta.json";
-const ASSETS_DIR: &str = "assets";
 
 #[derive(Clone, Debug)]
 pub struct WorkspaceFs {
@@ -21,8 +20,6 @@ impl WorkspaceFs {
 
     pub fn init(&self) -> Result<(), RepositoryError> {
         fs::create_dir_all(self.kye_dir())
-            .map_err(|e| RepositoryError::Io(e.to_string()))?;
-        fs::create_dir_all(self.assets_dir())
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
 
         let meta_path = self.meta_path();
@@ -45,13 +42,10 @@ impl WorkspaceFs {
         self.root.join(KYE_DIR)
     }
 
-    pub fn assets_dir(&self) -> PathBuf {
-        self.root.join(ASSETS_DIR)
-    }
-
     pub fn meta_path(&self) -> PathBuf {
         self.kye_dir().join(META_FILE)
     }
+
 
     pub fn read_file(&self, path: &Path) -> Result<String, RepositoryError> {
         fs::read_to_string(path)

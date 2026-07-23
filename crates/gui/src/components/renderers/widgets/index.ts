@@ -4,6 +4,7 @@ import { HeadingWidget } from "./HeadingWidget";
 import { TaskWidget } from "./TaskWidget";
 import { ImageWidget } from "./ImageWidget";
 import { FlashcardWidget } from "./FlashcardWidget";
+import { FileWidget } from "./FileWidget";
 import { Node } from "../../../types/domain";
 
 export type WidgetComponent = React.FC<{ node: Node }>;
@@ -14,7 +15,10 @@ export const WIDGET_REGISTRY: Record<string, WidgetComponent> = {
   task: TaskWidget,
   image: ImageWidget,
   flashcard: FlashcardWidget,
+  file: FileWidget,
+  asset: FileWidget,
 };
+
 
 
 export function registerWidget(name: string, component: WidgetComponent) {

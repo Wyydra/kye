@@ -4,8 +4,9 @@ use std::fmt;
 use std::sync::Arc;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct NodeId(Uuid);
+
 
 impl NodeId {
     pub fn new() -> Self {
@@ -88,6 +89,9 @@ pub mod kinds {
     pub fn divider() -> Kind { Kind::from("core.divider") }
     pub fn callout() -> Kind { Kind::from("core.callout") }
     pub fn embed() -> Kind { Kind::from("core.embed") }
+    pub fn file() -> Kind { Kind::from("file") }
+    pub fn asset() -> Kind { Kind::from("asset") }
+
 
     pub fn flashcard() -> Kind { Kind::from("core.flashcard") }
     pub fn form() -> Kind { Kind::from("core.form") }
