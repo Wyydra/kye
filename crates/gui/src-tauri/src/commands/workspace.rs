@@ -16,26 +16,37 @@ use crate::error::{AppError, AppResult};
 use crate::state::{AppState, TauriEventBus};
 
 fn get_kye_base_dir(app_handle: &tauri::AppHandle) -> PathBuf {
-    app_handle.path().document_dir()
+    app_handle
+        .path()
+        .document_dir()
         .map(|p| p.join("Kye"))
         .unwrap_or_else(|_| PathBuf::from("Kye"))
 }
 
 #[tauri::command]
 pub fn get_workspace_path(state: tauri::State<'_, AppState>) -> Option<String> {
-    state.with_inner(|inner| inner.workspace_path.as_ref().map(|p| p.to_string_lossy().to_string()))
+    state.with_inner(|inner| {
+        inner
+            .workspace_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+    })
 }
 
 #[tauri::command]
 pub fn get_meta(state: tauri::State<'_, AppState>) -> AppResult<WorkspaceMetaDto> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
     let meta = service.get_meta()?;
     Ok(WorkspaceMetaDto::from(&meta))
 }
 
 #[tauri::command]
 pub fn get_graph(state: tauri::State<'_, AppState>) -> AppResult<GraphDto> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
     let graph = service.load_graph()?;
     Ok(GraphDto::from(&graph))
 }
@@ -48,13 +59,12 @@ pub async fn select_workspace_folder(
 ) -> AppResult<Option<String>> {
     let path: PathBuf = match path {
         Some(p) => {
-
             if !p.contains('/') && !p.contains('\\') {
                 get_kye_base_dir(&app_handle).join(p)
             } else {
                 PathBuf::from(p)
             }
-        },
+        }
         None => {
             #[cfg(desktop)]
             {
@@ -63,35 +73,52 @@ pub async fn select_workspace_folder(
                     let _ = tx.send(picked);
                 });
 
-                let picked = rx.await.map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
+                let picked = rx
+                    .await
+                    .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
                 match picked {
-                    Some(p) => p.into_path().map_err(|_| AppError::Internal("Invalid path".into()))?,
+                    Some(p) => p
+                        .into_path()
+                        .map_err(|_| AppError::Internal("Invalid path".into()))?,
                     None => return Ok(None),
                 }
             }
             #[cfg(mobile)]
             {
-                return Err(AppError::Internal("No path provided for mobile workspace".into()));
+                return Err(AppError::Internal(
+                    "No path provided for mobile workspace".into(),
+                ));
             }
         }
     };
 
-    let settings_path = app_handle.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("settings.json");
-    let store = StoreBuilder::new(&app_handle, settings_path).build().map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = store.set("workspace_path", serde_json::json!(path.to_string_lossy().to_string()));
+    let settings_path = app_handle
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("settings.json");
+    let store = StoreBuilder::new(&app_handle, settings_path)
+        .build()
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let _ = store.set(
+        "workspace_path",
+        serde_json::json!(path.to_string_lossy().to_string()),
+    );
     let _ = store.save();
 
     let fs = WorkspaceFs::new(path.clone());
-    fs.init().map_err(|e| AppError::Internal(format!("Failed to init FS: {:?}", e)))?;
+    fs.init()
+        .map_err(|e| AppError::Internal(format!("Failed to init FS: {:?}", e)))?;
 
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| AppError::Internal(format!("Failed to load graph: {:?}", e)))?;
     let kind_repo = FileKindRepository::new(fs.clone());
     let asset_repo = FileAssetRepository::new(fs);
-    let event_bus = TauriEventBus { app_handle: app_handle.clone() };
+    let event_bus = TauriEventBus {
+        app_handle: app_handle.clone(),
+    };
 
     let service = Arc::new(Service::new(graph_repo, kind_repo, event_bus, asset_repo));
-
 
     state.with_inner(|inner| {
         inner.service = Some(service);

@@ -1,25 +1,43 @@
+use super::BlockFormatter;
 use domain::primitives::PropKey;
 use domain::value::{Props, Value};
 use std::sync::Arc;
-use super::BlockFormatter;
 
 pub struct ImageFormatter;
 
 impl BlockFormatter for ImageFormatter {
-    fn kind(&self) -> &'static str { "core.image" }
+    fn kind(&self) -> &'static str {
+        "core.image"
+    }
 
     fn matches(&self, text: &str) -> bool {
         text.starts_with("![") && text.contains("](")
     }
 
-    fn native_keys(&self) -> &'static [&'static str] { &["url", "alt"] }
+    fn native_keys(&self) -> &'static [&'static str] {
+        &["url", "alt"]
+    }
 
     fn format(&self, props: &Props) -> String {
-        let url = props.get(&PropKey::from("url"))
-            .and_then(|v| if let Value::Text(t) = v { Some(t.as_ref()) } else { None })
+        let url = props
+            .get(&PropKey::from("url"))
+            .and_then(|v| {
+                if let Value::Text(t) = v {
+                    Some(t.as_ref())
+                } else {
+                    None
+                }
+            })
             .unwrap_or("");
-        let alt = props.get(&PropKey::from("alt"))
-            .and_then(|v| if let Value::Text(t) = v { Some(t.as_ref()) } else { None })
+        let alt = props
+            .get(&PropKey::from("alt"))
+            .and_then(|v| {
+                if let Value::Text(t) = v {
+                    Some(t.as_ref())
+                } else {
+                    None
+                }
+            })
             .unwrap_or("");
         format!("![{}]({})", alt, url)
     }
@@ -45,7 +63,10 @@ impl BlockFormatter for ImageFormatter {
 
         if !url.is_empty() {
             props.insert(PropKey::from("url"), Value::Text(Arc::from(url.as_str())));
-            props.insert(PropKey::from("alt"), Value::Text(Arc::from(alt_parts.join("").as_str())));
+            props.insert(
+                PropKey::from("alt"),
+                Value::Text(Arc::from(alt_parts.join("").as_str())),
+            );
         }
         props
     }

@@ -1,16 +1,26 @@
-use domain::value::Props;
 use super::BlockFormatter;
+use domain::value::Props;
 
 pub struct DividerFormatter;
 
 impl BlockFormatter for DividerFormatter {
-    fn kind(&self) -> &'static str { "core.divider" }
+    fn kind(&self) -> &'static str {
+        "core.divider"
+    }
 
-    fn matches(&self, text: &str) -> bool { text == "---" }
+    fn matches(&self, text: &str) -> bool {
+        text == "---"
+    }
 
-    fn native_keys(&self) -> &'static [&'static str] { &[] }
+    fn native_keys(&self) -> &'static [&'static str] {
+        &[]
+    }
 
-    fn format(&self, _props: &Props) -> String { "---".to_string() }
+    fn format(&self, _props: &Props) -> String {
+        "---".to_string()
+    }
 
-    fn extract(&self, _text: &str) -> Props { Props::new() }
+    fn extract(&self, _text: &str) -> Props {
+        Props::new()
+    }
 }

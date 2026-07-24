@@ -1,13 +1,11 @@
-
-
 use std::collections::HashMap;
 
+use crate::command::Command;
+use crate::graph::Graph;
 use crate::node::Node;
 use crate::primitives::{Kind, PropKey, kinds, props};
 use crate::schema::{Constraint, KindDef, PropDef, ValidationError, ValueType};
 use crate::view::{Direction, Layout, ViewDef};
-use crate::graph::Graph;
-use crate::command::Command;
 
 #[derive(Debug, Clone, Default)]
 pub struct KindRegistry {
@@ -42,7 +40,7 @@ impl KindRegistry {
     pub fn validate_node(&self, node: &Node) -> Vec<ValidationError> {
         let def = match self.kinds.get(&node.kind) {
             Some(d) => d,
-            None => return Vec::new(), 
+            None => return Vec::new(),
         };
 
         let mut errors = Vec::new();
@@ -58,24 +56,27 @@ impl KindRegistry {
         let mut errors = Vec::new();
 
         match cmd {
-            Command::CreateNode { kind, parent_id, .. } => {
-
+            Command::CreateNode {
+                kind, parent_id, ..
+            } => {
                 if let Some(pid) = parent_id {
                     if let Some(parent) = graph.get(*pid) {
                         if let Some(parent_def) = self.kinds.get(&parent.kind) {
                             for c in &parent_def.constraints {
                                 if let Constraint::AllowedChildKinds(allowed) = c {
                                     if !allowed.contains(kind) {
-                                        errors.push(ValidationError::ConstraintViolation(
-                                            format!("{} is not an allowed child of {}", kind, parent.kind)
-                                        ));
+                                        errors.push(ValidationError::ConstraintViolation(format!(
+                                            "{} is not an allowed child of {}",
+                                            kind, parent.kind
+                                        )));
                                     }
                                 }
                                 if let Constraint::MaxChildren(max) = c {
                                     if graph.children_of(*pid).count() >= *max {
-                                        errors.push(ValidationError::ConstraintViolation(
-                                            format!("{} has reached max children ({})", parent.kind, max)
-                                        ));
+                                        errors.push(ValidationError::ConstraintViolation(format!(
+                                            "{} has reached max children ({})",
+                                            parent.kind, max
+                                        )));
                                     }
                                 }
                             }
@@ -85,9 +86,10 @@ impl KindRegistry {
                             for c in &child_def.constraints {
                                 if let Constraint::AllowedParentKinds(allowed) = c {
                                     if !allowed.contains(&parent.kind) {
-                                        errors.push(ValidationError::ConstraintViolation(
-                                            format!("{} is not an allowed parent of {}", parent.kind, kind)
-                                        ));
+                                        errors.push(ValidationError::ConstraintViolation(format!(
+                                            "{} is not an allowed parent of {}",
+                                            parent.kind, kind
+                                        )));
                                     }
                                 }
                             }
@@ -95,16 +97,21 @@ impl KindRegistry {
                     }
                 }
             }
-            Command::MoveNode { node_id, new_parent_id, .. } => {
+            Command::MoveNode {
+                node_id,
+                new_parent_id,
+                ..
+            } => {
                 if let (Some(node), Some(pid)) = (graph.get(*node_id), new_parent_id) {
                     if let Some(parent) = graph.get(*pid) {
                         if let Some(parent_def) = self.kinds.get(&parent.kind) {
                             for c in &parent_def.constraints {
                                 if let Constraint::AllowedChildKinds(allowed) = c {
                                     if !allowed.contains(&node.kind) {
-                                        errors.push(ValidationError::ConstraintViolation(
-                                            format!("{} is not allowed as child of {}", node.kind, parent.kind)
-                                        ));
+                                        errors.push(ValidationError::ConstraintViolation(format!(
+                                            "{} is not allowed as child of {}",
+                                            node.kind, parent.kind
+                                        )));
                                     }
                                 }
                             }
@@ -123,43 +130,98 @@ pub struct CoreLibrary;
 
 impl CoreLibrary {
     pub fn init(registry: &mut KindRegistry) {
-
-        registry.register(kinds::page(), KindDef::new("Page", props::title())
-            .with_icon("📄")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Title"))
-            .with_view(ViewDef::new(Layout::Document))
+        registry.register(
+            kinds::page(),
+            KindDef::new("Page", props::title())
+                .with_icon("📄")
+                .with_prop(
+                    props::title(),
+                    PropDef::new(ValueType::Text).with_label("Title"),
+                )
+                .with_view(ViewDef::new(Layout::Document)),
         );
 
-        registry.register(kinds::paragraph(), KindDef::new("Paragraph", props::body())
-            .with_prop(props::body(), PropDef::new(ValueType::Rich).with_label("Content"))
-            .with_view(ViewDef::new(Layout::Widget { name: "paragraph".into() }))
+        registry.register(
+            kinds::paragraph(),
+            KindDef::new("Paragraph", props::body())
+                .with_prop(
+                    props::body(),
+                    PropDef::new(ValueType::Rich).with_label("Content"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "paragraph".into(),
+                })),
         );
 
-        registry.register(kinds::heading(), KindDef::new("Heading", props::body())
-            .with_prop(props::body(), PropDef::new(ValueType::Rich).with_label("Text"))
-            .with_prop(props::level(), PropDef::new(ValueType::Int).optional().with_label("Level"))
-            .with_view(ViewDef::new(Layout::Widget { name: "heading".into() }))
+        registry.register(
+            kinds::heading(),
+            KindDef::new("Heading", props::body())
+                .with_prop(
+                    props::body(),
+                    PropDef::new(ValueType::Rich).with_label("Text"),
+                )
+                .with_prop(
+                    props::level(),
+                    PropDef::new(ValueType::Int).optional().with_label("Level"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "heading".into(),
+                })),
         );
 
-        registry.register(kinds::task(), KindDef::new("Task", props::title())
-            .with_icon("✓")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Title"))
-            .with_prop(props::checked(), PropDef::new(ValueType::Bool).optional().with_label("Done"))
-            .with_view(ViewDef::new(Layout::Widget { name: "task".into() }))
+        registry.register(
+            kinds::task(),
+            KindDef::new("Task", props::title())
+                .with_icon("✓")
+                .with_prop(
+                    props::title(),
+                    PropDef::new(ValueType::Text).with_label("Title"),
+                )
+                .with_prop(
+                    props::checked(),
+                    PropDef::new(ValueType::Bool).optional().with_label("Done"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "task".into(),
+                })),
         );
 
-        registry.register(kinds::image(), KindDef::new("Image", props::title())
-            .with_icon("🖼")
-            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional().with_label("Caption"))
-            .with_view(ViewDef::new(Layout::Widget { name: "image".into() }))
+        registry.register(
+            kinds::image(),
+            KindDef::new("Image", props::title())
+                .with_icon("🖼")
+                .with_prop(
+                    props::url(),
+                    PropDef::new(ValueType::Text).with_label("URL"),
+                )
+                .with_prop(
+                    props::title(),
+                    PropDef::new(ValueType::Text)
+                        .optional()
+                        .with_label("Caption"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "image".into(),
+                })),
         );
 
-        registry.register(kinds::file(), KindDef::new("File", props::title())
-            .with_icon("📎")
-            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional().with_label("Filename"))
-            .with_view(ViewDef::new(Layout::Widget { name: "file".into() }))
+        registry.register(
+            kinds::file(),
+            KindDef::new("File", props::title())
+                .with_icon("📎")
+                .with_prop(
+                    props::url(),
+                    PropDef::new(ValueType::Text).with_label("URL"),
+                )
+                .with_prop(
+                    props::title(),
+                    PropDef::new(ValueType::Text)
+                        .optional()
+                        .with_label("Filename"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "file".into(),
+                })),
         );
 
         /* TODO: Implement Later - Unhandled GUI Widgets
@@ -194,11 +256,21 @@ impl CoreLibrary {
         );
         */
 
-        registry.register(kinds::flashcard(), KindDef::new("Flashcard", props::front())
-            .with_icon("🗂")
-            .with_prop(props::front(), PropDef::new(ValueType::Rich).with_label("Front"))
-            .with_prop(props::back(), PropDef::new(ValueType::Rich).with_label("Back"))
-            .with_view(ViewDef::new(Layout::Widget { name: "flashcard".into() }))
+        registry.register(
+            kinds::flashcard(),
+            KindDef::new("Flashcard", props::front())
+                .with_icon("🗂")
+                .with_prop(
+                    props::front(),
+                    PropDef::new(ValueType::Rich).with_label("Front"),
+                )
+                .with_prop(
+                    props::back(),
+                    PropDef::new(ValueType::Rich).with_label("Back"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "flashcard".into(),
+                })),
         );
 
         /* TODO: Implement Later - Form Kinds
@@ -243,24 +315,42 @@ impl CoreLibrary {
         );
         */
 
-        registry.register(kinds::canvas(), KindDef::new("Canvas", props::title())
-            .with_icon("🎨")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_view(ViewDef::new(Layout::Canvas))
+        registry.register(
+            kinds::canvas(),
+            KindDef::new("Canvas", props::title())
+                .with_icon("🎨")
+                .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
+                .with_view(ViewDef::new(Layout::Canvas)),
         );
 
-        registry.register(kinds::connection(), KindDef::new("Connection", props::from())
-            .with_icon("→")
-            .with_prop(props::from(), PropDef::new(ValueType::Ref).with_label("From"))
-            .with_prop(props::to(), PropDef::new(ValueType::Ref).with_label("To"))
-            .with_prop(PropKey::from("routing"), PropDef::new(ValueType::Text).optional().with_label("Routing"))
-            .with_view(ViewDef::new(Layout::Widget { name: "connection".into() }))
+        registry.register(
+            kinds::connection(),
+            KindDef::new("Connection", props::from())
+                .with_icon("→")
+                .with_prop(
+                    props::from(),
+                    PropDef::new(ValueType::Ref).with_label("From"),
+                )
+                .with_prop(props::to(), PropDef::new(ValueType::Ref).with_label("To"))
+                .with_prop(
+                    PropKey::from("routing"),
+                    PropDef::new(ValueType::Text)
+                        .optional()
+                        .with_label("Routing"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "connection".into(),
+                })),
         );
 
-        registry.register(kinds::inbox(), KindDef::new("Inbox", props::title())
-            .with_icon("📥")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_view(ViewDef::new(Layout::Stack { direction: Direction::Vertical }))
+        registry.register(
+            kinds::inbox(),
+            KindDef::new("Inbox", props::title())
+                .with_icon("📥")
+                .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
+                .with_view(ViewDef::new(Layout::Stack {
+                    direction: Direction::Vertical,
+                })),
         );
 
         /* TODO: Implement Later - MBSE Domain Extensions

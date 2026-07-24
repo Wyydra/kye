@@ -1,14 +1,13 @@
-use tauri::State;
-use domain::AssetInfo;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use domain::AssetInfo;
+use tauri::State;
 
 #[tauri::command]
-pub async fn import_media(
-    source_path: String,
-    state: State<'_, AppState>,
-) -> AppResult<String> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+pub async fn import_media(source_path: String, state: State<'_, AppState>) -> AppResult<String> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     let asset_info = service
         .import_asset(&source_path)
@@ -18,11 +17,10 @@ pub async fn import_media(
 }
 
 #[tauri::command]
-pub async fn import_asset(
-    source_path: String,
-    state: State<'_, AppState>,
-) -> AppResult<AssetInfo> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+pub async fn import_asset(source_path: String, state: State<'_, AppState>) -> AppResult<AssetInfo> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     let asset_info = service
         .import_asset(&source_path)
@@ -32,11 +30,10 @@ pub async fn import_asset(
 }
 
 #[tauri::command]
-pub async fn open_asset(
-    target_path: String,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+pub async fn open_asset(target_path: String, state: State<'_, AppState>) -> AppResult<()> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     service
         .open_external(&target_path)
@@ -46,11 +43,10 @@ pub async fn open_asset(
 }
 
 #[tauri::command]
-pub async fn reveal_asset(
-    target_path: String,
-    state: State<'_, AppState>,
-) -> AppResult<()> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+pub async fn reveal_asset(target_path: String, state: State<'_, AppState>) -> AppResult<()> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     service
         .reveal_in_explorer(&target_path)

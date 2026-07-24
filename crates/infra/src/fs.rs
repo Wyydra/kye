@@ -1,7 +1,5 @@
-
-
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use domain::ports::RepositoryError;
 
@@ -15,12 +13,13 @@ pub struct WorkspaceFs {
 
 impl WorkspaceFs {
     pub fn new(workspace_root: impl AsRef<Path>) -> Self {
-        Self { root: workspace_root.as_ref().to_path_buf() }
+        Self {
+            root: workspace_root.as_ref().to_path_buf(),
+        }
     }
 
     pub fn init(&self) -> Result<(), RepositoryError> {
-        fs::create_dir_all(self.kye_dir())
-            .map_err(|e| RepositoryError::Io(e.to_string()))?;
+        fs::create_dir_all(self.kye_dir()).map_err(|e| RepositoryError::Io(e.to_string()))?;
 
         let meta_path = self.meta_path();
         if !meta_path.exists() {
@@ -32,8 +31,7 @@ impl WorkspaceFs {
             });
             let content = serde_json::to_string_pretty(&default_meta)
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
-            fs::write(meta_path, content)
-                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            fs::write(meta_path, content).map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
         Ok(())
     }
@@ -46,25 +44,20 @@ impl WorkspaceFs {
         self.kye_dir().join(META_FILE)
     }
 
-
     pub fn read_file(&self, path: &Path) -> Result<String, RepositoryError> {
-        fs::read_to_string(path)
-            .map_err(|e| RepositoryError::Io(e.to_string()))
+        fs::read_to_string(path).map_err(|e| RepositoryError::Io(e.to_string()))
     }
 
     pub fn write_file(&self, path: &Path, content: &str) -> Result<(), RepositoryError> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            fs::create_dir_all(parent).map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
-        fs::write(path, content)
-            .map_err(|e| RepositoryError::Io(e.to_string()))
+        fs::write(path, content).map_err(|e| RepositoryError::Io(e.to_string()))
     }
 
     pub fn delete_file(&self, path: &Path) -> Result<(), RepositoryError> {
         if path.exists() {
-            fs::remove_file(path)
-                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            fs::remove_file(path).map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
         Ok(())
     }
@@ -79,7 +72,13 @@ impl WorkspaceFs {
             })
             .filter_map(|e| e.ok())
         {
-            if entry.path().is_file() && entry.path().extension().map(|ext| ext == "md").unwrap_or(false) {
+            if entry.path().is_file()
+                && entry
+                    .path()
+                    .extension()
+                    .map(|ext| ext == "md")
+                    .unwrap_or(false)
+            {
                 entries.push(entry.into_path());
             }
         }

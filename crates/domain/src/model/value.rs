@@ -1,14 +1,12 @@
-
-
-use std::sync::Arc;
-use smallvec::SmallVec;
-use indexmap::IndexMap;
 use chrono::{DateTime, NaiveDate, Utc};
+use indexmap::IndexMap;
+use smallvec::SmallVec;
+use std::sync::Arc;
 
 use crate::primitives::{NodeId, PropKey};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Color(Arc<str>); 
+pub struct Color(Arc<str>);
 
 impl Color {
     pub fn new(s: &str) -> Self {
@@ -26,9 +24,9 @@ pub enum Mark {
     Code,
     Strikethrough,
     Underline,
-    Link(Arc<str>),     
+    Link(Arc<str>),
     Color(Color),
-    Ref(NodeId),        
+    Ref(NodeId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

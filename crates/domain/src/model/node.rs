@@ -1,5 +1,3 @@
-
-
 use chrono::{DateTime, Utc};
 
 use crate::primitives::{Kind, NodeId, PropKey};
@@ -18,7 +16,6 @@ pub struct Node {
 }
 
 impl Node {
-
     pub fn prop(&self, key: &str) -> Option<&Value> {
         self.props.get(&PropKey::from(key))
     }

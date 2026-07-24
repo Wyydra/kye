@@ -1,17 +1,17 @@
 pub mod block;
-pub mod heading;
-pub mod task;
-pub mod image;
-pub mod quote;
 pub mod code_block;
 pub mod divider;
-pub mod paragraph;
 pub mod flashcard;
+pub mod heading;
+pub mod image;
+pub mod paragraph;
+pub mod quote;
+pub mod task;
 
-use domain::value::{Props, Value, RichText, Span, Mark};
+use domain::value::{Mark, Props, RichText, Span, Value};
 use once_cell::sync::Lazy;
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use std::sync::Arc;
-use pulldown_cmark::{Parser, Event, Tag, TagEnd, Options};
 
 pub fn rich_to_markdown(rt: &RichText) -> String {
     let mut out = String::new();
@@ -40,22 +40,25 @@ pub fn markdown_to_rich(md: &str) -> RichText {
 
     for event in parser {
         match event {
-            Event::Start(tag) => {
-                match tag {
-                    Tag::Strong => current_marks.push(Mark::Bold),
-                    Tag::Emphasis => current_marks.push(Mark::Italic),
-                    Tag::Strikethrough => current_marks.push(Mark::Strikethrough),
-                    Tag::Link { dest_url, .. } => current_marks.push(Mark::Link(Arc::from(dest_url.as_ref()))),
-                    _ => {}
+            Event::Start(tag) => match tag {
+                Tag::Strong => current_marks.push(Mark::Bold),
+                Tag::Emphasis => current_marks.push(Mark::Italic),
+                Tag::Strikethrough => current_marks.push(Mark::Strikethrough),
+                Tag::Link { dest_url, .. } => {
+                    current_marks.push(Mark::Link(Arc::from(dest_url.as_ref())))
                 }
-            }
+                _ => {}
+            },
             Event::End(tag_end) => {
                 let target_mark = match tag_end {
                     TagEnd::Strong => Some(Mark::Bold),
                     TagEnd::Emphasis => Some(Mark::Italic),
                     TagEnd::Strikethrough => Some(Mark::Strikethrough),
                     TagEnd::Link => {
-                        if let Some(pos) = current_marks.iter().position(|m| matches!(m, Mark::Link(_))) {
+                        if let Some(pos) = current_marks
+                            .iter()
+                            .position(|m| matches!(m, Mark::Link(_)))
+                        {
                             current_marks.remove(pos);
                         }
                         None
@@ -145,7 +148,8 @@ impl FormatterRegistry {
         reg.formatters.push(Box::new(task::TaskFormatter));
         reg.formatters.push(Box::new(image::ImageFormatter));
         reg.formatters.push(Box::new(quote::QuoteFormatter));
-        reg.formatters.push(Box::new(code_block::CodeBlockFormatter));
+        reg.formatters
+            .push(Box::new(code_block::CodeBlockFormatter));
         reg.formatters.push(Box::new(divider::DividerFormatter));
         reg.formatters.push(Box::new(flashcard::FlashcardFormatter));
         reg
@@ -171,4 +175,3 @@ impl FormatterRegistry {
 /// Process-wide singleton. Avoids rebuilding the registry on every block
 /// serialize/deserialize call.
 pub static REGISTRY: Lazy<FormatterRegistry> = Lazy::new(FormatterRegistry::build);
-

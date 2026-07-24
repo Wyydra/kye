@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use domain::command::{Command, Event};
 use domain::graph::Graph;
@@ -40,8 +40,15 @@ impl NodeDto {
             id: node.id.to_string(),
             kind: node.kind.as_str().to_string(),
             parent: graph.parent_of(node.id).map(|id| id.to_string()),
-            children: graph.children_of(node.id).map(|c| c.id.to_string()).collect(),
-            props: node.props.iter().map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v))).collect(),
+            children: graph
+                .children_of(node.id)
+                .map(|c| c.id.to_string())
+                .collect(),
+            props: node
+                .props
+                .iter()
+                .map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v)))
+                .collect(),
             created_at: node.created_at.to_rfc3339(),
             updated_at: node.updated_at.to_rfc3339(),
             view_override: node.view_override.as_ref().map(ViewDefDto::from),
@@ -56,7 +63,11 @@ impl From<&Node> for NodeDto {
             kind: node.kind.as_str().to_string(),
             parent: None,
             children: Vec::new(),
-            props: node.props.iter().map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v))).collect(),
+            props: node
+                .props
+                .iter()
+                .map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v)))
+                .collect(),
             created_at: node.created_at.to_rfc3339(),
             updated_at: node.updated_at.to_rfc3339(),
             view_override: node.view_override.as_ref().map(ViewDefDto::from),
@@ -67,7 +78,10 @@ impl From<&Node> for NodeDto {
 impl From<&Graph> for GraphDto {
     fn from(graph: &Graph) -> Self {
         Self {
-            nodes: graph.iter().map(|n| (n.id.to_string(), NodeDto::from_node_in_graph(n, graph))).collect(),
+            nodes: graph
+                .iter()
+                .map(|n| (n.id.to_string(), NodeDto::from_node_in_graph(n, graph)))
+                .collect(),
             roots: graph.roots().iter().map(|id| id.to_string()).collect(),
         }
     }
@@ -131,10 +145,14 @@ impl From<&Value> for ValueDto {
             Value::Float(f) => ValueDto::Float(f.0),
             Value::Text(s) => ValueDto::Text(s.as_ref().to_string()),
             Value::Rich(rt) => ValueDto::Rich(RichTextDto {
-                spans: rt.0.iter().map(|s| SpanDto {
-                    text: s.text.as_ref().to_string(),
-                    marks: s.marks.iter().map(MarkDto::from).collect(),
-                }).collect(),
+                spans: rt
+                    .0
+                    .iter()
+                    .map(|s| SpanDto {
+                        text: s.text.as_ref().to_string(),
+                        marks: s.marks.iter().map(MarkDto::from).collect(),
+                    })
+                    .collect(),
             }),
             Value::Ref(id) => ValueDto::Ref(id.to_string()),
             Value::Array(arr) => ValueDto::Array(arr.iter().map(ValueDto::from).collect()),
@@ -153,23 +171,40 @@ impl From<ValueDto> for Value {
             ValueDto::Int(i) => Value::Int(i),
             ValueDto::Float(f) => Value::Float(FloatBits(f)),
             ValueDto::Text(s) => Value::Text(s.into()),
-            ValueDto::Rich(rt) => Value::Rich(RichText(rt.spans.into_iter().map(|s| Span {
-                text: s.text.into(),
-                marks: s.marks.into_iter().map(|m| match m {
-                    MarkDto::Bold => Mark::Bold,
-                    MarkDto::Italic => Mark::Italic,
-                    MarkDto::Code => Mark::Code,
-                    MarkDto::Strikethrough => Mark::Strikethrough,
-                    MarkDto::Underline => Mark::Underline,
-                    MarkDto::Link(url) => Mark::Link(url.into()),
-                    MarkDto::Color(c) => Mark::Color(Color::new(&c)),
-                    MarkDto::Ref(id) => Mark::Ref(NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
-                }).collect(),
-            }).collect())),
-            ValueDto::Ref(id) => Value::Ref(NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
+            ValueDto::Rich(rt) => Value::Rich(RichText(
+                rt.spans
+                    .into_iter()
+                    .map(|s| Span {
+                        text: s.text.into(),
+                        marks: s
+                            .marks
+                            .into_iter()
+                            .map(|m| match m {
+                                MarkDto::Bold => Mark::Bold,
+                                MarkDto::Italic => Mark::Italic,
+                                MarkDto::Code => Mark::Code,
+                                MarkDto::Strikethrough => Mark::Strikethrough,
+                                MarkDto::Underline => Mark::Underline,
+                                MarkDto::Link(url) => Mark::Link(url.into()),
+                                MarkDto::Color(c) => Mark::Color(Color::new(&c)),
+                                MarkDto::Ref(id) => Mark::Ref(NodeId::from_uuid(
+                                    uuid::Uuid::parse_str(&id).unwrap_or_default(),
+                                )),
+                            })
+                            .collect(),
+                    })
+                    .collect(),
+            )),
+            ValueDto::Ref(id) => Value::Ref(NodeId::from_uuid(
+                uuid::Uuid::parse_str(&id).unwrap_or_default(),
+            )),
             ValueDto::Array(arr) => Value::Array(arr.into_iter().map(Value::from).collect()),
             ValueDto::Date(d) => Value::Date(d.parse().unwrap_or_default()),
-            ValueDto::DateTime(dt) => Value::DateTime(chrono::DateTime::parse_from_rfc3339(&dt).map(|dt| dt.with_timezone(&chrono::Utc)).unwrap_or_default()),
+            ValueDto::DateTime(dt) => Value::DateTime(
+                chrono::DateTime::parse_from_rfc3339(&dt)
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
+                    .unwrap_or_default(),
+            ),
             ValueDto::Color(c) => Value::Color(Color::new(&c)),
         }
     }
@@ -221,7 +256,11 @@ impl From<&ViewDef> for ViewDefDto {
     fn from(v: &ViewDef) -> Self {
         Self {
             layout: LayoutDto::from(&v.layout),
-            bindings: v.bindings.iter().map(|(k, v)| (k.clone(), v.as_str().to_string())).collect(),
+            bindings: v
+                .bindings
+                .iter()
+                .map(|(k, v)| (k.clone(), v.as_str().to_string()))
+                .collect(),
             actions: v.actions.iter().map(ActionDefDto::from).collect(),
         }
     }
@@ -250,11 +289,13 @@ impl From<&Layout> for LayoutDto {
                 direction: match direction {
                     Direction::Vertical => "vertical".to_string(),
                     Direction::Horizontal => "horizontal".to_string(),
-                }
+                },
             },
             Layout::Gallery => LayoutDto::Gallery,
             Layout::Table => LayoutDto::Table,
-            Layout::Kanban { group_by } => LayoutDto::Kanban { group_by: group_by.as_str().to_string() },
+            Layout::Kanban { group_by } => LayoutDto::Kanban {
+                group_by: group_by.as_str().to_string(),
+            },
             Layout::Widget { name } => LayoutDto::Widget { name: name.clone() },
         }
     }
@@ -267,11 +308,17 @@ impl From<LayoutDto> for Layout {
             LayoutDto::Canvas => Layout::Canvas,
             LayoutDto::Grid { columns } => Layout::Grid { columns },
             LayoutDto::Stack { direction } => Layout::Stack {
-                direction: if direction == "horizontal" { Direction::Horizontal } else { Direction::Vertical }
+                direction: if direction == "horizontal" {
+                    Direction::Horizontal
+                } else {
+                    Direction::Vertical
+                },
             },
             LayoutDto::Gallery => Layout::Gallery,
             LayoutDto::Table => Layout::Table,
-            LayoutDto::Kanban { group_by } => Layout::Kanban { group_by: PropKey::from(group_by.as_str()) },
+            LayoutDto::Kanban { group_by } => Layout::Kanban {
+                group_by: PropKey::from(group_by.as_str()),
+            },
             LayoutDto::Widget { name } => Layout::Widget { name },
         }
     }
@@ -346,7 +393,13 @@ pub enum CommandDto {
 impl From<CommandDto> for Command {
     fn from(dto: CommandDto) -> Self {
         match dto {
-            CommandDto::CreateNode { id, kind, parent_id, index, props } => {
+            CommandDto::CreateNode {
+                id,
+                kind,
+                parent_id,
+                index,
+                props,
+            } => {
                 let mut domain_props = Props::new();
                 for (k, v) in props {
                     domain_props.insert(PropKey::from(k.as_str()), v.into());
@@ -354,7 +407,9 @@ impl From<CommandDto> for Command {
                 Command::CreateNode {
                     id: NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default()),
                     kind: Kind::from(kind),
-                    parent_id: parent_id.map(|id| NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
+                    parent_id: parent_id.map(|id| {
+                        NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())
+                    }),
                     index,
                     props: domain_props,
                 }
@@ -363,12 +418,21 @@ impl From<CommandDto> for Command {
                 id: NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default()),
                 cascade,
             },
-            CommandDto::MoveNode { node_id, new_parent_id, new_index } => Command::MoveNode {
+            CommandDto::MoveNode {
+                node_id,
+                new_parent_id,
+                new_index,
+            } => Command::MoveNode {
                 node_id: NodeId::from_uuid(uuid::Uuid::parse_str(&node_id).unwrap_or_default()),
-                new_parent_id: new_parent_id.map(|id| NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
+                new_parent_id: new_parent_id
+                    .map(|id| NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
                 new_index,
             },
-            CommandDto::SetProp { node_id, key, value } => Command::SetProp {
+            CommandDto::SetProp {
+                node_id,
+                key,
+                value,
+            } => Command::SetProp {
                 node_id: NodeId::from_uuid(uuid::Uuid::parse_str(&node_id).unwrap_or_default()),
                 key: PropKey::from(key.as_str()),
                 value: value.into(),
@@ -402,21 +466,61 @@ impl From<CommandDto> for Command {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EventDto {
-    NodeCreated { node: NodeDto, parent_id: Option<String>, index: usize },
-    NodeDeleted { nodes: Vec<NodeDto>, old_parent: Option<String>, old_index: usize },
-    NodeMoved { node_id: String, old_parent: Option<String>, old_index: usize, new_parent: Option<String>, new_index: usize },
-    PropSet { node_id: String, key: String, new_value: ValueDto, old_value: Option<ValueDto> },
-    PropDeleted { node_id: String, key: String, old_value: ValueDto },
-    PropsSet { node_id: String, changes: Vec<(String, ValueDto, Option<ValueDto>)> },
-    ViewOverrideSet { node_id: String, new_view: Option<ViewDefDto>, old_view: Option<ViewDefDto> },
-    KindSet { node_id: String, new_kind: String, old_kind: String },
-    Batch { events: Vec<EventDto> },
+    NodeCreated {
+        node: NodeDto,
+        parent_id: Option<String>,
+        index: usize,
+    },
+    NodeDeleted {
+        nodes: Vec<NodeDto>,
+        old_parent: Option<String>,
+        old_index: usize,
+    },
+    NodeMoved {
+        node_id: String,
+        old_parent: Option<String>,
+        old_index: usize,
+        new_parent: Option<String>,
+        new_index: usize,
+    },
+    PropSet {
+        node_id: String,
+        key: String,
+        new_value: ValueDto,
+        old_value: Option<ValueDto>,
+    },
+    PropDeleted {
+        node_id: String,
+        key: String,
+        old_value: ValueDto,
+    },
+    PropsSet {
+        node_id: String,
+        changes: Vec<(String, ValueDto, Option<ValueDto>)>,
+    },
+    ViewOverrideSet {
+        node_id: String,
+        new_view: Option<ViewDefDto>,
+        old_view: Option<ViewDefDto>,
+    },
+    KindSet {
+        node_id: String,
+        new_kind: String,
+        old_kind: String,
+    },
+    Batch {
+        events: Vec<EventDto>,
+    },
 }
 
 impl From<&Event> for EventDto {
     fn from(event: &Event) -> Self {
         match event {
-            Event::NodeCreated { node, parent_id, index } => {
+            Event::NodeCreated {
+                node,
+                parent_id,
+                index,
+            } => {
                 let mut node_dto = NodeDto::from(node);
                 node_dto.parent = parent_id.map(|id| id.to_string());
                 EventDto::NodeCreated {
@@ -425,39 +529,75 @@ impl From<&Event> for EventDto {
                     index: *index,
                 }
             }
-            Event::NodeDeleted { nodes, old_parent, old_index } => EventDto::NodeDeleted {
+            Event::NodeDeleted {
+                nodes,
+                old_parent,
+                old_index,
+            } => EventDto::NodeDeleted {
                 nodes: nodes.iter().map(NodeDto::from).collect(),
                 old_parent: old_parent.map(|id| id.to_string()),
                 old_index: *old_index,
             },
-            Event::NodeMoved { node_id, old_parent, old_index, new_parent, new_index } => EventDto::NodeMoved {
+            Event::NodeMoved {
+                node_id,
+                old_parent,
+                old_index,
+                new_parent,
+                new_index,
+            } => EventDto::NodeMoved {
                 node_id: node_id.to_string(),
                 old_parent: old_parent.map(|id| id.to_string()),
                 old_index: *old_index,
                 new_parent: new_parent.map(|id| id.to_string()),
                 new_index: *new_index,
             },
-            Event::PropSet { node_id, key, new_value, old_value } => EventDto::PropSet {
+            Event::PropSet {
+                node_id,
+                key,
+                new_value,
+                old_value,
+            } => EventDto::PropSet {
                 node_id: node_id.to_string(),
                 key: key.as_str().to_string(),
                 new_value: ValueDto::from(new_value),
                 old_value: old_value.as_ref().map(ValueDto::from),
             },
-            Event::PropDeleted { node_id, key, old_value } => EventDto::PropDeleted {
+            Event::PropDeleted {
+                node_id,
+                key,
+                old_value,
+            } => EventDto::PropDeleted {
                 node_id: node_id.to_string(),
                 key: key.as_str().to_string(),
                 old_value: ValueDto::from(old_value),
             },
             Event::PropsSet { node_id, changes } => EventDto::PropsSet {
                 node_id: node_id.to_string(),
-                changes: changes.iter().map(|(k, nv, ov)| (k.as_str().to_string(), ValueDto::from(nv), ov.as_ref().map(ValueDto::from))).collect(),
+                changes: changes
+                    .iter()
+                    .map(|(k, nv, ov)| {
+                        (
+                            k.as_str().to_string(),
+                            ValueDto::from(nv),
+                            ov.as_ref().map(ValueDto::from),
+                        )
+                    })
+                    .collect(),
             },
-            Event::ViewOverrideSet { node_id, new_view, old_view } => EventDto::ViewOverrideSet {
+            Event::ViewOverrideSet {
+                node_id,
+                new_view,
+                old_view,
+            } => EventDto::ViewOverrideSet {
                 node_id: node_id.to_string(),
                 new_view: new_view.as_ref().map(ViewDefDto::from),
                 old_view: old_view.as_ref().map(ViewDefDto::from),
             },
-            Event::KindSet { node_id, new_kind, old_kind } => EventDto::KindSet {
+            Event::KindSet {
+                node_id,
+                new_kind,
+                old_kind,
+            } => EventDto::KindSet {
                 node_id: node_id.to_string(),
                 new_kind: new_kind.as_str().to_string(),
                 old_kind: old_kind.as_str().to_string(),
@@ -472,7 +612,13 @@ impl From<&Event> for EventDto {
 impl From<&Command> for CommandDto {
     fn from(cmd: &Command) -> Self {
         match cmd {
-            Command::CreateNode { id, kind, parent_id, index, props } => {
+            Command::CreateNode {
+                id,
+                kind,
+                parent_id,
+                index,
+                props,
+            } => {
                 let mut dto_props = HashMap::new();
                 for (k, v) in props.iter() {
                     dto_props.insert(k.as_str().to_string(), ValueDto::from(v));
@@ -489,12 +635,20 @@ impl From<&Command> for CommandDto {
                 id: id.to_string(),
                 cascade: *cascade,
             },
-            Command::MoveNode { node_id, new_parent_id, new_index } => CommandDto::MoveNode {
+            Command::MoveNode {
+                node_id,
+                new_parent_id,
+                new_index,
+            } => CommandDto::MoveNode {
                 node_id: node_id.to_string(),
                 new_parent_id: new_parent_id.map(|id| id.to_string()),
                 new_index: *new_index,
             },
-            Command::SetProp { node_id, key, value } => CommandDto::SetProp {
+            Command::SetProp {
+                node_id,
+                key,
+                value,
+            } => CommandDto::SetProp {
                 node_id: node_id.to_string(),
                 key: key.as_str().to_string(),
                 value: ValueDto::from(value),
@@ -524,4 +678,3 @@ impl From<&Command> for CommandDto {
         }
     }
 }
-

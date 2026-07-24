@@ -1,6 +1,6 @@
-use std::time::Duration;
-use domain::command::Command;
 use super::server::{HandshakeResponse, PushRequest, PushResponse};
+use domain::command::Command;
+use std::time::Duration;
 
 /// Pings a remote peer's handshake endpoint to verify the connection.
 pub fn ping_remote(remote_url: &str) -> Result<HandshakeResponse, String> {
@@ -48,7 +48,9 @@ pub fn pull_graph_from_remote(remote_url: &str) -> Result<GraphDto, String> {
 }
 
 /// Pulls the tombstones from the remote peer.
-pub fn pull_tombstones_from_remote(remote_url: &str) -> Result<std::collections::HashMap<String, String>, String> {
+pub fn pull_tombstones_from_remote(
+    remote_url: &str,
+) -> Result<std::collections::HashMap<String, String>, String> {
     let url = format!("{}/api/p2p/tombstones", remote_url.trim_end_matches('/'));
     let response = match ureq::get(&url).timeout(Duration::from_secs(5)).call() {
         Ok(res) => res,

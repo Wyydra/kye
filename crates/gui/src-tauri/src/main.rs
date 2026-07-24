@@ -1,4 +1,3 @@
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::path::PathBuf;
@@ -17,8 +16,10 @@ fn print_help() {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    
-    let is_headless = args.iter().any(|arg| arg == "headless" || arg == "--headless");
+
+    let is_headless = args
+        .iter()
+        .any(|arg| arg == "headless" || arg == "--headless");
     let wants_help = args.iter().any(|arg| arg == "-h" || arg == "--help");
 
     if wants_help && is_headless {
@@ -48,7 +49,10 @@ fn main() {
                     if let Ok(parsed_port) = args[i + 1].parse::<u16>() {
                         port = parsed_port;
                     } else {
-                        eprintln!("Error: Invalid port value: '{}'. Must be a number between 1 and 65535.", args[i + 1]);
+                        eprintln!(
+                            "Error: Invalid port value: '{}'. Must be a number between 1 and 65535.",
+                            args[i + 1]
+                        );
                         std::process::exit(1);
                     }
                     i += 2;

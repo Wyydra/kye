@@ -47,24 +47,27 @@ impl ParsedBlock {
                 let after_comment = &raw[comment_end + 4..];
                 markdown_text.push_str(after_comment);
 
-                let (node_id, hidden_props) =
-                    if let Some(props_offset) = comment.find(" props: ") {
-                        let id_str = &comment[..props_offset];
-                        let props_json = &comment[props_offset + 8..];
-                        let id = Uuid::parse_str(id_str)
-                            .map(NodeId::from_uuid)
-                            .unwrap_or_else(|_| NodeId::new());
-                        let props: HashMap<String, serde_yaml::Value> =
-                            serde_json::from_str(props_json).unwrap_or_default();
-                        (id, props)
-                    } else {
-                        let id = Uuid::parse_str(comment)
-                            .map(NodeId::from_uuid)
-                            .unwrap_or_else(|_| NodeId::new());
-                        (id, HashMap::new())
-                    };
+                let (node_id, hidden_props) = if let Some(props_offset) = comment.find(" props: ") {
+                    let id_str = &comment[..props_offset];
+                    let props_json = &comment[props_offset + 8..];
+                    let id = Uuid::parse_str(id_str)
+                        .map(NodeId::from_uuid)
+                        .unwrap_or_else(|_| NodeId::new());
+                    let props: HashMap<String, serde_yaml::Value> =
+                        serde_json::from_str(props_json).unwrap_or_default();
+                    (id, props)
+                } else {
+                    let id = Uuid::parse_str(comment)
+                        .map(NodeId::from_uuid)
+                        .unwrap_or_else(|_| NodeId::new());
+                    (id, HashMap::new())
+                };
 
-                return Self { node_id, markdown_text, hidden_props };
+                return Self {
+                    node_id,
+                    markdown_text,
+                    hidden_props,
+                };
             }
         }
 
@@ -123,7 +126,10 @@ mod tests {
 
         assert_eq!(parsed.node_id, id);
         assert_eq!(parsed.markdown_text, "- [ ] Buy milk");
-        assert_eq!(parsed.hidden_props["priority"], serde_yaml::Value::Number(2.into()));
+        assert_eq!(
+            parsed.hidden_props["priority"],
+            serde_yaml::Value::Number(2.into())
+        );
     }
 
     #[test]
@@ -134,14 +140,17 @@ mod tests {
 
         let code_content = "```rust\nlet a = 12;\n```";
         let line = serialize_block_line(id, code_content, hidden.clone());
-        
+
         // Assert the comment is indeed on the first line
         assert!(line.starts_with("```rust <!-- id:"));
-        
+
         let parsed = ParsedBlock::parse(&line);
         assert_eq!(parsed.node_id, id);
         assert_eq!(parsed.markdown_text, code_content);
-        assert_eq!(parsed.hidden_props["x"], serde_yaml::Value::Number(42.into()));
+        assert_eq!(
+            parsed.hidden_props["x"],
+            serde_yaml::Value::Number(42.into())
+        );
     }
 
     #[test]
@@ -173,11 +182,20 @@ mod tests {
         assert_eq!(formatter.kind(), "core.flashcard");
 
         let mut props = Props::new();
-        props.insert(PropKey::from("front"), Value::Rich(super::super::markdown_to_rich("What is **this**?")));
-        props.insert(PropKey::from("back"), Value::Rich(super::super::markdown_to_rich("This is a *flashcard*!")));
+        props.insert(
+            PropKey::from("front"),
+            Value::Rich(super::super::markdown_to_rich("What is **this**?")),
+        );
+        props.insert(
+            PropKey::from("back"),
+            Value::Rich(super::super::markdown_to_rich("This is a *flashcard*!")),
+        );
 
         let formatted = formatter.format(&props);
-        assert_eq!(formatted, "> **Front**: What is **this**?\n>\n> **Back**: This is a *flashcard*!");
+        assert_eq!(
+            formatted,
+            "> **Front**: What is **this**?\n>\n> **Back**: This is a *flashcard*!"
+        );
 
         assert!(formatter.matches(&formatted));
 
@@ -186,19 +204,26 @@ mod tests {
         let ext_back = extracted.get(&PropKey::from("back")).unwrap();
 
         // Convert back to markdown to verify matches
-        assert_eq!(super::super::value_to_markdown(ext_front), "What is **this**?");
-        assert_eq!(super::super::value_to_markdown(ext_back), "This is a *flashcard*!");
+        assert_eq!(
+            super::super::value_to_markdown(ext_front),
+            "What is **this**?"
+        );
+        assert_eq!(
+            super::super::value_to_markdown(ext_back),
+            "This is a *flashcard*!"
+        );
 
         // Verify metadata comment is appended to the first line (Front) of the block quote
         let block_id = NodeId::new();
         let serialized = serialize_block_line(block_id, &formatted, HashMap::new());
-        assert!(serialized.starts_with(&format!("> **Front**: What is **this**? <!-- id: {}", block_id.as_uuid())));
-        
+        assert!(serialized.starts_with(&format!(
+            "> **Front**: What is **this**? <!-- id: {}",
+            block_id.as_uuid()
+        )));
+
         // Ensure parsing the serialized block line correctly recovers the comment and native text
         let parsed = ParsedBlock::parse(&serialized);
         assert_eq!(parsed.node_id, block_id);
         assert_eq!(parsed.markdown_text, formatted);
     }
-
 }
-

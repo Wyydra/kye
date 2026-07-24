@@ -3,16 +3,16 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::path::PathBuf;
+use uuid::Uuid;
 
+use super::formatters::{REGISTRY, block as md_block};
 use domain::command::Event;
 use domain::graph::Graph;
 use domain::node::Node;
 use domain::ports::RepositoryError;
 use domain::primitives::{NodeId, PropKey};
-use domain::value::{Value, FloatBits, Color, RichText, Span, Mark, Props};
-use super::formatters::{REGISTRY, block as md_block};
+use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
 use domain::view::{Direction, Layout, ViewDef};
 use domain::workspace::WorkspaceMeta;
 
@@ -29,15 +29,18 @@ pub fn load_meta(fs: &WorkspaceFs) -> Result<WorkspaceMeta, RepositoryError> {
         return Err(RepositoryError::NotFound("meta.json".into()));
     }
     let content = fs.read_file(&path)?;
-    let m: MetaJson = serde_json::from_str(&content)
-        .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
+    let m: MetaJson =
+        serde_json::from_str(&content).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
     Ok(WorkspaceMeta::new(m.id, m.name))
 }
 
 pub fn save_meta(fs: &WorkspaceFs, meta: &WorkspaceMeta) -> Result<(), RepositoryError> {
-    let m = MetaJson { id: meta.id, name: meta.name.clone() };
-    let content = serde_json::to_string_pretty(&m)
-        .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
+    let m = MetaJson {
+        id: meta.id,
+        name: meta.name.clone(),
+    };
+    let content =
+        serde_json::to_string_pretty(&m).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
     fs.write_file(&fs.meta_path(), &content)
 }
 
@@ -106,10 +109,14 @@ fn value_to_json(v: &Value) -> ValueJson {
         Value::Float(f) => ValueJson::Float(f.0),
         Value::Text(s) => ValueJson::Text(s.as_ref().to_string()),
         Value::Rich(rt) => ValueJson::Rich(RichTextJson {
-            spans: rt.0.iter().map(|s| SpanJson {
-                text: s.text.as_ref().to_string(),
-                marks: s.marks.iter().map(mark_to_json).collect(),
-            }).collect(),
+            spans: rt
+                .0
+                .iter()
+                .map(|s| SpanJson {
+                    text: s.text.as_ref().to_string(),
+                    marks: s.marks.iter().map(mark_to_json).collect(),
+                })
+                .collect(),
         }),
         Value::Ref(id) => ValueJson::Ref(id.as_uuid()),
         Value::Array(arr) => ValueJson::Array(arr.iter().map(value_to_json).collect()),
@@ -126,17 +133,22 @@ fn json_to_value(j: ValueJson) -> Value {
         ValueJson::Int(i) => Value::Int(i),
         ValueJson::Float(f) => Value::Float(FloatBits(f)),
         ValueJson::Text(s) => Value::Text(Arc::from(s.as_str())),
-        ValueJson::Rich(rt) => Value::Rich(RichText(rt.spans.into_iter().map(|s| {
-            Span {
-                text: Arc::from(s.text.as_str()),
-                marks: s.marks.into_iter().map(json_to_mark).collect(),
-            }
-        }).collect())),
+        ValueJson::Rich(rt) => Value::Rich(RichText(
+            rt.spans
+                .into_iter()
+                .map(|s| Span {
+                    text: Arc::from(s.text.as_str()),
+                    marks: s.marks.into_iter().map(json_to_mark).collect(),
+                })
+                .collect(),
+        )),
         ValueJson::Ref(id) => Value::Ref(NodeId::from_uuid(id)),
         ValueJson::Array(arr) => Value::Array(arr.into_iter().map(json_to_value).collect()),
         ValueJson::Date(s) => Value::Date(s.parse().unwrap_or_default()),
         ValueJson::DateTime(s) => Value::DateTime(
-            DateTime::parse_from_rfc3339(&s).map(|dt| dt.with_timezone(&Utc)).unwrap_or_default()
+            DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_default(),
         ),
         ValueJson::Color(s) => Value::Color(Color::new(&s)),
     }
@@ -167,14 +179,14 @@ fn yaml_to_value(y: serde_yaml::Value) -> Value {
                 Value::Null
             }
         }
-        serde_yaml::Value::String(s) => {
-            Value::Text(Arc::from(s.as_str()))
-        }
+        serde_yaml::Value::String(s) => Value::Text(Arc::from(s.as_str())),
         serde_yaml::Value::Sequence(seq) => {
             Value::Array(seq.into_iter().map(yaml_to_value).collect())
         }
         serde_yaml::Value::Mapping(map) => {
-            if let Ok(vj) = serde_yaml::from_value::<ValueJson>(serde_yaml::Value::Mapping(map.clone())) {
+            if let Ok(vj) =
+                serde_yaml::from_value::<ValueJson>(serde_yaml::Value::Mapping(map.clone()))
+            {
                 json_to_value(vj)
             } else {
                 Value::Null
@@ -220,22 +232,40 @@ struct ViewDefJson {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(tag = "t", content = "v")]
 enum LayoutJson {
-    Document, Canvas, Grid { columns: u32 }, Stack { direction: String },
-    Gallery, Table, Kanban { group_by: String }, Widget { name: String },
+    Document,
+    Canvas,
+    Grid { columns: u32 },
+    Stack { direction: String },
+    Gallery,
+    Table,
+    Kanban { group_by: String },
+    Widget { name: String },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 struct ActionDefJson {
-    id: String, label: String, kind: String,
+    id: String,
+    label: String,
+    kind: String,
 }
 
 fn view_to_json(v: &ViewDef) -> ViewDefJson {
     ViewDefJson {
         layout: layout_to_json(&v.layout),
-        bindings: v.bindings.iter().map(|(k, v)| (k.clone(), v.as_str().to_string())).collect(),
-        actions: v.actions.iter().map(|a| ActionDefJson {
-            id: a.id.clone(), label: a.label.clone(), kind: "custom".to_string(),
-        }).collect(),
+        bindings: v
+            .bindings
+            .iter()
+            .map(|(k, v)| (k.clone(), v.as_str().to_string()))
+            .collect(),
+        actions: v
+            .actions
+            .iter()
+            .map(|a| ActionDefJson {
+                id: a.id.clone(),
+                label: a.label.clone(),
+                kind: "custom".to_string(),
+            })
+            .collect(),
     }
 }
 
@@ -253,11 +283,16 @@ fn layout_to_json(l: &Layout) -> LayoutJson {
         Layout::Canvas => LayoutJson::Canvas,
         Layout::Grid { columns } => LayoutJson::Grid { columns: *columns },
         Layout::Stack { direction } => LayoutJson::Stack {
-            direction: match direction { Direction::Vertical => "vertical".to_string(), Direction::Horizontal => "horizontal".to_string() }
+            direction: match direction {
+                Direction::Vertical => "vertical".to_string(),
+                Direction::Horizontal => "horizontal".to_string(),
+            },
         },
         Layout::Gallery => LayoutJson::Gallery,
         Layout::Table => LayoutJson::Table,
-        Layout::Kanban { group_by } => LayoutJson::Kanban { group_by: group_by.as_str().to_string() },
+        Layout::Kanban { group_by } => LayoutJson::Kanban {
+            group_by: group_by.as_str().to_string(),
+        },
         Layout::Widget { name } => LayoutJson::Widget { name: name.clone() },
     }
 }
@@ -268,24 +303,38 @@ fn json_to_layout(j: LayoutJson) -> Layout {
         LayoutJson::Canvas => Layout::Canvas,
         LayoutJson::Grid { columns } => Layout::Grid { columns },
         LayoutJson::Stack { direction } => Layout::Stack {
-            direction: if direction == "horizontal" { Direction::Horizontal } else { Direction::Vertical }
+            direction: if direction == "horizontal" {
+                Direction::Horizontal
+            } else {
+                Direction::Vertical
+            },
         },
         LayoutJson::Gallery => Layout::Gallery,
         LayoutJson::Table => Layout::Table,
-        LayoutJson::Kanban { group_by } => Layout::Kanban { group_by: PropKey::from(group_by.as_str()) },
+        LayoutJson::Kanban { group_by } => Layout::Kanban {
+            group_by: PropKey::from(group_by.as_str()),
+        },
         LayoutJson::Widget { name } => Layout::Widget { name },
     }
 }
 
 fn is_document(node: &Node, graph: &Graph) -> bool {
-    graph.parent_of(node.id).is_none() || matches!(node.kind.as_str(), "core.page" | "core.canvas" | "core.database")
+    graph.parent_of(node.id).is_none()
+        || matches!(
+            node.kind.as_str(),
+            "core.page" | "core.canvas" | "core.database"
+        )
 }
 
 fn sanitize_title(title: &str) -> String {
     title.replace(&['/', '\\', ':', '*', '?', '"', '<', '>', '|'][..], "")
 }
 
-pub fn serialize_graph(fs: &WorkspaceFs, graph: &Graph, path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>) -> Result<(), RepositoryError> {
+pub fn serialize_graph(
+    fs: &WorkspaceFs,
+    graph: &Graph,
+    path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>,
+) -> Result<(), RepositoryError> {
     for node in graph.iter() {
         if is_document(node, graph) {
             serialize_document(fs, graph, node, path_map)?;
@@ -294,12 +343,17 @@ pub fn serialize_graph(fs: &WorkspaceFs, graph: &Graph, path_map: &std::sync::Rw
     Ok(())
 }
 
-fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>) -> Result<(), RepositoryError> {
+fn serialize_document(
+    fs: &WorkspaceFs,
+    graph: &Graph,
+    node: &Node,
+    path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>,
+) -> Result<(), RepositoryError> {
     let formatter = REGISTRY.get_by_kind(node.kind.as_str());
-    
+
     let mut props = HashMap::new();
     let native_keys = formatter.native_keys();
-    
+
     for (k, v) in &node.props {
         if k.as_str() != "title" && !native_keys.contains(&k.as_str()) {
             props.insert(k.as_str().to_string(), value_to_yaml(v));
@@ -317,12 +371,17 @@ fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &s
         props,
     };
 
-    let yaml = serde_yaml::to_string(&frontmatter).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
-    
+    let yaml = serde_yaml::to_string(&frontmatter)
+        .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
+
     // The domain guarantees unique titles, so we just read it directly.
     let title = node.title().unwrap_or("Untitled").trim();
-    let safe_title = if title.is_empty() { "Untitled".to_string() } else { sanitize_title(title) };
-    
+    let safe_title = if title.is_empty() {
+        "Untitled".to_string()
+    } else {
+        sanitize_title(title)
+    };
+
     let mut markdown = format!("---\n{}---\n", yaml);
 
     if node.kind.as_str() == "core.page" && !title.is_empty() {
@@ -345,21 +404,26 @@ fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &s
     // avoids overwriting files of any kind, not just pages.
     let mut map = path_map.write().unwrap();
     let old_path_opt = map.get(&node.id).cloned();
-    
-    let claimed: Vec<&PathBuf> = map.iter()
+
+    let claimed: Vec<&PathBuf> = map
+        .iter()
         .filter(|(id, _)| **id != node.id)
         .map(|(_, p)| p)
         .collect();
-    
+
     let new_path = {
         let base_path = fs.root.join(format!("{}.md", safe_title));
-        if old_path_opt.as_deref() == Some(&base_path) || !claimed.contains(&&base_path) && !base_path.exists() {
+        if old_path_opt.as_deref() == Some(&base_path)
+            || !claimed.contains(&&base_path) && !base_path.exists()
+        {
             base_path
         } else {
             let mut counter = 1u32;
             loop {
                 let candidate = fs.root.join(format!("{} {}.md", safe_title, counter));
-                if old_path_opt.as_deref() == Some(&candidate) || !claimed.contains(&&candidate) && !candidate.exists() {
+                if old_path_opt.as_deref() == Some(&candidate)
+                    || !claimed.contains(&&candidate) && !candidate.exists()
+                {
                     break candidate;
                 }
                 counter += 1;
@@ -377,14 +441,19 @@ fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &s
 
     // Update the node's title prop to match the resolved filename, so the
     // in-memory graph and the sidebar reflect the actual filename.
-    let resolved_title = new_path.file_stem()
+    let resolved_title = new_path
+        .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or(&safe_title)
         .to_string();
-    
+
     let markdown_with_title = if node.kind.as_str() == "core.page" && resolved_title != safe_title {
         // Title was bumped (e.g. "Untitled" -> "Untitled 1"): rewrite the H1
-        markdown.replacen(&format!("# {}\n", safe_title), &format!("# {}\n", resolved_title), 1)
+        markdown.replacen(
+            &format!("# {}\n", safe_title),
+            &format!("# {}\n", resolved_title),
+            1,
+        )
     } else {
         markdown
     };
@@ -396,7 +465,8 @@ fn serialize_block(out: &mut String, node: &Node) {
     let formatter = REGISTRY.get_by_kind(node.kind.as_str());
     let native_keys = formatter.native_keys();
 
-    let hidden_props: HashMap<String, serde_yaml::Value> = node.props
+    let hidden_props: HashMap<String, serde_yaml::Value> = node
+        .props
         .iter()
         .filter(|(k, _)| !native_keys.contains(&k.as_str()))
         .map(|(k, v)| (k.as_str().to_string(), value_to_yaml(v)))
@@ -414,7 +484,9 @@ struct ParsedNodeInfo {
     children: Vec<NodeId>,
 }
 
-pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, PathBuf>), RepositoryError> {
+pub fn deserialize_graph(
+    fs: &WorkspaceFs,
+) -> Result<(Graph, HashMap<NodeId, PathBuf>), RepositoryError> {
     let files = fs.list_node_files()?;
     let mut all_nodes: HashMap<NodeId, ParsedNodeInfo> = HashMap::new();
     let mut path_map = HashMap::new();
@@ -432,8 +504,9 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
     }
 
     let mut graph = Graph::new();
-    
-    let roots: Vec<NodeId> = all_nodes.values()
+
+    let roots: Vec<NodeId> = all_nodes
+        .values()
         .filter(|info| info.parent.is_none())
         .map(|info| info.node.id)
         .collect();
@@ -442,7 +515,9 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
     let mut processed = std::collections::HashSet::new();
 
     while let Some(id) = todo.pop_front() {
-        if processed.contains(&id) { continue; }
+        if processed.contains(&id) {
+            continue;
+        }
 
         if let Some(info) = all_nodes.remove(&id) {
             let parent_id = info.parent;
@@ -452,13 +527,18 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
             if let Some(pid) = parent_id {
                 if graph.contains(pid) {
                     let index = graph.children_of(pid).count();
-                    graph.insert_child(node, pid, index)
+                    graph
+                        .insert_child(node, pid, index)
                         .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 } else {
-                    graph.insert_root(node).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
+                    graph
+                        .insert_root(node)
+                        .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 }
             } else {
-                graph.insert_root(node).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
+                graph
+                    .insert_root(node)
+                    .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
             }
 
             processed.insert(id);
@@ -471,7 +551,7 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
     let remaining_ids: Vec<NodeId> = all_nodes.keys().cloned().collect();
     for id in remaining_ids {
         if let Some(info) = all_nodes.remove(&id) {
-            let _ = graph.insert_root(info.node); 
+            let _ = graph.insert_root(info.node);
         }
     }
 
@@ -483,14 +563,22 @@ fn split_blocks(text: &str) -> Vec<String> {
     let mut current = String::new();
 
     for line in text.lines() {
-        let is_heading = line.starts_with("# ") || line.starts_with("## ") || line.starts_with("### ")
-            || line.starts_with("#### ") || line.starts_with("##### ") || line.starts_with("###### ");
+        let is_heading = line.starts_with("# ")
+            || line.starts_with("## ")
+            || line.starts_with("### ")
+            || line.starts_with("#### ")
+            || line.starts_with("##### ")
+            || line.starts_with("###### ");
 
         let is_block_start = is_heading
-            || line.starts_with("- [ ] ") || line.starts_with("- [x] ")
-            || line.starts_with("> ") || line.starts_with("```")
-            || line.starts_with(":::") || line.starts_with("---")
-            || line.starts_with("iframe:") || line.starts_with("card:")
+            || line.starts_with("- [ ] ")
+            || line.starts_with("- [x] ")
+            || line.starts_with("> ")
+            || line.starts_with("```")
+            || line.starts_with(":::")
+            || line.starts_with("---")
+            || line.starts_with("iframe:")
+            || line.starts_with("card:")
             || line.starts_with("flashcard:");
 
         if is_block_start && !current.trim().is_empty() {
@@ -513,7 +601,7 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
     let mut nodes = Vec::new();
     let mut body_start = 0;
     let mut parent_info: Option<ParsedNodeInfo> = None;
-    
+
     if content.starts_with("---\n") {
         if let Some(end_idx) = content[4..].find("\n---\n") {
             let yaml_str = &content[4..4 + end_idx];
@@ -524,15 +612,15 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
                 for (k, v) in front.props {
                     props.insert(PropKey::from(k.as_str()), yaml_to_value(v));
                 }
-                
+
                 let mut node = NodeBuilder::new(front.kind.as_str(), front.created_at)
                     .with_id(NodeId::from_uuid(front.id))
                     .with_props(props)
                     .build();
-                    
+
                 node.updated_at = front.updated_at;
                 node.view_override = front.view_override.map(json_to_view);
-                
+
                 parent_info = Some(ParsedNodeInfo {
                     node,
                     parent: front.parent.map(NodeId::from_uuid),
@@ -541,13 +629,20 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
             }
         }
     }
-    
-    let body_text = if body_start < content.len() { &content[body_start..] } else { "" };
-    
+
+    let body_text = if body_start < content.len() {
+        &content[body_start..]
+    } else {
+        ""
+    };
+
     if let Some(mut parent) = parent_info {
         if parent.node.kind.as_str() == "core.page" {
-            let fallback_title = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled");
-            
+            let fallback_title = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Untitled");
+
             if !body_text.trim().is_empty() {
                 let raw_blocks = split_blocks(body_text);
                 let mut parsed_children = Vec::new();
@@ -556,18 +651,29 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
                 if let Some(first) = blocks.peek() {
                     if first.starts_with("# ") && !first.contains("<!-- id:") {
                         let doc_title = first[2..].trim();
-                        parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(doc_title)));
+                        parent
+                            .node
+                            .props
+                            .insert(PropKey::from("title"), Value::Text(Arc::from(doc_title)));
                         blocks.next();
                     } else if !parent.node.props.contains_key(&PropKey::from("title")) {
-                        parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                        parent.node.props.insert(
+                            PropKey::from("title"),
+                            Value::Text(Arc::from(fallback_title)),
+                        );
                     }
                 } else if !parent.node.props.contains_key(&PropKey::from("title")) {
-                    parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                    parent.node.props.insert(
+                        PropKey::from("title"),
+                        Value::Text(Arc::from(fallback_title)),
+                    );
                 }
 
                 for raw_block in blocks {
                     let raw_block = raw_block.trim();
-                    if raw_block.is_empty() { continue; }
+                    if raw_block.is_empty() {
+                        continue;
+                    }
 
                     let parsed = md_block::ParsedBlock::parse(raw_block);
                     let formatter = REGISTRY.get_by_text(&parsed.markdown_text);
@@ -590,15 +696,24 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
                         children: Vec::new(),
                     });
                 }
-                
+
                 parent.children = parsed_children;
             } else if !parent.node.props.contains_key(&PropKey::from("title")) {
-                parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                parent.node.props.insert(
+                    PropKey::from("title"),
+                    Value::Text(Arc::from(fallback_title)),
+                );
             }
         } else {
-            let fallback_title = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled");
+            let fallback_title = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Untitled");
             if !parent.node.props.contains_key(&PropKey::from("title")) {
-                parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                parent.node.props.insert(
+                    PropKey::from("title"),
+                    Value::Text(Arc::from(fallback_title)),
+                );
             }
             if !body_text.trim().is_empty() {
                 let formatter = REGISTRY.get_by_kind(parent.node.kind.as_str());
@@ -610,11 +725,16 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
         }
         nodes.insert(0, parent);
     }
-    
+
     nodes
 }
 
-pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph, path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>) -> Result<(), RepositoryError> {
+pub fn serialize_event(
+    fs: &WorkspaceFs,
+    event: &Event,
+    graph: &Graph,
+    path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>,
+) -> Result<(), RepositoryError> {
     // In markdown, if a block changes, we reserialize its parent document.
     let mut docs_to_save = std::collections::HashSet::new();
 
@@ -639,12 +759,25 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph, path_map:
                 collect_doc(*pid);
             }
         }
-        Event::NodeMoved { node_id, old_parent, new_parent, .. } => {
+        Event::NodeMoved {
+            node_id,
+            old_parent,
+            new_parent,
+            ..
+        } => {
             collect_doc(*node_id);
-            if let Some(pid) = old_parent { collect_doc(*pid); }
-            if let Some(pid) = new_parent { collect_doc(*pid); }
+            if let Some(pid) = old_parent {
+                collect_doc(*pid);
+            }
+            if let Some(pid) = new_parent {
+                collect_doc(*pid);
+            }
         }
-        Event::PropSet { node_id, .. } | Event::PropDeleted { node_id, .. } | Event::PropsSet { node_id, .. } | Event::ViewOverrideSet { node_id, .. } | Event::KindSet { node_id, .. } => {
+        Event::PropSet { node_id, .. }
+        | Event::PropDeleted { node_id, .. }
+        | Event::PropsSet { node_id, .. }
+        | Event::ViewOverrideSet { node_id, .. }
+        | Event::KindSet { node_id, .. } => {
             collect_doc(*node_id);
         }
         Event::Batch(events) => {
@@ -675,7 +808,9 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph, path_map:
     Ok(())
 }
 
-pub fn load_tombstones(fs: &WorkspaceFs) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError> {
+pub fn load_tombstones(
+    fs: &WorkspaceFs,
+) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError> {
     let path = fs.kye_dir().join("tombstones.json");
     if !path.exists() {
         return Ok(HashMap::new());
@@ -690,13 +825,16 @@ pub fn load_tombstones(fs: &WorkspaceFs) -> Result<HashMap<NodeId, DateTime<Utc>
     let raw: HashMap<String, String> = match serde_json::from_str(&content) {
         Ok(m) => m,
         Err(e) => {
-            tracing::error!("Failed to parse tombstones.json: {:?}. Backing up and resetting.", e);
+            tracing::error!(
+                "Failed to parse tombstones.json: {:?}. Backing up and resetting.",
+                e
+            );
             let backup_path = fs.kye_dir().join("tombstones.json.corrupted");
             let _ = std::fs::rename(&path, &backup_path);
             HashMap::new()
         }
     };
-    
+
     let mut tombstones = HashMap::new();
     for (k, v) in raw {
         if let Ok(uuid) = Uuid::parse_str(&k) {
@@ -708,13 +846,16 @@ pub fn load_tombstones(fs: &WorkspaceFs) -> Result<HashMap<NodeId, DateTime<Utc>
     Ok(tombstones)
 }
 
-pub fn save_tombstones(fs: &WorkspaceFs, tombstones: &HashMap<NodeId, DateTime<Utc>>) -> Result<(), RepositoryError> {
+pub fn save_tombstones(
+    fs: &WorkspaceFs,
+    tombstones: &HashMap<NodeId, DateTime<Utc>>,
+) -> Result<(), RepositoryError> {
     let mut raw = HashMap::new();
     for (k, v) in tombstones {
         raw.insert(k.to_string(), v.to_rfc3339());
     }
-    let content = serde_json::to_string_pretty(&raw)
-        .map_err(|e| RepositoryError::Corrupted(format!("Failed to serialize tombstones: {}", e)))?;
+    let content = serde_json::to_string_pretty(&raw).map_err(|e| {
+        RepositoryError::Corrupted(format!("Failed to serialize tombstones: {}", e))
+    })?;
     fs.write_file(&fs.kye_dir().join("tombstones.json"), &content)
 }
-

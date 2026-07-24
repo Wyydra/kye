@@ -1,6 +1,9 @@
 default:
     @just --list
 
+open-port:
+  nix-shell -p nixos-firewall-tool --command "sudo nixos-firewall-tool open tcp 1420"
+
 # Launch desktop GUI in dev mode
 gui-dev:
     cd crates/gui && bun run tauri dev

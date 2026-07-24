@@ -1,12 +1,10 @@
-
-
-use std::collections::{HashMap, BTreeSet};
+use std::collections::{BTreeSet, HashMap};
 
 use thiserror::Error;
 
+use crate::node::Node;
 use crate::primitives::{Kind, NodeId, PropKey};
 use crate::value::Value;
-use crate::node::Node;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum GraphError {
@@ -64,7 +62,11 @@ impl Graph {
 
     pub fn children_of(&self, id: NodeId) -> impl Iterator<Item = &Node> {
         let empty: &[NodeId] = &[];
-        let children = self.parent_children.get(&id).map(|v| v.as_slice()).unwrap_or(empty);
+        let children = self
+            .parent_children
+            .get(&id)
+            .map(|v| v.as_slice())
+            .unwrap_or(empty);
         children.iter().filter_map(|cid| self.nodes.get(cid))
     }
 
@@ -73,7 +75,10 @@ impl Graph {
     }
 
     pub fn ancestors_of(&self, id: NodeId) -> impl Iterator<Item = &Node> + '_ {
-        AncestorIter { graph: self, current: self.parent_of(id) }
+        AncestorIter {
+            graph: self,
+            current: self.parent_of(id),
+        }
     }
 
     pub fn subtree_of(&self, id: NodeId) -> Vec<NodeId> {
@@ -123,7 +128,12 @@ impl Graph {
         Ok(())
     }
 
-    pub fn insert_child(&mut self, node: Node, parent_id: NodeId, index: usize) -> Result<(), GraphError> {
+    pub fn insert_child(
+        &mut self,
+        node: Node,
+        parent_id: NodeId,
+        index: usize,
+    ) -> Result<(), GraphError> {
         let id = node.id;
         if self.nodes.contains_key(&id) {
             return Err(GraphError::AlreadyExists(id));
@@ -133,7 +143,10 @@ impl Graph {
         }
         let children = self.parent_children.entry(parent_id).or_default();
         if index > children.len() {
-            return Err(GraphError::IndexOutOfBounds { index, len: children.len() });
+            return Err(GraphError::IndexOutOfBounds {
+                index,
+                len: children.len(),
+            });
         }
         children.insert(index, id);
         self.node_parent.insert(id, parent_id);
@@ -142,7 +155,12 @@ impl Graph {
         Ok(())
     }
 
-    pub fn move_node(&mut self, node_id: NodeId, new_parent: Option<NodeId>, index: usize) -> Result<(), GraphError> {
+    pub fn move_node(
+        &mut self,
+        node_id: NodeId,
+        new_parent: Option<NodeId>,
+        index: usize,
+    ) -> Result<(), GraphError> {
         if !self.nodes.contains_key(&node_id) {
             return Err(GraphError::NotFound(node_id));
         }
@@ -217,8 +235,16 @@ impl Graph {
         Ok(removed)
     }
 
-    pub fn set_prop(&mut self, node_id: NodeId, key: PropKey, value: Value) -> Result<Option<Value>, GraphError> {
-        let node = self.nodes.get_mut(&node_id).ok_or(GraphError::NotFound(node_id))?;
+    pub fn set_prop(
+        &mut self,
+        node_id: NodeId,
+        key: PropKey,
+        value: Value,
+    ) -> Result<Option<Value>, GraphError> {
+        let node = self
+            .nodes
+            .get_mut(&node_id)
+            .ok_or(GraphError::NotFound(node_id))?;
 
         if let Some(old) = node.props.get(&key) {
             let mut old_refs = Vec::new();
@@ -243,8 +269,15 @@ impl Graph {
         Ok(old)
     }
 
-    pub fn delete_prop(&mut self, node_id: NodeId, key: &PropKey) -> Result<Option<Value>, GraphError> {
-        let node = self.nodes.get_mut(&node_id).ok_or(GraphError::NotFound(node_id))?;
+    pub fn delete_prop(
+        &mut self,
+        node_id: NodeId,
+        key: &PropKey,
+    ) -> Result<Option<Value>, GraphError> {
+        let node = self
+            .nodes
+            .get_mut(&node_id)
+            .ok_or(GraphError::NotFound(node_id))?;
 
         if let Some(old) = node.props.get(key) {
             let mut refs = Vec::new();

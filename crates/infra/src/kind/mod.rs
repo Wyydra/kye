@@ -1,5 +1,3 @@
-
-
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -27,7 +25,6 @@ impl FileKindRepository {
     }
 
     fn kind_path(&self, kind: &Kind) -> PathBuf {
-
         let filename = kind.as_str().replace('.', "__");
         self.kinds_dir().join(format!("{}.json", filename))
     }
@@ -71,8 +68,7 @@ impl KindRepository for FileKindRepository {
     fn delete_kind(&self, kind: &Kind) -> Result<(), RepositoryError> {
         let path = self.kind_path(kind);
         if path.exists() {
-            std::fs::remove_file(path)
-                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            std::fs::remove_file(path).map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
         Ok(())
     }

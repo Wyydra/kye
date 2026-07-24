@@ -1,5 +1,3 @@
-
-
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -10,6 +8,9 @@ pub struct WorkspaceMeta {
 
 impl WorkspaceMeta {
     pub fn new(id: Uuid, name: impl Into<String>) -> Self {
-        Self { id, name: name.into() }
+        Self {
+            id,
+            name: name.into(),
+        }
     }
 }

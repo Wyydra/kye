@@ -1,18 +1,25 @@
+use super::{BlockFormatter, markdown_to_rich, value_to_markdown};
 use domain::primitives::PropKey;
 use domain::value::{Props, Value};
-use super::{BlockFormatter, value_to_markdown, markdown_to_rich};
 
 pub struct QuoteFormatter;
 
 impl BlockFormatter for QuoteFormatter {
-    fn kind(&self) -> &'static str { "core.quote" }
+    fn kind(&self) -> &'static str {
+        "core.quote"
+    }
 
-    fn matches(&self, text: &str) -> bool { text.starts_with("> ") }
+    fn matches(&self, text: &str) -> bool {
+        text.starts_with("> ")
+    }
 
-    fn native_keys(&self) -> &'static [&'static str] { &["body"] }
+    fn native_keys(&self) -> &'static [&'static str] {
+        &["body"]
+    }
 
     fn format(&self, props: &Props) -> String {
-        let body = props.get(&PropKey::from("body"))
+        let body = props
+            .get(&PropKey::from("body"))
             .map(value_to_markdown)
             .unwrap_or_default();
         body.lines()
@@ -23,7 +30,8 @@ impl BlockFormatter for QuoteFormatter {
 
     fn extract(&self, text: &str) -> Props {
         let mut props = Props::new();
-        let body = text.lines()
+        let body = text
+            .lines()
             .map(|l| l.strip_prefix("> ").unwrap_or(l))
             .collect::<Vec<_>>()
             .join("\n");
@@ -31,4 +39,3 @@ impl BlockFormatter for QuoteFormatter {
         props
     }
 }
-

@@ -1,5 +1,3 @@
-
-
 use thiserror::Error;
 
 use crate::graph::Graph;
@@ -36,21 +34,24 @@ impl<'a> SchemaResolver<'a> {
             return Vec::new();
         }
 
-        let db = self.graph.nearest_ancestor_of_kind(row_id, &kinds::database());
+        let db = self
+            .graph
+            .nearest_ancestor_of_kind(row_id, &kinds::database());
         match db {
-            Some(db_node) => {
-
-                self.graph
-                    .children_of(db_node.id)
-                    .filter(|n| n.kind == kinds::column())
-                    .collect()
-            }
+            Some(db_node) => self
+                .graph
+                .children_of(db_node.id)
+                .filter(|n| n.kind == kinds::column())
+                .collect(),
             None => Vec::new(),
         }
     }
 
     pub fn validate_in_context(&self, node_id: NodeId) -> Result<(), ResolverError> {
-        let node = self.graph.get(node_id).ok_or(ResolverError::NotFound(node_id))?;
+        let node = self
+            .graph
+            .get(node_id)
+            .ok_or(ResolverError::NotFound(node_id))?;
 
         let mut errors = self.registry.validate_node(node);
 
@@ -58,10 +59,9 @@ impl<'a> SchemaResolver<'a> {
             let columns = self.effective_columns(node_id);
             for col in columns {
                 if let Some(col_title) = col.prop_text("title") {
-
                     if node.prop(col_title).is_none() {
                         errors.push(ValidationError::MissingRequiredProp(
-                            crate::primitives::PropKey::from(col_title)
+                            crate::primitives::PropKey::from(col_title),
                         ));
                     }
                 }

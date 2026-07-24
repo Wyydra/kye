@@ -1,5 +1,3 @@
-
-
 use indexmap::IndexMap;
 
 use crate::primitives::{Kind, PropKey};
@@ -16,7 +14,9 @@ impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingRequiredProp(k) => write!(f, "Missing required prop: {}", k),
-            Self::WrongType { prop, expected } => write!(f, "Wrong type for {}: expected {:?}", prop, expected),
+            Self::WrongType { prop, expected } => {
+                write!(f, "Wrong type for {}: expected {:?}", prop, expected)
+            }
             Self::ConstraintViolation(msg) => write!(f, "Constraint violation: {}", msg),
         }
     }
@@ -50,7 +50,12 @@ pub struct PropDef {
 
 impl PropDef {
     pub fn new(value_type: ValueType) -> Self {
-        Self { value_type, required: true, label: None, description: None }
+        Self {
+            value_type,
+            required: true,
+            label: None,
+            description: None,
+        }
     }
 
     pub fn optional(mut self) -> Self {
@@ -71,7 +76,6 @@ impl PropDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Constraint {
-
     AllowedChildKinds(Vec<Kind>),
 
     AllowedParentKinds(Vec<Kind>),
@@ -85,7 +89,6 @@ pub enum Constraint {
 
 #[derive(Debug, Clone)]
 pub struct KindDef {
-
     pub label: String,
 
     pub icon: Option<String>,

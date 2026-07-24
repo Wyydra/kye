@@ -1,15 +1,13 @@
-
-
 use std::sync::{Arc, RwLock};
 
 use chrono::Utc;
 use thiserror::Error;
 
-use crate::command::{apply, Command, CommandError, Event};
+use crate::command::{Command, CommandError, Event, apply};
 use crate::graph::Graph;
 use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, RepositoryError};
 use crate::primitives::NodeId;
-use crate::query::{evaluate_query_node, QueryBuilder};
+use crate::query::{QueryBuilder, evaluate_query_node};
 use crate::registry::{CoreLibrary, KindRegistry};
 use crate::resolver::SchemaResolver;
 
@@ -59,10 +57,12 @@ where
         }
     }
 
-
     pub fn refresh_kinds(&self) -> Result<(), ServiceError> {
         let user_kinds = self.kind_repo.load_kinds()?;
-        let mut registry = self.registry.write().map_err(|_| ServiceError::LockPoisoned)?;
+        let mut registry = self
+            .registry
+            .write()
+            .map_err(|_| ServiceError::LockPoisoned)?;
         for (kind, def) in user_kinds {
             registry.register(kind, def);
         }
@@ -71,11 +71,14 @@ where
 
     pub fn execute(&self, cmd: Command) -> Result<Event, ServiceError> {
         let mut graph = self.repo.load_graph()?;
-        let registry = self.registry.read().map_err(|_| ServiceError::LockPoisoned)?;
+        let registry = self
+            .registry
+            .read()
+            .map_err(|_| ServiceError::LockPoisoned)?;
 
         let event = apply(&mut graph, &registry, cmd, Utc::now())?;
 
-        drop(registry); 
+        drop(registry);
         self.repo.apply_event(&event)?;
         self.bus.publish(&event);
 
@@ -84,7 +87,10 @@ where
 
     pub fn execute_batch(&self, cmds: Vec<Command>) -> Result<Event, ServiceError> {
         let mut graph = self.repo.load_graph()?;
-        let registry = self.registry.read().map_err(|_| ServiceError::LockPoisoned)?;
+        let registry = self
+            .registry
+            .read()
+            .map_err(|_| ServiceError::LockPoisoned)?;
 
         let snapshot = graph.clone();
 
@@ -95,7 +101,6 @@ where
             match apply(&mut graph, &registry, cmd, now) {
                 Ok(event) => events.push(event),
                 Err(e) => {
-
                     drop(graph);
                     drop(snapshot);
                     return Err(ServiceError::Command(e));
@@ -123,9 +128,13 @@ where
 
     pub fn validate_node_in_context(&self, node_id: NodeId) -> Result<(), ServiceError> {
         let graph = self.repo.load_graph()?;
-        let registry = self.registry.read().map_err(|_| ServiceError::LockPoisoned)?;
+        let registry = self
+            .registry
+            .read()
+            .map_err(|_| ServiceError::LockPoisoned)?;
         let resolver = SchemaResolver::new(&graph, &registry);
-        resolver.validate_in_context(node_id)
+        resolver
+            .validate_in_context(node_id)
             .map_err(|_e| ServiceError::Command(CommandError::NotFound(node_id)))
     }
 
@@ -137,21 +146,39 @@ where
         Ok(self.repo.load_meta()?)
     }
 
-    pub fn get_all_kinds(&self) -> Result<Vec<(crate::primitives::Kind, crate::schema::KindDef)>, ServiceError> {
-        let registry = self.registry.read().map_err(|_| ServiceError::LockPoisoned)?;
-        Ok(registry.iter().map(|(k, d)| (k.clone(), d.clone())).collect())
+    pub fn get_all_kinds(
+        &self,
+    ) -> Result<Vec<(crate::primitives::Kind, crate::schema::KindDef)>, ServiceError> {
+        let registry = self
+            .registry
+            .read()
+            .map_err(|_| ServiceError::LockPoisoned)?;
+        Ok(registry
+            .iter()
+            .map(|(k, d)| (k.clone(), d.clone()))
+            .collect())
     }
 
-    pub fn register_kind(&self, kind: crate::primitives::Kind, def: crate::schema::KindDef) -> Result<(), ServiceError> {
+    pub fn register_kind(
+        &self,
+        kind: crate::primitives::Kind,
+        def: crate::schema::KindDef,
+    ) -> Result<(), ServiceError> {
         self.kind_repo.save_kind(&kind, &def)?;
-        let mut registry = self.registry.write().map_err(|_| ServiceError::LockPoisoned)?;
+        let mut registry = self
+            .registry
+            .write()
+            .map_err(|_| ServiceError::LockPoisoned)?;
         registry.register(kind, def);
         Ok(())
     }
 
     pub fn delete_kind(&self, kind: &crate::primitives::Kind) -> Result<(), ServiceError> {
         self.kind_repo.delete_kind(kind)?;
-        let mut registry = self.registry.write().map_err(|_| ServiceError::LockPoisoned)?;
+        let mut registry = self
+            .registry
+            .write()
+            .map_err(|_| ServiceError::LockPoisoned)?;
         registry.unregister(kind);
         Ok(())
     }
@@ -176,9 +203,12 @@ where
         Ok(self.asset_repo.reveal_in_explorer(target_path)?)
     }
 
-
-    pub fn load_tombstones(&self) -> Result<std::collections::HashMap<crate::primitives::NodeId, chrono::DateTime<chrono::Utc>>, ServiceError> {
+    pub fn load_tombstones(
+        &self,
+    ) -> Result<
+        std::collections::HashMap<crate::primitives::NodeId, chrono::DateTime<chrono::Utc>>,
+        ServiceError,
+    > {
         Ok(self.repo.load_tombstones()?)
     }
-
 }

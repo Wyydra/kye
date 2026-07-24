@@ -1,9 +1,7 @@
-
-
 use crate::graph::Graph;
+use crate::node::Node;
 use crate::primitives::{Kind, NodeId, PropKey};
 use crate::value::Value;
-use crate::node::Node;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SortDir {
@@ -69,11 +67,11 @@ impl QueryBuilder {
     }
 
     pub fn execute(self, graph: &Graph) -> Vec<NodeId> {
-
         let candidates: Vec<NodeId> = match self.ancestor_filter {
-            Some(ancestor_id) => graph.subtree_of(ancestor_id)
+            Some(ancestor_id) => graph
+                .subtree_of(ancestor_id)
                 .into_iter()
-                .filter(|&id| id != ancestor_id) 
+                .filter(|&id| id != ancestor_id)
                 .collect(),
             None => graph.iter().map(|n| n.id).collect(),
         };
@@ -89,7 +87,11 @@ impl QueryBuilder {
                 let va = a.props.get(key).and_then(|v| v.as_text()).unwrap_or("");
                 let vb = b.props.get(key).and_then(|v| v.as_text()).unwrap_or("");
                 let ord = va.cmp(vb);
-                if *dir == SortDir::Desc { ord.reverse() } else { ord }
+                if *dir == SortDir::Desc {
+                    ord.reverse()
+                } else {
+                    ord
+                }
             });
         }
 
@@ -102,15 +104,20 @@ impl QueryBuilder {
 
     fn matches(&self, node: &Node) -> bool {
         if let Some(ref k) = self.kind_filter {
-            if &node.kind != k { return false; }
+            if &node.kind != k {
+                return false;
+            }
         }
 
         if let Some(ref tag) = self.tag_filter {
-            let has_tag = node.prop("tag")
+            let has_tag = node
+                .prop("tag")
                 .and_then(|v| v.as_text())
                 .map(|t| t == tag.as_str())
                 .unwrap_or(false);
-            if !has_tag { return false; }
+            if !has_tag {
+                return false;
+            }
         }
 
         for (key, expected) in &self.prop_eq {
@@ -128,11 +135,15 @@ impl QueryBuilder {
         }
 
         for (key, substr) in &self.prop_contains {
-            let found = node.props.get(key)
+            let found = node
+                .props
+                .get(key)
                 .and_then(|v| v.as_text())
                 .map(|t| t.contains(substr.as_str()))
                 .unwrap_or(false);
-            if !found { return false; }
+            if !found {
+                return false;
+            }
         }
 
         true

@@ -1,7 +1,5 @@
-
-
-use indexmap::IndexMap;
 use crate::primitives::PropKey;
+use indexmap::IndexMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewDef {
@@ -33,7 +31,6 @@ impl ViewDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Layout {
-
     Document,
 
     Canvas,
@@ -66,7 +63,6 @@ pub struct ActionDef {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActionKind {
-
     ToggleProp { prop: PropKey },
 
     NavigateTo { node_id: crate::primitives::NodeId },

@@ -1,8 +1,8 @@
+use crate::error::{AppError, AppResult};
+use crate::state::AppState;
 use domain::primitives::Kind;
 use domain::schema::KindDef;
 use serde::{Deserialize, Serialize};
-use crate::error::{AppError, AppResult};
-use crate::state::AppState;
 
 #[derive(Serialize, Deserialize)]
 pub struct KindDefDto {
@@ -35,9 +35,14 @@ impl From<KindDefDto> for KindDef {
 
 #[tauri::command]
 pub fn get_kinds(state: tauri::State<'_, AppState>) -> AppResult<Vec<(String, KindDefDto)>> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
     let kinds = service.get_all_kinds()?;
-    Ok(kinds.into_iter().map(|(k, d)| (k.as_str().to_string(), KindDefDto::from(&d))).collect())
+    Ok(kinds
+        .into_iter()
+        .map(|(k, d)| (k.as_str().to_string(), KindDefDto::from(&d)))
+        .collect())
 }
 
 #[tauri::command]
@@ -46,17 +51,18 @@ pub fn register_kind(
     def: KindDefDto,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
     service.register_kind(Kind::from(kind.as_str()), def.into())?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn delete_kind(
-    kind: String,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
-    let service = state.service().ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+pub fn delete_kind(kind: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
     service.delete_kind(&Kind::from(kind.as_str()))?;
     Ok(())
 }

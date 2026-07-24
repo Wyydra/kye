@@ -27,7 +27,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
-            let settings_path = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("settings.json");
+            let settings_path = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join("settings.json");
             let store_rc = StoreBuilder::new(app, settings_path).build();
 
             let workspace_path = match &store_rc {
@@ -36,11 +40,7 @@ pub fn run() {
                     if let Some(path_val) = store.get("workspace_path") {
                         if let Some(s) = path_val.as_str() {
                             let p = PathBuf::from(s);
-                            if p.exists() {
-                                Some(p)
-                            } else {
-                                None
-                            }
+                            if p.exists() { Some(p) } else { None }
                         } else {
                             None
                         }
@@ -62,7 +62,7 @@ pub fn run() {
                     tracing::error!("Failed to init WorkspaceFs: {:?}", e);
                     None
                 } else {
-                    let _ = InMemoryGraphRepository::load(fs.clone()); 
+                    let _ = InMemoryGraphRepository::load(fs.clone());
 
                     let graph_repo = match InMemoryGraphRepository::load(fs.clone()) {
                         Ok(repo) => repo,
@@ -75,11 +75,13 @@ pub fn run() {
 
                     let kind_repo = FileKindRepository::new(fs.clone());
                     let asset_repo = FileAssetRepository::new(fs);
-                    let event_bus = TauriEventBus { app_handle: app_handle.clone() };
+                    let event_bus = TauriEventBus {
+                        app_handle: app_handle.clone(),
+                    };
 
-                    Some(Arc::new(Service::new(graph_repo, kind_repo, event_bus, asset_repo)))
-
-
+                    Some(Arc::new(Service::new(
+                        graph_repo, kind_repo, event_bus, asset_repo,
+                    )))
                 }
             } else {
                 None
@@ -127,23 +129,31 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
         .try_init();
 
     if !workspace_path.exists() {
-        return Err(format!("Workspace path '{}' does not exist.", workspace_path.display()));
+        return Err(format!(
+            "Workspace path '{}' does not exist.",
+            workspace_path.display()
+        ));
     }
 
     let fs = WorkspaceFs::new(workspace_path.clone());
-    fs.init().map_err(|e| format!("Failed to initialize workspace: {:?}", e))?;
+    fs.init()
+        .map_err(|e| format!("Failed to initialize workspace: {:?}", e))?;
 
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| format!("Failed to load graph repository: {:?}", e))?;
 
     use domain::ports::GraphRepository;
-    let meta = graph_repo.load_meta()
+    let meta = graph_repo
+        .load_meta()
         .map_err(|e| format!("Failed to load workspace metadata: {:?}", e))?;
 
     let peer_id = meta.id.to_string();
     let device_name = meta.name.clone();
 
-    tracing::info!("Starting Kye headless server for workspace: {}", device_name);
+    tracing::info!(
+        "Starting Kye headless server for workspace: {}",
+        device_name
+    );
     tracing::info!("Workspace ID: {}", peer_id);
     tracing::info!("Workspace Path: {}", workspace_path.display());
 
@@ -151,7 +161,6 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
     let asset_repo = FileAssetRepository::new(fs);
 
     let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo));
-
 
     let _server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
         .map_err(|e| format!("Failed to start sync server: {}", e))?;

@@ -11,7 +11,8 @@ use infra::media::FileAssetRepository;
 
 use crate::dto::EventDto;
 
-pub type AppService = Arc<Service<InMemoryGraphRepository, FileKindRepository, TauriEventBus, FileAssetRepository>>;
+pub type AppService =
+    Arc<Service<InMemoryGraphRepository, FileKindRepository, TauriEventBus, FileAssetRepository>>;
 
 #[derive(Clone)]
 pub struct TauriEventBus {

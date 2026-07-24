@@ -1,11 +1,11 @@
+use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
-use chrono::Utc;
 
-use domain::ports::{AssetRepository, RepositoryError};
 use domain::AssetInfo;
+use domain::ports::{AssetRepository, RepositoryError};
 
 use crate::fs::WorkspaceFs;
 
@@ -26,11 +26,15 @@ impl FileAssetRepository {
             "svg" => "image/svg+xml".to_string(),
             "gif" => "image/gif".to_string(),
             "webp" => "image/webp".to_string(),
-            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string(),
+            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                .to_string(),
             "doc" => "application/msword".to_string(),
-            "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
+            "xlsx" => {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string()
+            }
             "xls" => "application/vnd.ms-excel".to_string(),
-            "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation".to_string(),
+            "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                .to_string(),
             "ppt" => "application/vnd.ms-powerpoint".to_string(),
             "txt" => "text/plain".to_string(),
             "md" => "text/markdown".to_string(),
@@ -44,7 +48,6 @@ impl FileAssetRepository {
 }
 
 impl AssetRepository for FileAssetRepository {
-
     fn import_media(&self, source_path: &str) -> Result<String, RepositoryError> {
         let asset_info = self.import_asset(source_path)?;
         Ok(asset_info.target_path)
@@ -83,7 +86,10 @@ impl AssetRepository for FileAssetRepository {
     fn import_asset(&self, source_path_str: &str) -> Result<AssetInfo, RepositoryError> {
         let source_path = Path::new(source_path_str);
         if !source_path.exists() {
-            return Err(RepositoryError::NotFound(format!("File not found: {:?}", source_path)));
+            return Err(RepositoryError::NotFound(format!(
+                "File not found: {:?}",
+                source_path
+            )));
         }
 
         let original_file_name = source_path
@@ -98,7 +104,10 @@ impl AssetRepository for FileAssetRepository {
 
         let target_file_path = self.fs.root.join(original_file_name);
         let final_target_name = if target_file_path.exists() && source_path != target_file_path {
-            let stem = source_path.file_stem().and_then(|s| s.to_str()).unwrap_or("file");
+            let stem = source_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("file");
             let uuid_short = &Uuid::new_v4().to_string()[..8];
             if ext.is_empty() {
                 format!("{}_{}", stem, uuid_short)
@@ -135,14 +144,16 @@ impl AssetRepository for FileAssetRepository {
                 Utc::now().to_rfc3339(),
                 final_target_name,
             );
-            fs::write(&sidecar_path, frontmatter)
-                .map_err(|e| RepositoryError::Io(format!("Failed to create sidecar note: {}", e)))?;
+            fs::write(&sidecar_path, frontmatter).map_err(|e| {
+                RepositoryError::Io(format!("Failed to create sidecar note: {}", e))
+            })?;
         }
 
-        Ok(AssetInfo::new(final_target_name, sidecar_name, mime_type, size_bytes)
-            .with_node_id(domain::NodeId::from_uuid(node_id)))
+        Ok(
+            AssetInfo::new(final_target_name, sidecar_name, mime_type, size_bytes)
+                .with_node_id(domain::NodeId::from_uuid(node_id)),
+        )
     }
-
 
     fn open_external(&self, target_path_str: &str) -> Result<(), RepositoryError> {
         let abs_path = if Path::new(target_path_str).is_absolute() {
@@ -152,7 +163,10 @@ impl AssetRepository for FileAssetRepository {
         };
 
         if !abs_path.exists() {
-            return Err(RepositoryError::NotFound(format!("File does not exist: {:?}", abs_path)));
+            return Err(RepositoryError::NotFound(format!(
+                "File does not exist: {:?}",
+                abs_path
+            )));
         }
 
         #[cfg(target_os = "linux")]
@@ -176,7 +190,9 @@ impl AssetRepository for FileAssetRepository {
             Command::new("cmd")
                 .args(["/C", "start", "", abs_path.to_str().unwrap_or_default()])
                 .spawn()
-                .map_err(|e| RepositoryError::Io(format!("Failed to launch start command: {}", e)))?;
+                .map_err(|e| {
+                    RepositoryError::Io(format!("Failed to launch start command: {}", e))
+                })?;
         }
 
         Ok(())
@@ -196,7 +212,9 @@ impl AssetRepository for FileAssetRepository {
             Command::new("xdg-open")
                 .arg(parent_dir)
                 .spawn()
-                .map_err(|e| RepositoryError::Io(format!("Failed to open directory in file manager: {}", e)))?;
+                .map_err(|e| {
+                    RepositoryError::Io(format!("Failed to open directory in file manager: {}", e))
+                })?;
         }
 
         #[cfg(target_os = "macos")]
@@ -214,7 +232,9 @@ impl AssetRepository for FileAssetRepository {
                 .arg("/select,")
                 .arg(&abs_path)
                 .spawn()
-                .map_err(|e| RepositoryError::Io(format!("Failed to reveal file in explorer: {}", e)))?;
+                .map_err(|e| {
+                    RepositoryError::Io(format!("Failed to reveal file in explorer: {}", e))
+                })?;
         }
 
         Ok(())
