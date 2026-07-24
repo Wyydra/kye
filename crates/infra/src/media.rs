@@ -1,6 +1,6 @@
-use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use std::process::Command;
 use uuid::Uuid;
 
@@ -17,142 +17,109 @@ impl FileAssetRepository {
     pub fn new(fs: WorkspaceFs) -> Self {
         Self { fs }
     }
-
-    fn guess_mime_type(ext: &str) -> String {
-        match ext.to_lowercase().as_str() {
-            "pdf" => "application/pdf".to_string(),
-            "png" => "image/png".to_string(),
-            "jpg" | "jpeg" => "image/jpeg".to_string(),
-            "svg" => "image/svg+xml".to_string(),
-            "gif" => "image/gif".to_string(),
-            "webp" => "image/webp".to_string(),
-            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                .to_string(),
-            "doc" => "application/msword".to_string(),
-            "xlsx" => {
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string()
-            }
-            "xls" => "application/vnd.ms-excel".to_string(),
-            "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                .to_string(),
-            "ppt" => "application/vnd.ms-powerpoint".to_string(),
-            "txt" => "text/plain".to_string(),
-            "md" => "text/markdown".to_string(),
-            "zip" => "application/zip".to_string(),
-            "json" => "application/json".to_string(),
-            "mp3" => "audio/mpeg".to_string(),
-            "mp4" => "video/mp4".to_string(),
-            _ => "application/octet-stream".to_string(),
-        }
-    }
 }
 
 impl AssetRepository for FileAssetRepository {
-    fn import_media(&self, source_path: &str) -> Result<String, RepositoryError> {
-        let asset_info = self.import_asset(source_path)?;
-        Ok(asset_info.target_path)
+    fn import_media(&self, source_path_str: &str) -> Result<String, RepositoryError> {
+        let source_path = Path::new(source_path_str);
+        if !source_path.exists() {
+            return Err(RepositoryError::NotFound(format!(
+                "Source file not found: {}",
+                source_path_str
+            )));
+        }
+
+        let extension = source_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("bin");
+
+        let data = fs::read(source_path).map_err(|e| {
+            RepositoryError::Io(format!("Failed to read source media file: {}", e))
+        })?;
+
+        self.save_media(&data, extension)
     }
 
     fn save_media(&self, data: &[u8], extension: &str) -> Result<String, RepositoryError> {
-        let file_name = format!("{}.{}", Uuid::new_v4(), extension);
-        let target_path = self.fs.root.join(&file_name);
+        let file_id = Uuid::new_v4().to_string();
+        let file_name = format!("{}.{}", file_id, extension);
+        let rel_path = format!("media/{}", file_name);
+        let abs_path = self.fs.root.join(&rel_path);
 
-        fs::write(&target_path, data)
-            .map_err(|e| RepositoryError::Io(format!("Failed to save media bytes: {}", e)))?;
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                RepositoryError::Io(format!("Failed to create media directory: {}", e))
+            })?;
+        }
 
-        let sidecar_filename = format!("{}.md", file_name);
-        let sidecar_path = self.fs.root.join(&sidecar_filename);
+        fs::write(&abs_path, data).map_err(|e| {
+            RepositoryError::Io(format!("Failed to write media file: {}", e))
+        })?;
 
-        let node_id = Uuid::new_v4();
-        let mime_type = Self::guess_mime_type(extension);
-        let size_bytes = data.len() as u64;
-
-        let yaml_frontmatter = format!(
-            "---\nid: {}\nkind: file\ntarget: {}\nmime_type: {}\nsize_bytes: {}\ncreated_at: {}\nupdated_at: {}\n---\n",
-            node_id,
-            file_name,
-            mime_type,
-            size_bytes,
-            Utc::now().to_rfc3339(),
-            Utc::now().to_rfc3339(),
-        );
-
-        fs::write(&sidecar_path, yaml_frontmatter)
-            .map_err(|e| RepositoryError::Io(format!("Failed to write sidecar file: {}", e)))?;
-
-        Ok(file_name)
+        Ok(rel_path)
     }
 
     fn import_asset(&self, source_path_str: &str) -> Result<AssetInfo, RepositoryError> {
         let source_path = Path::new(source_path_str);
         if !source_path.exists() {
             return Err(RepositoryError::NotFound(format!(
-                "File not found: {:?}",
-                source_path
+                "Asset file not found: {}",
+                source_path_str
             )));
         }
 
-        let original_file_name = source_path
+        let filename = source_path
             .file_name()
             .and_then(|n| n.to_str())
-            .unwrap_or("file.bin");
+            .ok_or_else(|| RepositoryError::Corrupted("Invalid asset filename".into()))?;
 
         let ext = source_path
             .extension()
             .and_then(|e| e.to_str())
-            .unwrap_or("");
+            .unwrap_or("")
+            .to_lowercase();
 
-        let target_file_path = self.fs.root.join(original_file_name);
-        let final_target_name = if target_file_path.exists() && source_path != target_file_path {
-            let stem = source_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("file");
-            let uuid_short = &Uuid::new_v4().to_string()[..8];
-            if ext.is_empty() {
-                format!("{}_{}", stem, uuid_short)
-            } else {
-                format!("{}_{}.{}", stem, uuid_short, ext)
-            }
-        } else {
-            original_file_name.to_string()
-        };
+        let asset_id = Uuid::new_v4().to_string();
+        let target_filename = format!("{}_{}", asset_id, filename);
+        let rel_path = format!("assets/{}", target_filename);
+        let abs_path = self.fs.root.join(&rel_path);
 
-        let target_path = self.fs.root.join(&final_target_name);
-        if source_path != target_path {
-            fs::copy(source_path, &target_path)
-                .map_err(|e| RepositoryError::Io(format!("Failed to copy asset file: {}", e)))?;
-        }
-
-        let sidecar_name = format!("{}.md", final_target_name);
-        let sidecar_path = self.fs.root.join(&sidecar_name);
-
-        let metadata = fs::metadata(&target_path)
-            .map_err(|e| RepositoryError::Io(format!("Failed to read asset metadata: {}", e)))?;
-        let size_bytes = metadata.len();
-        let mime_type = Self::guess_mime_type(ext);
-        let node_id = Uuid::new_v4();
-
-        if !sidecar_path.exists() {
-            let frontmatter = format!(
-                "---\nid: {}\nkind: file\ntarget: {}\nmime_type: {}\nsize_bytes: {}\ncreated_at: {}\nupdated_at: {}\n---\n# {}\n\n",
-                node_id,
-                final_target_name,
-                mime_type,
-                size_bytes,
-                Utc::now().to_rfc3339(),
-                Utc::now().to_rfc3339(),
-                final_target_name,
-            );
-            fs::write(&sidecar_path, frontmatter).map_err(|e| {
-                RepositoryError::Io(format!("Failed to create sidecar note: {}", e))
+        if let Some(parent) = abs_path.parent() {
+            fs::create_dir_all(parent).map_err(|e| {
+                RepositoryError::Io(format!("Failed to create assets directory: {}", e))
             })?;
         }
 
-        Ok(
-            AssetInfo::new(final_target_name, sidecar_name, mime_type, size_bytes)
-                .with_node_id(domain::NodeId::from_uuid(node_id)),
-        )
+        fs::copy(source_path, &abs_path).map_err(|e| {
+            RepositoryError::Io(format!("Failed to copy asset file: {}", e))
+        })?;
+
+        let mime_type = match ext.as_str() {
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "webp" => "image/webp",
+            "svg" => "image/svg+xml",
+            "pdf" => "application/pdf",
+            "mp4" => "video/mp4",
+            "mp3" => "audio/mpeg",
+            "json" => "application/json",
+            "txt" | "md" => "text/plain",
+            _ => "application/octet-stream",
+        }
+        .to_string();
+
+        let meta = fs::metadata(&abs_path)
+            .map_err(|e| RepositoryError::Io(format!("Failed to read asset metadata: {}", e)))?;
+
+        let size_bytes = meta.len();
+
+        Ok(AssetInfo::new(
+            rel_path.clone(),
+            format!("{}.meta", rel_path),
+            mime_type,
+            size_bytes,
+        ))
     }
 
     fn open_external(&self, target_path_str: &str) -> Result<(), RepositoryError> {
@@ -164,8 +131,8 @@ impl AssetRepository for FileAssetRepository {
 
         if !abs_path.exists() {
             return Err(RepositoryError::NotFound(format!(
-                "File does not exist: {:?}",
-                abs_path
+                "Target file for external open does not exist: {}",
+                abs_path.display()
             )));
         }
 
@@ -174,7 +141,7 @@ impl AssetRepository for FileAssetRepository {
             Command::new("xdg-open")
                 .arg(&abs_path)
                 .spawn()
-                .map_err(|e| RepositoryError::Io(format!("Failed to launch xdg-open: {}", e)))?;
+                .map_err(|e| RepositoryError::Io(format!("Failed to open file: {}", e)))?;
         }
 
         #[cfg(target_os = "macos")]
@@ -182,17 +149,15 @@ impl AssetRepository for FileAssetRepository {
             Command::new("open")
                 .arg(&abs_path)
                 .spawn()
-                .map_err(|e| RepositoryError::Io(format!("Failed to launch open: {}", e)))?;
+                .map_err(|e| RepositoryError::Io(format!("Failed to open file: {}", e)))?;
         }
 
         #[cfg(target_os = "windows")]
         {
             Command::new("cmd")
-                .args(["/C", "start", "", abs_path.to_str().unwrap_or_default()])
+                .args(["/C", "start", "", &abs_path.to_string_lossy()])
                 .spawn()
-                .map_err(|e| {
-                    RepositoryError::Io(format!("Failed to launch start command: {}", e))
-                })?;
+                .map_err(|e| RepositoryError::Io(format!("Failed to open file: {}", e)))?;
         }
 
         Ok(())
@@ -205,12 +170,12 @@ impl AssetRepository for FileAssetRepository {
             self.fs.root.join(target_path_str)
         };
 
-        let parent_dir = abs_path.parent().unwrap_or(&self.fs.root);
+        let _parent_dir = abs_path.parent().unwrap_or(&self.fs.root);
 
         #[cfg(target_os = "linux")]
         {
             Command::new("xdg-open")
-                .arg(parent_dir)
+                .arg(_parent_dir)
                 .spawn()
                 .map_err(|e| {
                     RepositoryError::Io(format!("Failed to open directory in file manager: {}", e))

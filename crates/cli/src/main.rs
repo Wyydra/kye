@@ -11,7 +11,7 @@ use infra::media::FileAssetRepository;
 use infra::sync::P2pServer;
 
 #[derive(Parser, Debug)]
-#[command(name = "kye")]
+#[command(name = "kye-cli")]
 #[command(about = "Kye Headless CLI & P2P Sync Node", long_about = None)]
 struct Cli {
     #[command(subcommand)]

@@ -5,7 +5,7 @@ edition = "2024"
 description = "Headless CLI and P2P Sync Server for Kye"
 
 [[bin]]
-name = "kye"
+name = "kye-cli"
 path = "src/main.rs"
 
 [dependencies]
