@@ -29,9 +29,12 @@ android-init:
 android-dev:
     cd crates/gui && bunx tauri android dev
 
-# Build Android APK for production
+# Build and run/install Android app in production mode
+android-run:
+    cd crates/gui && bunx tauri android run
+
 android-build:
-    cd crates/gui && bunx tauri android build --apk
+    cd crates/gui && bunx tauri android build
 
 # Watch cargo build
 build-watch:
