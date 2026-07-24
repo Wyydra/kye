@@ -1,12 +1,12 @@
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
 
-
-use crate::asset::AssetInfo;
-use crate::command::Event;
-use crate::graph::Graph;
-use crate::primitives::Kind;
-use crate::schema::KindDef;
-use crate::workspace::WorkspaceMeta;
-
+use crate::model::asset::AssetInfo;
+use crate::services::command::Event;
+use crate::model::graph::Graph;
+use crate::model::primitives::{Kind, NodeId};
+use crate::model::schema::KindDef;
+use crate::model::workspace::WorkspaceMeta;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RepositoryError {
@@ -28,21 +28,13 @@ pub trait GraphRepository: Send + Sync + 'static {
 
     fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError>;
 
-    fn load_tombstones(&self) -> Result<std::collections::HashMap<crate::primitives::NodeId, chrono::DateTime<chrono::Utc>>, RepositoryError>;
+    fn load_tombstones(&self) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError>;
 }
 
 pub trait KindRepository: Send + Sync + 'static {
     fn load_kinds(&self) -> Result<Vec<(Kind, KindDef)>, RepositoryError>;
     fn save_kind(&self, kind: &Kind, def: &KindDef) -> Result<(), RepositoryError>;
     fn delete_kind(&self, kind: &Kind) -> Result<(), RepositoryError>;
-}
-
-pub trait EventBus: Send + Sync + 'static {
-    fn publish(&self, event: &Event);
-}
-
-impl EventBus for () {
-    fn publish(&self, _event: &Event) {}
 }
 
 pub trait AssetRepository: Send + Sync + 'static {
@@ -53,5 +45,3 @@ pub trait AssetRepository: Send + Sync + 'static {
     fn open_external(&self, target_path: &str) -> Result<(), RepositoryError>;
     fn reveal_in_explorer(&self, target_path: &str) -> Result<(), RepositoryError>;
 }
-
-

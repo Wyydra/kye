@@ -1,24 +1,51 @@
 default:
     @just --list
+
+# Launch desktop GUI in dev mode
 gui-dev:
-    RUST_LOG=debug cargo tauri dev
+    cd crates/gui && bun run tauri dev
+
+# Build desktop GUI production package
 gui-build:
-    cargo tauri build
+    cd crates/gui && bun run tauri build
+
+# Run Android app in dev mode (on connected device or emulator)
+android-dev:
+    cd crates/gui && bunx tauri android dev
+
+# Build Android APK for production
+android-build:
+    cd crates/gui && bunx tauri android build
+
+# Watch cargo build
 build-watch:
-  RUST_LOG=debug cargo watch -x build
+    RUST_LOG=debug cargo watch -x build
+
+# Watch cargo check
 check-watch:
-  RUST_LOG=debug cargo watch -x check
+    RUST_LOG=debug cargo watch -x check
+
+# Format Rust & Frontend code
 fmt:
-    cargo fmt -p domain -p infra -p cli -p gui
-    cd frontend && bunx eslint . --fix
+    cargo fmt --all
+    cd crates/gui && bun run build
+
+# Run linters across workspace
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
-    cd frontend && bun run lint
+    cd crates/gui && bun run build
+
+# Run all unit tests across workspace
 test:
     cargo test --workspace
+    cd crates/gui && bunx tsc --noEmit
+
+# Clean build artifacts
 clean:
     cargo clean
-    rm -rf frontend/node_modules
-    rm -rf frontend/dist
+    rm -rf crates/gui/node_modules
+    rm -rf crates/gui/dist
+
+# Install node dependencies with bun
 install:
-    cd frontend && bun install
+    cd crates/gui && bun install
