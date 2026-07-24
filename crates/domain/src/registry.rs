@@ -72,7 +72,7 @@ impl KindRegistry {
                                     }
                                 }
                                 if let Constraint::MaxChildren(max) = c {
-                                    if parent.children.len() >= *max {
+                                    if graph.children_of(*pid).count() >= *max {
                                         errors.push(ValidationError::ConstraintViolation(
                                             format!("{} has reached max children ({})", parent.kind, max)
                                         ));
@@ -162,14 +162,7 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "file".into() }))
         );
 
-        registry.register(kinds::asset(), KindDef::new("Asset", props::title())
-            .with_icon("📎")
-            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional().with_label("Filename"))
-            .with_view(ViewDef::new(Layout::Widget { name: "asset".into() }))
-        );
-
-
+        /* TODO: Implement Later - Unhandled GUI Widgets
 
         registry.register(kinds::code_block(), KindDef::new("Code Block", props::body())
             .with_icon("</> ")
@@ -199,6 +192,7 @@ impl CoreLibrary {
             .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
             .with_view(ViewDef::new(Layout::Widget { name: "embed".into() }))
         );
+        */
 
         registry.register(kinds::flashcard(), KindDef::new("Flashcard", props::front())
             .with_icon("🗂")
@@ -207,6 +201,7 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "flashcard".into() }))
         );
 
+        /* TODO: Implement Later - Form Kinds
         registry.register(kinds::form(), KindDef::new("Form", props::title())
             .with_icon("📋")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
@@ -219,7 +214,9 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Widget { name: "form_field".into() }))
             .with_constraint(Constraint::AllowedParentKinds(vec![kinds::form()]))
         );
+        */
 
+        /* TODO: Implement Later - Database & Dynamic Views
         registry.register(kinds::database(), KindDef::new("Database", props::title())
             .with_icon("🗃")
             .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
@@ -244,6 +241,7 @@ impl CoreLibrary {
             .with_prop(PropKey::from("limit"), PropDef::new(ValueType::Int).optional().with_label("Limit"))
             .with_view(ViewDef::new(Layout::Table))
         );
+        */
 
         registry.register(kinds::canvas(), KindDef::new("Canvas", props::title())
             .with_icon("🎨")
@@ -251,16 +249,11 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Canvas))
         );
 
-        registry.register(kinds::frame(), KindDef::new("Frame", props::title())
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_view(ViewDef::new(Layout::Widget { name: "frame".into() }))
-            .with_constraint(Constraint::AllowedParentKinds(vec![kinds::canvas()]))
-        );
-
         registry.register(kinds::connection(), KindDef::new("Connection", props::from())
             .with_icon("→")
             .with_prop(props::from(), PropDef::new(ValueType::Ref).with_label("From"))
             .with_prop(props::to(), PropDef::new(ValueType::Ref).with_label("To"))
+            .with_prop(PropKey::from("routing"), PropDef::new(ValueType::Text).optional().with_label("Routing"))
             .with_view(ViewDef::new(Layout::Widget { name: "connection".into() }))
         );
 
@@ -270,6 +263,7 @@ impl CoreLibrary {
             .with_view(ViewDef::new(Layout::Stack { direction: Direction::Vertical }))
         );
 
+        /* TODO: Implement Later - MBSE Domain Extensions
         registry.register(kinds::state(), KindDef::new("State", props::title())
             .with_icon("⬡")
             .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
@@ -307,6 +301,7 @@ impl CoreLibrary {
             .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
             .with_view(ViewDef::new(Layout::Widget { name: "mbse_interface".into() }))
         );
+        */
     }
 }
 
@@ -320,18 +315,14 @@ mod tests {
         CoreLibrary::init(&mut registry);
 
         assert!(registry.contains(&kinds::page()));
+        assert!(registry.contains(&kinds::paragraph()));
+        assert!(registry.contains(&kinds::heading()));
         assert!(registry.contains(&kinds::task()));
+        assert!(registry.contains(&kinds::image()));
+        assert!(registry.contains(&kinds::file()));
         assert!(registry.contains(&kinds::flashcard()));
-
-        assert!(registry.contains(&kinds::database()));
-        assert!(registry.contains(&kinds::row()));
-        assert!(registry.contains(&kinds::column()));
-
         assert!(registry.contains(&kinds::canvas()));
         assert!(registry.contains(&kinds::connection()));
-
-        assert!(registry.contains(&kinds::state()));
-        assert!(registry.contains(&kinds::transition()));
-        assert!(registry.contains(&kinds::requirement()));
+        assert!(registry.contains(&kinds::inbox()));
     }
 }

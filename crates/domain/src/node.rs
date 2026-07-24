@@ -10,10 +10,6 @@ use crate::view::ViewDef;
 pub struct Node {
     pub id: NodeId,
     pub kind: Kind,
-
-    pub parent: Option<NodeId>,
-
-    pub children: Vec<NodeId>,
     pub props: Props,
 
     pub view_override: Option<ViewDef>,
@@ -51,7 +47,6 @@ impl Node {
 pub struct NodeBuilder {
     id: NodeId,
     kind: Kind,
-    parent: Option<NodeId>,
     props: Props,
     view_override: Option<ViewDef>,
     now: DateTime<Utc>,
@@ -62,7 +57,6 @@ impl NodeBuilder {
         Self {
             id: NodeId::new(),
             kind: kind.into(),
-            parent: None,
             props: Props::new(),
             view_override: None,
             now,
@@ -71,11 +65,6 @@ impl NodeBuilder {
 
     pub fn with_id(mut self, id: NodeId) -> Self {
         self.id = id;
-        self
-    }
-
-    pub fn with_parent(mut self, parent: NodeId) -> Self {
-        self.parent = Some(parent);
         self
     }
 
@@ -98,8 +87,6 @@ impl NodeBuilder {
         Node {
             id: self.id,
             kind: self.kind,
-            parent: self.parent,
-            children: Vec::new(),
             props: self.props,
             view_override: self.view_override,
             created_at: self.now,

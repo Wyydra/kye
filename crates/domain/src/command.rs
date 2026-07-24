@@ -86,6 +86,7 @@ pub enum Command {
 pub enum Event {
     NodeCreated {
         node: Node,
+        parent_id: Option<NodeId>,
         index: usize,
     },
     NodeDeleted {
@@ -140,12 +141,12 @@ impl Event {
             Event::NodeCreated { node, .. } => vec![
                 Command::DeleteNode { id: node.id, cascade: true }
             ],
-            Event::NodeDeleted { nodes, old_parent: _, old_index } => {
+            Event::NodeDeleted { nodes, old_parent, old_index } => {
 
                 nodes.iter().rev().map(|n| Command::CreateNode {
                     id: n.id,
                     kind: n.kind.clone(),
-                    parent_id: n.parent,
+                    parent_id: *old_parent,
                     index: if n.id == nodes[0].id { *old_index } else { 0 },
                     props: n.props.clone(),
                 }).collect()
@@ -237,19 +238,18 @@ pub fn apply(
                 return Err(CommandError::Validation(errs));
             }
 
-            let mut node = NodeBuilder::new(kind, now)
+            let node = NodeBuilder::new(kind, now)
                 .with_id(id)
                 .with_props(props)
                 .build();
 
             if let Some(pid) = parent_id {
-                node.parent = Some(pid);
                 graph.insert_child(node.clone(), pid, index)?;
             } else {
                 graph.insert_root(node.clone())?;
             }
 
-            Ok(Event::NodeCreated { node, index })
+            Ok(Event::NodeCreated { node, parent_id, index })
         }
 
         Command::DeleteNode { id, cascade: _ } => {
@@ -258,7 +258,7 @@ pub fn apply(
                 return Err(CommandError::Graph(GraphError::NotFound(id)));
             }
 
-            let old_parent = graph.get(id).unwrap().parent;
+            let old_parent = graph.parent_of(id);
             let old_index = find_child_index(graph, id, old_parent);
 
             let nodes = graph.remove_subtree(id)?;
@@ -285,7 +285,7 @@ pub fn apply(
                 return Err(CommandError::Validation(errs));
             }
 
-            let old_parent = graph.get(node_id).unwrap().parent;
+            let old_parent = graph.parent_of(node_id);
             let old_index = find_child_index(graph, node_id, old_parent);
 
             graph.move_node(node_id, new_parent_id, new_index)?;
@@ -362,8 +362,8 @@ pub fn apply(
 
 fn find_child_index(graph: &Graph, node_id: NodeId, parent: Option<NodeId>) -> usize {
     match parent {
-        Some(pid) => graph.get(pid)
-            .and_then(|p| p.children.iter().position(|&c| c == node_id))
+        Some(pid) => graph.children_of(pid)
+            .position(|c| c.id == node_id)
             .unwrap_or(0),
         None => graph.roots()
             .iter()
@@ -420,8 +420,8 @@ mod tests {
             props: Props::new(),
         }, fixed_now()).unwrap();
 
-        assert!(graph.get(parent_id).unwrap().children.contains(&child_id));
-        assert_eq!(graph.get(child_id).unwrap().parent, Some(parent_id));
+        assert!(graph.children_of(parent_id).any(|c| c.id == child_id));
+        assert_eq!(graph.parent_of(child_id), Some(parent_id));
     }
 
     #[test]

@@ -23,9 +23,9 @@ pub enum GraphError {
 #[derive(Debug, Clone, Default)]
 pub struct Graph {
     nodes: HashMap<NodeId, Node>,
-
     roots: Vec<NodeId>,
-
+    parent_children: HashMap<NodeId, Vec<NodeId>>,
+    node_parent: HashMap<NodeId, NodeId>,
     backlinks: HashMap<NodeId, BTreeSet<NodeId>>,
 }
 
@@ -63,16 +63,17 @@ impl Graph {
     }
 
     pub fn children_of(&self, id: NodeId) -> impl Iterator<Item = &Node> {
-        self.nodes
-            .get(&id)
-            .map(|n| n.children.as_slice())
-            .unwrap_or(&[])
-            .iter()
-            .filter_map(|cid| self.nodes.get(cid))
+        let empty: &[NodeId] = &[];
+        let children = self.parent_children.get(&id).map(|v| v.as_slice()).unwrap_or(empty);
+        children.iter().filter_map(|cid| self.nodes.get(cid))
+    }
+
+    pub fn parent_of(&self, id: NodeId) -> Option<NodeId> {
+        self.node_parent.get(&id).copied()
     }
 
     pub fn ancestors_of(&self, id: NodeId) -> impl Iterator<Item = &Node> + '_ {
-        AncestorIter { graph: self, current: self.nodes.get(&id).and_then(|n| n.parent) }
+        AncestorIter { graph: self, current: self.parent_of(id) }
     }
 
     pub fn subtree_of(&self, id: NodeId) -> Vec<NodeId> {
@@ -83,8 +84,8 @@ impl Graph {
 
     fn collect_subtree(&self, id: NodeId, out: &mut Vec<NodeId>) {
         out.push(id);
-        if let Some(node) = self.nodes.get(&id) {
-            for &child in &node.children {
+        if let Some(children) = self.parent_children.get(&id) {
+            for &child in children {
                 self.collect_subtree(child, out);
             }
         }
@@ -127,17 +128,17 @@ impl Graph {
         if self.nodes.contains_key(&id) {
             return Err(GraphError::AlreadyExists(id));
         }
-        let _len = {
-            let parent = self.nodes.get_mut(&parent_id).ok_or(GraphError::NotFound(parent_id))?;
-            if index > parent.children.len() {
-                return Err(GraphError::IndexOutOfBounds { index, len: parent.children.len() });
-            }
-            parent.children.insert(index, id);
-            parent.children.len()
-        };
+        if !self.nodes.contains_key(&parent_id) {
+            return Err(GraphError::NotFound(parent_id));
+        }
+        let children = self.parent_children.entry(parent_id).or_default();
+        if index > children.len() {
+            return Err(GraphError::IndexOutOfBounds { index, len: children.len() });
+        }
+        children.insert(index, id);
+        self.node_parent.insert(id, parent_id);
         self.index_refs(&node);
         self.nodes.insert(id, node);
-        self.nodes.get_mut(&id).unwrap().parent = Some(parent_id);
         Ok(())
     }
 
@@ -155,11 +156,11 @@ impl Graph {
             }
         }
 
-        let old_parent = self.nodes[&node_id].parent;
+        let old_parent = self.node_parent.remove(&node_id);
         match old_parent {
             Some(pid) => {
-                if let Some(p) = self.nodes.get_mut(&pid) {
-                    p.children.retain(|&c| c != node_id);
+                if let Some(children) = self.parent_children.get_mut(&pid) {
+                    children.retain(|&c| c != node_id);
                 }
             }
             None => {
@@ -169,16 +170,15 @@ impl Graph {
 
         match new_parent {
             Some(pid) => {
-                let parent = self.nodes.get_mut(&pid).unwrap();
-                let len = parent.children.len();
+                let children = self.parent_children.entry(pid).or_default();
+                let len = children.len();
                 let idx = index.min(len);
-                parent.children.insert(idx, node_id);
-                self.nodes.get_mut(&node_id).unwrap().parent = Some(pid);
+                children.insert(idx, node_id);
+                self.node_parent.insert(node_id, pid);
             }
             None => {
                 let idx = index.min(self.roots.len());
                 self.roots.insert(idx, node_id);
-                self.nodes.get_mut(&node_id).unwrap().parent = None;
             }
         }
 
@@ -192,11 +192,11 @@ impl Graph {
 
         let ids = self.subtree_of(id);
 
-        let old_parent = self.nodes[&id].parent;
+        let old_parent = self.node_parent.remove(&id);
         match old_parent {
             Some(pid) => {
-                if let Some(p) = self.nodes.get_mut(&pid) {
-                    p.children.retain(|&c| c != id);
+                if let Some(children) = self.parent_children.get_mut(&pid) {
+                    children.retain(|&c| c != id);
                 }
             }
             None => {
@@ -206,6 +206,8 @@ impl Graph {
 
         let mut removed = Vec::with_capacity(ids.len());
         for nid in ids {
+            self.node_parent.remove(&nid);
+            self.parent_children.remove(&nid);
             if let Some(node) = self.nodes.remove(&nid) {
                 self.deindex_refs(&node);
                 removed.push(node);
@@ -304,7 +306,7 @@ impl<'a> Iterator for AncestorIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let id = self.current?;
         let node = self.graph.nodes.get(&id)?;
-        self.current = node.parent;
+        self.current = self.graph.parent_of(id);
         Some(node)
     }
 }

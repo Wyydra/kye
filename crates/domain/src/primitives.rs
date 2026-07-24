@@ -79,40 +79,70 @@ impl fmt::Display for PropKey {
 pub mod kinds {
     use super::Kind;
 
+    // --- 1. CORE DOCUMENTS / FIRST-CLASS GRAPH OBJECTS (Active) ---
+    /// Core Page: Autonomous document node containing block content.
     pub fn page() -> Kind { Kind::from("core.page") }
-    pub fn paragraph() -> Kind { Kind::from("core.paragraph") }
-    pub fn heading() -> Kind { Kind::from("core.heading") }
-    pub fn task() -> Kind { Kind::from("core.task") }
-    pub fn image() -> Kind { Kind::from("core.image") }
-    pub fn code_block() -> Kind { Kind::from("core.code_block") }
-    pub fn quote() -> Kind { Kind::from("core.quote") }
-    pub fn divider() -> Kind { Kind::from("core.divider") }
-    pub fn callout() -> Kind { Kind::from("core.callout") }
-    pub fn embed() -> Kind { Kind::from("core.embed") }
-    pub fn file() -> Kind { Kind::from("file") }
-    pub fn asset() -> Kind { Kind::from("asset") }
-
-
-    pub fn flashcard() -> Kind { Kind::from("core.flashcard") }
-    pub fn form() -> Kind { Kind::from("core.form") }
-    pub fn form_field() -> Kind { Kind::from("core.form_field") }
-
-    pub fn database() -> Kind { Kind::from("core.database") }
-    pub fn row() -> Kind { Kind::from("core.row") }
-    pub fn column() -> Kind { Kind::from("core.column") }
+    /// Core Query: Dynamic filter object returning matching nodes in graph.
     pub fn query() -> Kind { Kind::from("core.query") }
-
+    /// Core Canvas: Spatial 2D whiteboard object hosting graphical elements and shapes.
     pub fn canvas() -> Kind { Kind::from("core.canvas") }
-    pub fn frame() -> Kind { Kind::from("core.frame") }
-    pub fn connection() -> Kind { Kind::from("core.connection") }
-
+    /// Core Database: Structured database object holding typed rows & columns.
+    pub fn database() -> Kind { Kind::from("core.database") }
+    /// Core Inbox: Fast entry container for quick-captured items.
     pub fn inbox() -> Kind { Kind::from("core.inbox") }
 
+    // --- 2. INTERNAL CONTENT BLOCKS (Active) ---
+    /// Paragraph block text.
+    pub fn paragraph() -> Kind { Kind::from("core.paragraph") }
+    /// Heading block (h1..h6).
+    pub fn heading() -> Kind { Kind::from("core.heading") }
+    /// Checkable task / todo item.
+    pub fn task() -> Kind { Kind::from("core.task") }
+    /// Syntax-highlighted code block.
+    pub fn code_block() -> Kind { Kind::from("core.code_block") }
+    /// Quote block.
+    pub fn quote() -> Kind { Kind::from("core.quote") }
+    /// Horizontal divider line.
+    pub fn divider() -> Kind { Kind::from("core.divider") }
+    /// Highlighted callout box with icon.
+    pub fn callout() -> Kind { Kind::from("core.callout") }
+    /// Embedded image asset.
+    pub fn image() -> Kind { Kind::from("core.image") }
+    /// Embedded general file asset.
+    pub fn file() -> Kind { Kind::from("core.file") }
+    /// External web embed.
+    pub fn embed() -> Kind { Kind::from("core.embed") }
+    /// Flashcard block (Front / Back).
+    pub fn flashcard() -> Kind { Kind::from("core.flashcard") }
+
+    // --- 3. DATABASE & FORM ELEMENTS (Active) ---
+    /// Dynamic Form container.
+    pub fn form() -> Kind { Kind::from("core.form") }
+    /// Form field item.
+    pub fn form_field() -> Kind { Kind::from("core.form_field") }
+    /// Database record row.
+    pub fn row() -> Kind { Kind::from("core.row") }
+    /// Database property column.
+    pub fn column() -> Kind { Kind::from("core.column") }
+
+    // --- 4. CANVAS SPATIAL EXTENSIONS (WIP / Experimental) ---
+    /// Spatial framing box inside a canvas.
+    pub fn frame() -> Kind { Kind::from("core.frame") }
+    /// Spatial edge/line connection between canvas nodes.
+    pub fn connection() -> Kind { Kind::from("core.connection") }
+
+    // --- 5. MBSE / DOMAIN SPECIFIC EXTENSIONS (WIP / Experimental) ---
+    /// MBSE State machine element.
     pub fn state() -> Kind { Kind::from("mbse.state") }
+    /// MBSE Interface Port.
     pub fn port() -> Kind { Kind::from("mbse.port") }
+    /// MBSE State Transition.
     pub fn transition() -> Kind { Kind::from("mbse.transition") }
+    /// MBSE Component element.
     pub fn component() -> Kind { Kind::from("mbse.component") }
+    /// MBSE Requirement node.
     pub fn requirement() -> Kind { Kind::from("mbse.requirement") }
+    /// MBSE Interface definition.
     pub fn interface() -> Kind { Kind::from("mbse.interface") }
 }
 
