@@ -1,6 +1,6 @@
 import React from "react";
 import { LayoutProps } from "./types";
-import { BaseCanvas } from "./BaseCanvas";
+import { CanvasContainer } from "../../canvas/CanvasContainer";
 import { execute } from "../../../lib/commands";
 import { useGraphStore } from "../../../store/graphStore";
 import { kyeService } from "../../../services/kyeService";
@@ -8,8 +8,8 @@ import { useCanvasStore } from "../../../store/canvasStore";
 import { useFileDrop } from "../../../hooks/useFileDrop";
 
 export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }) => {
-  const roots = useGraphStore(state => state.roots);
-  
+  const roots = useGraphStore((state) => state.roots);
+
   const parentId = node ? node.id : null;
   const childrenIds = node ? node.children : roots;
 
@@ -36,7 +36,7 @@ export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }
 
     for (let i = 0; i < paths.length; i++) {
       const path = paths[i];
-      if (typeof path === 'string') {
+      if (typeof path === "string") {
         try {
           const relativeUrl = await kyeService.importMedia(path);
 
@@ -48,8 +48,8 @@ export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }
             index: childrenIds.length + i,
             props: {
               url: { t: "Text", v: relativeUrl },
-              x: { t: "Float", v: x + (i * 20) },
-              y: { t: "Float", v: y + (i * 20) },
+              x: { t: "Float", v: x + i * 20 },
+              y: { t: "Float", v: y + i * 20 },
             },
           });
         } catch (e) {
@@ -61,9 +61,9 @@ export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }
 
   return (
     <div ref={dropRef} className="w-full h-full">
-      <BaseCanvas 
-        childrenIds={childrenIds} 
-        depth={depth} 
+      <CanvasContainer
+        childrenIds={childrenIds}
+        depth={depth}
         onDoubleClick={handleDoubleClick}
       />
     </div>
