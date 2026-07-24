@@ -34,13 +34,28 @@ pub struct NodeDto {
     pub view_override: Option<ViewDefDto>,
 }
 
+impl NodeDto {
+    pub fn from_node_in_graph(node: &Node, graph: &Graph) -> Self {
+        Self {
+            id: node.id.to_string(),
+            kind: node.kind.as_str().to_string(),
+            parent: graph.parent_of(node.id).map(|id| id.to_string()),
+            children: graph.children_of(node.id).map(|c| c.id.to_string()).collect(),
+            props: node.props.iter().map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v))).collect(),
+            created_at: node.created_at.to_rfc3339(),
+            updated_at: node.updated_at.to_rfc3339(),
+            view_override: node.view_override.as_ref().map(ViewDefDto::from),
+        }
+    }
+}
+
 impl From<&Node> for NodeDto {
     fn from(node: &Node) -> Self {
         Self {
             id: node.id.to_string(),
             kind: node.kind.as_str().to_string(),
-            parent: node.parent.map(|id| id.to_string()),
-            children: node.children.iter().map(|id| id.to_string()).collect(),
+            parent: None,
+            children: Vec::new(),
             props: node.props.iter().map(|(k, v)| (k.as_str().to_string(), ValueDto::from(v))).collect(),
             created_at: node.created_at.to_rfc3339(),
             updated_at: node.updated_at.to_rfc3339(),
@@ -52,7 +67,7 @@ impl From<&Node> for NodeDto {
 impl From<&Graph> for GraphDto {
     fn from(graph: &Graph) -> Self {
         Self {
-            nodes: graph.iter().map(|n| (n.id.to_string(), NodeDto::from(n))).collect(),
+            nodes: graph.iter().map(|n| (n.id.to_string(), NodeDto::from_node_in_graph(n, graph))).collect(),
             roots: graph.roots().iter().map(|id| id.to_string()).collect(),
         }
     }
@@ -387,7 +402,7 @@ impl From<CommandDto> for Command {
 #[derive(Serialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EventDto {
-    NodeCreated { node: NodeDto, index: usize },
+    NodeCreated { node: NodeDto, parent_id: Option<String>, index: usize },
     NodeDeleted { nodes: Vec<NodeDto>, old_parent: Option<String>, old_index: usize },
     NodeMoved { node_id: String, old_parent: Option<String>, old_index: usize, new_parent: Option<String>, new_index: usize },
     PropSet { node_id: String, key: String, new_value: ValueDto, old_value: Option<ValueDto> },
@@ -401,7 +416,15 @@ pub enum EventDto {
 impl From<&Event> for EventDto {
     fn from(event: &Event) -> Self {
         match event {
-            Event::NodeCreated { node, index } => EventDto::NodeCreated { node: NodeDto::from(node), index: *index },
+            Event::NodeCreated { node, parent_id, index } => {
+                let mut node_dto = NodeDto::from(node);
+                node_dto.parent = parent_id.map(|id| id.to_string());
+                EventDto::NodeCreated {
+                    node: node_dto,
+                    parent_id: parent_id.map(|id| id.to_string()),
+                    index: *index,
+                }
+            }
             Event::NodeDeleted { nodes, old_parent, old_index } => EventDto::NodeDeleted {
                 nodes: nodes.iter().map(NodeDto::from).collect(),
                 old_parent: old_parent.map(|id| id.to_string()),

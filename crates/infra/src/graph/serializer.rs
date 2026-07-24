@@ -277,8 +277,8 @@ fn json_to_layout(j: LayoutJson) -> Layout {
     }
 }
 
-fn is_document(node: &Node) -> bool {
-    node.parent.is_none() || matches!(node.kind.as_str(), "core.page" | "core.canvas" | "core.database")
+fn is_document(node: &Node, graph: &Graph) -> bool {
+    graph.parent_of(node.id).is_none() || matches!(node.kind.as_str(), "core.page" | "core.canvas" | "core.database")
 }
 
 fn sanitize_title(title: &str) -> String {
@@ -287,7 +287,7 @@ fn sanitize_title(title: &str) -> String {
 
 pub fn serialize_graph(fs: &WorkspaceFs, graph: &Graph, path_map: &std::sync::RwLock<HashMap<NodeId, PathBuf>>) -> Result<(), RepositoryError> {
     for node in graph.iter() {
-        if is_document(node) {
+        if is_document(node, graph) {
             serialize_document(fs, graph, node, path_map)?;
         }
     }
@@ -309,8 +309,8 @@ fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &s
     let frontmatter = Frontmatter {
         id: node.id.as_uuid(),
         kind: node.kind.as_str().to_string(),
-        parent: node.parent.map(|id| id.as_uuid()),
-        children: node.children.iter().map(|id| id.as_uuid()).collect(),
+        parent: graph.parent_of(node.id).map(|id| id.as_uuid()),
+        children: graph.children_of(node.id).map(|c| c.id.as_uuid()).collect(),
         created_at: node.created_at,
         updated_at: node.updated_at,
         view_override: node.view_override.as_ref().map(view_to_json),
@@ -330,11 +330,9 @@ fn serialize_document(fs: &WorkspaceFs, graph: &Graph, node: &Node, path_map: &s
     }
 
     if node.kind.as_str() == "core.page" {
-        for child_id in &node.children {
-            if let Some(child) = graph.get(*child_id) {
-                if !is_document(child) {
-                    serialize_block(&mut markdown, child);
-                }
+        for child in graph.children_of(node.id) {
+            if !is_document(child, graph) {
+                serialize_block(&mut markdown, child);
             }
         }
     } else {
@@ -410,19 +408,25 @@ fn serialize_block(out: &mut String, node: &Node) {
     out.push_str("\n\n");
 }
 
+struct ParsedNodeInfo {
+    node: Node,
+    parent: Option<NodeId>,
+    children: Vec<NodeId>,
+}
+
 pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, PathBuf>), RepositoryError> {
     let files = fs.list_node_files()?;
-    let mut all_nodes = HashMap::new();
+    let mut all_nodes: HashMap<NodeId, ParsedNodeInfo> = HashMap::new();
     let mut path_map = HashMap::new();
 
     for path in files {
         if let Ok(content) = fs.read_file(&path) {
             let parsed_nodes = parse_markdown_document(&content, &path);
             if let Some(root) = parsed_nodes.first() {
-                path_map.insert(root.id, path.clone());
+                path_map.insert(root.node.id, path.to_path_buf());
             }
-            for node in parsed_nodes {
-                all_nodes.insert(node.id, node);
+            for info in parsed_nodes {
+                all_nodes.insert(info.node.id, info);
             }
         }
     }
@@ -430,8 +434,8 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
     let mut graph = Graph::new();
     
     let roots: Vec<NodeId> = all_nodes.values()
-        .filter(|n| n.parent.is_none())
-        .map(|n| n.id)
+        .filter(|info| info.parent.is_none())
+        .map(|info| info.node.id)
         .collect();
 
     let mut todo: std::collections::VecDeque<NodeId> = roots.into_iter().collect();
@@ -440,14 +444,14 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
     while let Some(id) = todo.pop_front() {
         if processed.contains(&id) { continue; }
 
-        if let Some(mut node) = all_nodes.remove(&id) {
-            let parent_id = node.parent;
-            let children_ids = node.children.clone();
-            node.children.clear();
+        if let Some(info) = all_nodes.remove(&id) {
+            let parent_id = info.parent;
+            let children_ids = info.children;
+            let node = info.node;
 
             if let Some(pid) = parent_id {
                 if graph.contains(pid) {
-                    let index = graph.get(pid).unwrap().children.len();
+                    let index = graph.children_of(pid).count();
                     graph.insert_child(node, pid, index)
                         .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 } else {
@@ -466,66 +470,49 @@ pub fn deserialize_graph(fs: &WorkspaceFs) -> Result<(Graph, HashMap<NodeId, Pat
 
     let remaining_ids: Vec<NodeId> = all_nodes.keys().cloned().collect();
     for id in remaining_ids {
-        if let Some(mut node) = all_nodes.remove(&id) {
-            node.children.clear();
-            let _ = graph.insert_root(node); 
+        if let Some(info) = all_nodes.remove(&id) {
+            let _ = graph.insert_root(info.node); 
         }
     }
 
     Ok((graph, path_map))
 }
 
-/// Split a Markdown body into top-level block strings.
-///
-/// Unlike `str::split("\n\n")`, this correctly handles fenced code blocks that
-/// contain blank lines internally. We use pulldown-cmark's offset iterator to
-/// detect top-level block boundaries and extract the corresponding raw text
-/// slices — preserving trailing HTML metadata comments (`<!-- id: … -->`).
-fn split_blocks(body: &str) -> Vec<String> {
-    use pulldown_cmark::{Event, Options, Parser};
+fn split_blocks(text: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut current = String::new();
 
-    let mut blocks: Vec<String> = Vec::new();
-    let mut depth: usize = 0;
-    let mut block_start: Option<usize> = None;
+    for line in text.lines() {
+        let is_heading = line.starts_with("# ") || line.starts_with("## ") || line.starts_with("### ")
+            || line.starts_with("#### ") || line.starts_with("##### ") || line.starts_with("###### ");
 
-    for (event, range) in Parser::new_ext(body, Options::empty()).into_offset_iter() {
-        match event {
-            Event::Start(_) => {
-                if depth == 0 {
-                    block_start = Some(range.start);
-                }
-                depth += 1;
-            }
-            Event::End(_) => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    if let Some(start) = block_start.take() {
-                        // The parsed range ends at the last significant character.
-                        // Scan forward to also include any trailing inline HTML comment
-                        // (`<!-- id: … -->`) that lives on the same line.
-                        let rest = &body[range.end..];
-                        let extra = rest
-                            .find('\n')
-                            .map(|n| n + 1) // include the newline itself
-                            .unwrap_or(rest.len());
-                        let raw = body[start..range.end + extra].trim().to_string();
-                        if !raw.is_empty() {
-                            blocks.push(raw);
-                        }
-                    }
-                }
-            }
-            _ => {}
+        let is_block_start = is_heading
+            || line.starts_with("- [ ] ") || line.starts_with("- [x] ")
+            || line.starts_with("> ") || line.starts_with("```")
+            || line.starts_with(":::") || line.starts_with("---")
+            || line.starts_with("iframe:") || line.starts_with("card:")
+            || line.starts_with("flashcard:");
+
+        if is_block_start && !current.trim().is_empty() {
+            blocks.push(current.trim().to_string());
+            current.clear();
         }
+
+        current.push_str(line);
+        current.push('\n');
+    }
+
+    if !current.trim().is_empty() {
+        blocks.push(current.trim().to_string());
     }
 
     blocks
 }
 
-fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<Node> {
+fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedNodeInfo> {
     let mut nodes = Vec::new();
     let mut body_start = 0;
-    let mut parent_node = None;
+    let mut parent_info: Option<ParsedNodeInfo> = None;
     
     if content.starts_with("---\n") {
         if let Some(end_idx) = content[4..].find("\n---\n") {
@@ -543,20 +530,22 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<Node> {
                     .with_props(props)
                     .build();
                     
-                node.parent = front.parent.map(NodeId::from_uuid);
-                node.children = front.children.into_iter().map(NodeId::from_uuid).collect();
                 node.updated_at = front.updated_at;
                 node.view_override = front.view_override.map(json_to_view);
                 
-                parent_node = Some(node.clone());
+                parent_info = Some(ParsedNodeInfo {
+                    node,
+                    parent: front.parent.map(NodeId::from_uuid),
+                    children: front.children.into_iter().map(NodeId::from_uuid).collect(),
+                });
             }
         }
     }
     
     let body_text = if body_start < content.len() { &content[body_start..] } else { "" };
     
-    if let Some(mut parent) = parent_node {
-        if parent.kind.as_str() == "core.page" {
+    if let Some(mut parent) = parent_info {
+        if parent.node.kind.as_str() == "core.page" {
             let fallback_title = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled");
             
             if !body_text.trim().is_empty() {
@@ -567,13 +556,13 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<Node> {
                 if let Some(first) = blocks.peek() {
                     if first.starts_with("# ") && !first.contains("<!-- id:") {
                         let doc_title = first[2..].trim();
-                        parent.props.insert(PropKey::from("title"), Value::Text(Arc::from(doc_title)));
+                        parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(doc_title)));
                         blocks.next();
-                    } else if !parent.props.contains_key(&PropKey::from("title")) {
-                        parent.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                    } else if !parent.node.props.contains_key(&PropKey::from("title")) {
+                        parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
                     }
-                } else if !parent.props.contains_key(&PropKey::from("title")) {
-                    parent.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+                } else if !parent.node.props.contains_key(&PropKey::from("title")) {
+                    parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
                 }
 
                 for raw_block in blocks {
@@ -583,9 +572,6 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<Node> {
                     let parsed = md_block::ParsedBlock::parse(raw_block);
                     let formatter = REGISTRY.get_by_text(&parsed.markdown_text);
 
-                    // Merge native props (from Markdown syntax) with hidden props
-                    // (from the HTML comment), giving priority to hidden props so
-                    // that manually added metadata survives round-trips.
                     let mut props = formatter.extract(&parsed.markdown_text);
                     for (k, v) in parsed.hidden_props {
                         props.insert(PropKey::from(k.as_str()), yaml_to_value(v));
@@ -594,28 +580,31 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<Node> {
                     use domain::node::NodeBuilder;
                     let child = NodeBuilder::new(formatter.kind(), Utc::now())
                         .with_id(parsed.node_id)
-                        .with_parent(parent.id)
                         .with_props(props)
                         .build();
 
                     parsed_children.push(child.id);
-                    nodes.push(child);
+                    nodes.push(ParsedNodeInfo {
+                        node: child,
+                        parent: Some(parent.node.id),
+                        children: Vec::new(),
+                    });
                 }
                 
                 parent.children = parsed_children;
-            } else if !parent.props.contains_key(&PropKey::from("title")) {
-                parent.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+            } else if !parent.node.props.contains_key(&PropKey::from("title")) {
+                parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
             }
         } else {
             let fallback_title = path.file_stem().and_then(|s| s.to_str()).unwrap_or("Untitled");
-            if !parent.props.contains_key(&PropKey::from("title")) {
-                parent.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
+            if !parent.node.props.contains_key(&PropKey::from("title")) {
+                parent.node.props.insert(PropKey::from("title"), Value::Text(Arc::from(fallback_title)));
             }
             if !body_text.trim().is_empty() {
-                let formatter = REGISTRY.get_by_kind(parent.kind.as_str());
+                let formatter = REGISTRY.get_by_kind(parent.node.kind.as_str());
                 let extracted = formatter.extract(body_text.trim());
                 for (k, v) in extracted {
-                    parent.props.insert(k, v);
+                    parent.node.props.insert(k, v);
                 }
             }
         }
@@ -631,11 +620,11 @@ pub fn serialize_event(fs: &WorkspaceFs, event: &Event, graph: &Graph, path_map:
 
     let mut collect_doc = |id: NodeId| {
         if let Some(node) = graph.get(id) {
-            if is_document(node) {
+            if is_document(node, graph) {
                 docs_to_save.insert(id);
-            } else if let Some(pid) = node.parent {
+            } else if let Some(pid) = graph.parent_of(node.id) {
                 if let Some(p) = graph.get(pid) {
-                    if is_document(p) {
+                    if is_document(p, graph) {
                         docs_to_save.insert(pid);
                     }
                 }

@@ -111,10 +111,10 @@ fn collect_deleted_node_ids(event: &Event, ids: &mut Vec<domain::primitives::Nod
 
 fn apply_event_to_graph(graph: &mut Graph, event: &Event) {
     match event {
-        Event::NodeCreated { node, index } => {
+        Event::NodeCreated { node, parent_id, index } => {
             let node = node.clone();
-            if let Some(pid) = node.parent {
-                let _ = graph.insert_child(node, pid, *index);
+            if let Some(pid) = parent_id {
+                let _ = graph.insert_child(node, *pid, *index);
             } else {
                 let _ = graph.insert_root(node);
             }
