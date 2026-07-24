@@ -1,10 +1,7 @@
 default:
     @just --list
 
-open-port:
-  nix-shell -p nixos-firewall-tool --command "sudo nixos-firewall-tool open tcp 1420"
-
-# Launch desktop GUI in dev mode
+# Launch desktop GUI in dev mode with bun
 gui-dev:
     cd crates/gui && bun run tauri dev
 
@@ -12,13 +9,29 @@ gui-dev:
 gui-build:
     cd crates/gui && bun run tauri build
 
+# Launch kye headless daemon server
+serve workspace="./demo" port="7272":
+    cargo run -p kye-cli -- serve --workspace {{workspace}} --port {{port}}
+
+# Display local P2P sync network info
+info:
+    cargo run -p kye-cli -- info
+
+# Build kye headless CLI binary
+cli-build:
+    cargo build -p kye-cli --release
+
+# Initialize Android project configuration
+android-init:
+    cd crates/gui && bunx tauri android init
+
 # Run Android app in dev mode (on connected device or emulator)
 android-dev:
     cd crates/gui && bunx tauri android dev
 
 # Build Android APK for production
 android-build:
-    cd crates/gui && bunx tauri android build
+    cd crates/gui && bunx tauri android build --apk
 
 # Watch cargo build
 build-watch:

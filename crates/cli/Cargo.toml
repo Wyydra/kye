@@ -1,0 +1,21 @@
+[package]
+name = "kye-cli"
+version = "0.1.0"
+edition = "2024"
+description = "Headless CLI and P2P Sync Server for Kye"
+
+[[bin]]
+name = "kye"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+tokio = { version = "1.43", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+domain = { path = "../domain" }
+infra = { path = "../infra" }
