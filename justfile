@@ -21,6 +21,23 @@ info:
 cli-build:
     cargo build -p kye-cli --release
 
+# Sync source code to remote server and build/run Docker container remotely
+deploy host="192.168.1.20" path="/home/wydra/kye":
+    @echo "📦 Syncing source code to {{host}}:{{path}}..."
+    rsync -avz --delete \
+      --exclude 'target' \
+      --exclude 'node_modules' \
+      --exclude 'crates/gui/node_modules' \
+      --exclude 'crates/gui/dist' \
+      --exclude '**/build/' \
+      --exclude '.gradle' \
+      --exclude '.git' \
+      --exclude '.direnv' \
+      ./ {{host}}:{{path}}/
+    @echo "🛠️ Building Docker image and starting container directly on {{host}}..."
+    ssh {{host}} "mkdir -p {{path}} && cd {{path}} && sudo docker compose up -d --build"
+    @echo "✅ Successfully synced and built on {{host}}!"
+
 # Initialize Android project configuration
 android-init:
     cd crates/gui && bunx tauri android init

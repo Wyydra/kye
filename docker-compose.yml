@@ -1,0 +1,14 @@
+services:
+  kye-headless:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kye-headless-server
+    restart: unless-stopped
+    ports:
+      - "7272:7272"
+    volumes:
+      - ./data:/workspace
+    environment:
+      - KYE_WORKSPACE=/workspace
+      - RUST_LOG=info
