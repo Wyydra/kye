@@ -3,11 +3,17 @@ import {
   Wifi, 
   WifiOff, 
   Camera, 
-  RefreshCw, 
   Trash2, 
   X, 
   Smartphone, 
-  Network
+  Network,
+  Zap,
+  ArrowUp,
+  ArrowDown,
+  Search,
+  MoreVertical,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { kyeService } from "../services/kyeService";
 import { useGraphStore } from "../store/graphStore";
@@ -30,6 +36,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [manualUrl, setManualUrl] = useState("");
+  const [activeMenuPeerId, setActiveMenuPeerId] = useState<string | null>(null);
 
   // Patch review state
   const [isReviewing, setIsReviewing] = useState(false);
@@ -50,14 +57,12 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     handleScannedPairingUrl(url);
   });
 
-  // Set scanning error if any
   useEffect(() => {
     if (scannerError) {
       setErrorMessage(scannerError);
     }
   }, [scannerError]);
 
-  // Load remotes and server status on mount
   useEffect(() => {
     kyeService.getMeta().then((meta) => {
       if (meta) {
@@ -66,7 +71,6 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }
     }).catch(console.error);
 
-    // Load remotes from WorkspaceMeta (Domain Service)
     kyeService.listRemotes().then((list) => {
       setRemotes(
         list.map((r) => ({
@@ -114,7 +118,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }
       setErrorMessage(null);
     } catch (e: any) {
-      setErrorMessage(`Server error: ${e.toString()}`);
+      setErrorMessage(`Erreur serveur : ${e.toString()}`);
     }
   };
 
@@ -134,17 +138,16 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         name = urlObj.searchParams.get("name") || `peer-${Math.floor(Math.random() * 1000)}`;
         baseRemoteUrl = `${urlObj.protocol}//${urlObj.host}`;
       } else {
-        throw new Error("Invalid pairing format. Paste the full pairing URL (kye-remote://... or http://...)");
+        throw new Error("Format d'URL invalide. Utilisez un lien kye-remote:// ou http://");
       }
 
-      // Sanitize remote name for domain validation
       const sanitizedName = name.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase().slice(0, 32);
 
       await kyeService.addRemote(sanitizedName, baseRemoteUrl);
       await refreshRemotes();
-      setStatusMessage(`Successfully paired with "${sanitizedName}"!`);
+      setStatusMessage(`Appairage réussi avec "${sanitizedName}" !`);
     } catch (e: any) {
-      setErrorMessage(`Pairing failed: ${e.message || e}`);
+      setErrorMessage(`Échec de l'appairage : ${e.message || e}`);
     }
   };
 
@@ -152,37 +155,74 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     try {
       await kyeService.removeRemote(name);
       await refreshRemotes();
+      setActiveMenuPeerId(null);
     } catch (e: any) {
-      setErrorMessage(`Failed to remove remote: ${e.toString()}`);
+      setErrorMessage(`Échec de la suppression : ${e.toString()}`);
     }
   };
 
   const handlePingRemote = async (peer: RemotePeer) => {
     try {
-      setStatusMessage(`Pinging ${peer.name}...`);
+      setStatusMessage(`Test de connexion avec ${peer.name}...`);
       const info = await kyeService.pingRemotePeer(peer.url);
-      setStatusMessage(`Online! Connected to "${info.name}"`);
+      setStatusMessage(`En ligne ! Connecté à "${info.name}"`);
       setErrorMessage(null);
     } catch (e: any) {
-      setErrorMessage(`Ping failed: ${e.toString()}`);
+      setErrorMessage(`Connexion impossible : ${e.toString()}`);
+    } finally {
+      setActiveMenuPeerId(null);
     }
   };
 
-  const handleSyncRemote = async (peer: RemotePeer) => {
+  const handleAutoSyncRemote = async (peer: RemotePeer) => {
     setSyncingPeerId(peer.id);
-    setStatusMessage(`Initiating bidirectional sync with ${peer.name}...`);
+    setStatusMessage(`Synchronisation avec ${peer.name}...`);
+    setErrorMessage(null);
+
+    try {
+      const summary = await kyeService.syncWithRemotePeer(peer.url);
+
+      if (summary.hasConflicts) {
+        const diff = await kyeService.computeSyncDiff(peer.url);
+        setPendingChanges({
+          local: diff.local,
+          remote: diff.remote
+        });
+        setReviewPeer(peer);
+        setIsReviewing(true);
+        setStatusMessage("Des conflits structurels ont été détectés. Veuillez les vérifier.");
+        return;
+      }
+
+      await useGraphStore.getState().loadGraph();
+
+      const nowStr = new Date().toLocaleTimeString();
+      setRemotes(remotes.map(r => r.id === peer.id ? { ...r, lastSync: nowStr } : r));
+
+      if (summary.appliedLocal === 0 && summary.pushedRemote === 0) {
+        setStatusMessage(`✅ ${peer.name} est déjà à jour !`);
+      } else {
+        setStatusMessage(`⚡ Synchronisé avec succès ! (${summary.appliedLocal} reçus, ${summary.pushedRemote} envoyés)`);
+      }
+    } catch (e: any) {
+      setErrorMessage(`Erreur de synchronisation : ${e.toString()}`);
+    } finally {
+      setSyncingPeerId(null);
+    }
+  };
+
+  const handleInspectDiffRemote = async (peer: RemotePeer) => {
+    setActiveMenuPeerId(null);
+    setSyncingPeerId(peer.id);
+    setStatusMessage(`Inspection des différences avec ${peer.name}...`);
     setErrorMessage(null);
 
     try {
       const diff = await kyeService.computeSyncDiff(peer.url);
-
       if (diff.local.length === 0 && diff.remote.length === 0) {
-        setStatusMessage("Vos graphes sont déjà parfaitement synchronisés !");
-        setErrorMessage(null);
-        setSyncingPeerId(null);
+        setStatusMessage(`✅ Aucun changement à inspecter. ${peer.name} est à jour.`);
         return;
       }
-
       setPendingChanges({
         local: diff.local,
         remote: diff.remote
@@ -190,9 +230,45 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       setReviewPeer(peer);
       setIsReviewing(true);
       setStatusMessage(null);
-      setErrorMessage(null);
     } catch (e: any) {
-      setErrorMessage(`Sync diff failed: ${e.toString()}`);
+      setErrorMessage(`Erreur d'inspection : ${e.toString()}`);
+    } finally {
+      setSyncingPeerId(null);
+    }
+  };
+
+  const handlePushRemote = async (peer: RemotePeer) => {
+    setActiveMenuPeerId(null);
+    setSyncingPeerId(peer.id);
+    setStatusMessage(`Envoi des modifications vers ${peer.name}...`);
+    setErrorMessage(null);
+
+    try {
+      const summary = await kyeService.syncWithRemotePeer(peer.url);
+      const nowStr = new Date().toLocaleTimeString();
+      setRemotes(remotes.map(r => r.id === peer.id ? { ...r, lastSync: nowStr } : r));
+      setStatusMessage(`⬆️ Push terminé ! ${summary.pushedRemote} envoyés à ${peer.name}.`);
+    } catch (e: any) {
+      setErrorMessage(`Erreur Push : ${e.toString()}`);
+    } finally {
+      setSyncingPeerId(null);
+    }
+  };
+
+  const handlePullRemote = async (peer: RemotePeer) => {
+    setActiveMenuPeerId(null);
+    setSyncingPeerId(peer.id);
+    setStatusMessage(`Récupération du graphe depuis ${peer.name}...`);
+    setErrorMessage(null);
+
+    try {
+      const summary = await kyeService.syncWithRemotePeer(peer.url);
+      await useGraphStore.getState().loadGraph();
+      const nowStr = new Date().toLocaleTimeString();
+      setRemotes(remotes.map(r => r.id === peer.id ? { ...r, lastSync: nowStr } : r));
+      setStatusMessage(`⬇️ Pull terminé ! ${summary.appliedLocal} appliqués depuis ${peer.name}.`);
+    } catch (e: any) {
+      setErrorMessage(`Erreur Pull : ${e.toString()}`);
     } finally {
       setSyncingPeerId(null);
     }
@@ -211,20 +287,15 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       const selectedRemote = pendingChanges.remote.filter(c => c.selected).map(c => c.cmd);
 
       if (selectedLocal.length > 0) {
-        setStatusMessage(`Application de ${selectedLocal.length} mise(s) à jour locale(s)...`);
         await kyeService.executeBatch(selectedLocal);
       }
 
       if (selectedRemote.length > 0) {
-        setStatusMessage(`Envoi de ${selectedRemote.length} mise(s) à jour distante(s)...`);
         await kyeService.pushToRemotePeer(reviewPeer.url, selectedRemote);
       }
 
       const nowStr = new Date().toLocaleTimeString();
-      const updatedRemotes = remotes.map(r => 
-        r.id === reviewPeer.id ? { ...r, lastSync: nowStr } : r
-      );
-      setRemotes(updatedRemotes);
+      setRemotes(remotes.map(r => r.id === reviewPeer.id ? { ...r, lastSync: nowStr } : r));
 
       await useGraphStore.getState().loadGraph();
       setStatusMessage("Synchronisation terminée avec succès !");
@@ -277,17 +348,22 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+      <div className="relative w-full max-w-xl bg-card border border-border/80 rounded-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
         
         {/* Header */}
         <div className="p-5 border-b border-border/50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Network className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-bold tracking-tight text-card-foreground">P2P Synchronisation</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary">
+              <Network className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-card-foreground">Synchronisation P2P</h2>
+              <p className="text-xs text-muted-foreground">Connectez vos appareils pour synchroniser vos graphes en temps réel</p>
+            </div>
           </div>
           <button 
             onClick={() => { stopScanning(); onClose(); }} 
-            className="p-1 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1.5 hover:bg-muted rounded-xl transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -298,97 +374,97 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           
           {/* Status Messages */}
           {statusMessage && (
-            <div className="p-3 bg-primary/10 border border-primary/30 rounded-xl text-primary text-xs flex flex-row items-center gap-2">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-primary" />
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-500 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
               <span>{statusMessage}</span>
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex flex-row items-center gap-2">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-destructive" />
+            <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Local Server Config */}
-          <div className="p-5 bg-muted/20 border border-border/40 rounded-xl space-y-4">
+          {/* Local Server Toggle & Pairing QR */}
+          <div className="p-4 bg-muted/20 border border-border/60 rounded-xl space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-sm">Local Sync Listener</h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Allow other Kye instances to connect and sync with this device.</p>
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${serverRunning ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/40"}`} />
+                <div>
+                  <h3 className="font-semibold text-xs text-card-foreground">Serveur de Sync Local</h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {serverRunning ? `Actif sur le port ${port}` : "Désactivé (Partage de graphe éteint)"}
+                  </p>
+                </div>
               </div>
               <button 
                 onClick={handleToggleServer}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold shadow transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shadow-sm ${
                   serverRunning 
-                    ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    ? "bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20" 
+                    : "bg-primary text-primary-foreground hover:bg-primary/95"
                 }`}
               >
-                {serverRunning ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                {serverRunning ? "Online (Server running)" : "Go Online"}
+                {serverRunning ? <WifiOff className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+                {serverRunning ? "Arrêter" : "Démarrer"}
               </button>
             </div>
 
             {serverRunning && (
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 pt-3 border-t border-border/40 items-center">
-                <div className="space-y-2 min-w-0">
-                  <div className="text-[11px] text-muted-foreground truncate">Device Name: <span className="text-foreground font-medium">{deviceName}</span></div>
+              <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="space-y-1 text-center sm:text-left">
+                  <div className="text-xs font-semibold text-foreground">Appareil : {deviceName}</div>
                   {localIp && (
-                    <div className="text-[11px] text-muted-foreground truncate">Network URL: <span className="text-foreground font-medium">http://{localIp}:{port}</span></div>
+                    <div className="text-[11px] text-muted-foreground">IP Réseau : <span className="text-foreground font-mono">{localIp}:{port}</span></div>
                   )}
-                  <div className="text-[11px] text-muted-foreground">Pairing PIN: <span className="text-foreground font-medium">{pin}</span></div>
+                  <div className="text-[11px] text-muted-foreground">PIN d'appairage : <span className="text-foreground font-medium">{pin}</span></div>
                 </div>
                 {qrSvg && (
-                  <div className="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-border w-28 h-28 sm:w-32 sm:h-32 self-center sm:self-auto mx-auto sm:mx-0">
+                  <div className="flex flex-col items-center justify-center p-2 bg-white rounded-xl border border-border w-28 h-28 mx-auto sm:mx-0">
                     <div 
-                      className="w-20 h-20 sm:w-24 sm:h-24"
+                      className="w-20 h-20"
                       dangerouslySetInnerHTML={{ 
                         __html: qrSvg.replace(/width="[^"]*"/, 'width="100%"').replace(/height="[^"]*"/, 'height="100%"') 
                       }}
                     />
-                    <span className="text-[8px] text-black font-semibold mt-1">Scan to Pair Device</span>
+                    <span className="text-[8px] text-black font-semibold mt-0.5">Scannez pour appairer</span>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* QR Code Scanner (Camera View) */}
+          {/* Pair New Peer Section */}
           {scanning ? (
             <div className="relative border border-border/60 rounded-xl overflow-hidden bg-black aspect-video flex flex-col items-center justify-center">
               <video ref={videoRef} className="w-full h-full object-cover" />
               <div className="absolute inset-0 border-2 border-primary/50 m-12 pointer-events-none rounded-lg animate-pulse" />
               <button 
                 onClick={stopScanning}
-                className="absolute bottom-4 bg-destructive hover:bg-destructive/95 text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow"
+                className="absolute bottom-4 bg-destructive hover:bg-destructive/95 text-white px-4 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow"
               >
-                <X className="w-3.5 h-3.5" /> Cancel Scan
+                <X className="w-3.5 h-3.5" /> Annuler le Scan
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex justify-center">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Appairer un Appareil</h3>
                 <button 
                   onClick={startScanning}
-                  className="flex items-center gap-2 bg-muted/30 border border-border hover:bg-muted/50 text-foreground px-5 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 bg-muted/40 border border-border hover:bg-muted text-foreground px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
                 >
-                  <Camera className="w-4 h-4 text-primary" />
-                  Scan Remote Pairing QR Code
+                  <Camera className="w-3.5 h-3.5 text-primary" />
+                  Scanner un QR Code
                 </button>
-              </div>
-
-              <div className="flex items-center gap-3 my-2">
-                <div className="flex-1 h-[1px] bg-border/40" />
-                <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">or enter manually</span>
-                <div className="flex-1 h-[1px] bg-border/40" />
               </div>
 
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder="kye-remote://... or http://192.168.1.X:1425" 
+                  placeholder="Coller l'URL d'appairage (kye-remote://... ou http://...)" 
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   className="flex-1 px-3 py-2 bg-muted/20 border border-border/60 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground/45"
@@ -402,7 +478,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   }}
                   className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs shadow-md hover:bg-primary/95 transition-all"
                 >
-                  Pair Device
+                  Appairer
                 </button>
               </div>
             </div>
@@ -410,47 +486,88 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
           {/* Paired Remote Peers List */}
           <div className="space-y-3">
-            <h3 className="font-semibold text-sm flex items-center gap-2 text-muted-foreground">
-              <Smartphone className="w-4 h-4" /> Paired Peers ({remotes.length})
+            <h3 className="font-semibold text-xs flex items-center gap-2 text-muted-foreground uppercase tracking-wider">
+              <Smartphone className="w-4 h-4 text-primary" /> Appareils Appairés ({remotes.length})
             </h3>
             
             {remotes.length === 0 ? (
               <div className="text-center p-8 border border-dashed border-border/55 rounded-xl text-xs text-muted-foreground">
-                No paired peers found. Toggle the sync server or scan a pairing QR code to connect.
+                Aucun appareil appairé. Démarrez le serveur ou scannez un QR code pour vous connecter.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {remotes.map(peer => (
-                  <div key={peer.id} className="p-4 bg-muted/15 border border-border/50 rounded-xl flex items-center justify-between gap-4">
-                    <div>
-                      <h4 className="font-semibold text-xs text-card-foreground">{peer.name}</h4>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{peer.url}</p>
+                  <div key={peer.id} className="p-4 bg-muted/15 border border-border/50 rounded-xl flex items-center justify-between gap-4 transition-all hover:border-border/80">
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-xs text-card-foreground truncate">{peer.name}</h4>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 truncate font-mono">{peer.url}</p>
                       {peer.lastSync && (
-                        <p className="text-[9px] text-emerald-500 font-medium mt-1">Last synced: {peer.lastSync}</p>
+                        <p className="text-[10px] text-emerald-500 font-medium mt-1">Dernière sync : {peer.lastSync}</p>
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 relative">
+                      {/* 1-Click Automated Sync Button */}
                       <button 
-                        onClick={() => handlePingRemote(peer)}
-                        className="px-2.5 py-1 hover:bg-muted rounded-md text-[10px] font-semibold border border-border text-muted-foreground hover:text-foreground transition-all"
-                      >
-                        Ping
-                      </button>
-                      <button 
-                        onClick={() => handleSyncRemote(peer)}
+                        onClick={() => handleAutoSyncRemote(peer)}
                         disabled={syncingPeerId !== null}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-semibold text-primary-foreground bg-primary hover:bg-primary/95 transition-all disabled:opacity-50"
+                        title="Synchroniser automatiquement"
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/95 shadow-md transition-all disabled:opacity-50"
                       >
-                        <RefreshCw className={`w-3 h-3 ${syncingPeerId === peer.id ? "animate-spin" : ""}`} />
-                        {syncingPeerId === peer.id ? "Syncing..." : "Sync Now"}
+                        <Zap className={`w-3.5 h-3.5 ${syncingPeerId === peer.id ? "animate-spin" : ""}`} />
+                        {syncingPeerId === peer.id ? "Sync..." : "Synchroniser"}
                       </button>
+
+                      {/* Dropdown Options Trigger */}
                       <button 
-                        onClick={() => handleDeleteRemote(peer.id)}
-                        className="p-1 hover:bg-destructive/10 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => setActiveMenuPeerId(activeMenuPeerId === peer.id ? null : peer.id)}
+                        className="p-2 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors border border-border/60"
+                        title="Options avancées"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <MoreVertical className="w-4 h-4" />
                       </button>
+
+                      {/* Advanced Options Dropdown Menu */}
+                      {activeMenuPeerId === peer.id && (
+                        <div className="absolute right-0 top-11 z-50 w-48 bg-card border border-border/80 rounded-xl shadow-xl p-1.5 space-y-1 animate-fade-in">
+                          <button 
+                            onClick={() => handleInspectDiffRemote(peer)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                          >
+                            <Search className="w-3.5 h-3.5 text-primary" />
+                            Inspecter les diffs
+                          </button>
+                          <button 
+                            onClick={() => handlePushRemote(peer)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5 text-blue-500" />
+                            Forcer Push (Envoi)
+                          </button>
+                          <button 
+                            onClick={() => handlePullRemote(peer)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5 text-emerald-500" />
+                            Forcer Pull (Réception)
+                          </button>
+                          <button 
+                            onClick={() => handlePingRemote(peer)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                          >
+                            <Wifi className="w-3.5 h-3.5 text-muted-foreground" />
+                            Tester la connexion
+                          </button>
+                          <div className="h-[1px] bg-border/40 my-1" />
+                          <button 
+                            onClick={() => handleDeleteRemote(peer.id)}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left font-medium"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Supprimer cet appareil
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -466,7 +583,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             onClick={() => { stopScanning(); onClose(); }}
             className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-xl text-xs font-semibold transition-all"
           >
-            Close
+            Fermer
           </button>
         </div>
 
