@@ -21,3 +21,14 @@ export interface ReviewableCommand {
   nodeTitle?: string;
   diffLines: DiffLine[];
 }
+
+export interface SyncDiff {
+  local: ReviewableCommand[];
+  remote: ReviewableCommand[];
+}
+
+export interface SyncSummary {
+  appliedLocal: number;
+  pushedRemote: number;
+  hasConflicts: boolean;
+}

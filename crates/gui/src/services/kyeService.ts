@@ -107,17 +107,7 @@ export const kyeService = {
     return invoke("push_to_remote_peer", { remoteUrl, cmds });
   },
 
-  async pullRemotePeerGraph(remoteUrl: string): Promise<Graph> {
-    return invoke("pull_remote_peer_graph", { remoteUrl });
-  },
 
-  async getLocalTombstones(): Promise<Record<string, string>> {
-    return invoke("get_local_tombstones");
-  },
-
-  async pullRemotePeerTombstones(remoteUrl: string): Promise<Record<string, string>> {
-    return invoke("pull_remote_peer_tombstones", { remoteUrl });
-  },
 
   async addRemote(name: string, url: string): Promise<void> {
     return invoke("add_remote", { name, url });
@@ -133,5 +123,9 @@ export const kyeService = {
 
   async computeSyncDiff(remoteUrl: string): Promise<SyncDiff> {
     return invoke("compute_sync_diff", { remoteUrl });
+  },
+
+  async syncWithRemotePeer(remoteUrl: string): Promise<{ appliedLocal: number; pushedRemote: number; hasConflicts: boolean }> {
+    return invoke("sync_with_remote_peer", { remoteUrl });
   },
 };
