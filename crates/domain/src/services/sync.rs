@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::command::Command;
-use crate::model::sync_diff::{DiffLine, ReviewableCommand, SyncDiff};
+use crate::graph::Graph;
+use crate::model::sync_diff::{DiffLine, ReviewableCommand, SyncDiff, SyncSummary};
 use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SyncPeerPort};
 use crate::primitives::NodeId;
 use super::service::{Service, ServiceError};
@@ -46,6 +47,42 @@ where
 
         peer.push_commands(&target_remote.url, &cmds)?;
         Ok(())
+    }
+
+    pub fn sync_with_peer(
+        &self,
+        peer: &impl SyncPeerPort,
+        remote_url: Option<&str>,
+    ) -> Result<SyncSummary, ServiceError> {
+        let diff = self.compute_sync_diff(peer, remote_url)?;
+
+        let local_cmds: Vec<Command> = diff.local_changes.iter().map(|rc| rc.cmd.clone()).collect();
+        let remote_cmds: Vec<Command> = diff.remote_changes.iter().map(|rc| rc.cmd.clone()).collect();
+
+        let applied_local = local_cmds.len();
+        let pushed_remote = remote_cmds.len();
+
+        if applied_local > 0 {
+            self.execute_batch(local_cmds)?;
+        }
+
+        if pushed_remote > 0 {
+            let meta = self.repo.load_meta()?;
+            let remote_url_obj = match remote_url {
+                Some(u) => crate::model::remote::RemoteUrl::new(u)?,
+                None => meta
+                    .get_remote(None)
+                    .ok_or_else(|| ServiceError::RemoteNotFound("default".to_string()))?
+                    .url,
+            };
+            peer.push_commands(&remote_url_obj, &remote_cmds)?;
+        }
+
+        Ok(SyncSummary {
+            applied_local,
+            pushed_remote,
+            has_conflicts: false,
+        })
     }
 
     pub fn compute_sync_diff(
@@ -313,6 +350,25 @@ where
             }
         }
 
+        // Sort topologically: CreateNode for ancestors first
+        let sort_topologically = |changes: &mut Vec<ReviewableCommand>, graph: &Graph| {
+            changes.sort_by(|a, b| {
+                match (&a.cmd, &b.cmd) {
+                    (Command::CreateNode { id: id_a, .. }, Command::CreateNode { id: id_b, .. }) => {
+                        let depth_a = graph.ancestors_of(*id_a).count();
+                        let depth_b = graph.ancestors_of(*id_b).count();
+                        depth_a.cmp(&depth_b)
+                    }
+                    (Command::CreateNode { .. }, _) => std::cmp::Ordering::Less,
+                    (_, Command::CreateNode { .. }) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+        };
+
+        sort_topologically(&mut local_changes, &remote_graph);
+        sort_topologically(&mut remote_changes, &local_graph);
+
         Ok(SyncDiff {
             local_changes,
             remote_changes,
@@ -355,6 +411,44 @@ mod tests {
         }
     }
 
+    fn apply_event_to_mock_graph(graph: &mut Graph, event: &Event) {
+        match event {
+            Event::NodeCreated { node, parent_id, index } => {
+                let node = node.clone();
+                if let Some(pid) = parent_id {
+                    let _ = graph.insert_child(node, *pid, *index);
+                } else {
+                    let _ = graph.insert_root(node);
+                }
+            }
+            Event::NodeDeleted { nodes, .. } => {
+                if let Some(root) = nodes.first() {
+                    let _ = graph.remove_subtree(root.id);
+                }
+            }
+            Event::NodeMoved { node_id, new_parent, new_index, .. } => {
+                let _ = graph.move_node(*node_id, *new_parent, *new_index);
+            }
+            Event::PropSet { node_id, key, new_value, .. } => {
+                let _ = graph.set_prop(*node_id, key.clone(), new_value.clone());
+            }
+            Event::PropDeleted { node_id, key, .. } => {
+                let _ = graph.delete_prop(*node_id, key);
+            }
+            Event::PropsSet { node_id, changes } => {
+                for (key, new_value, _) in changes {
+                    let _ = graph.set_prop(*node_id, key.clone(), new_value.clone());
+                }
+            }
+            Event::Batch(events) => {
+                for e in events {
+                    apply_event_to_mock_graph(graph, e);
+                }
+            }
+            _ => {}
+        }
+    }
+
     struct MockRepo {
         graph: Mutex<Graph>,
         tombstones: Mutex<HashMap<NodeId, chrono::DateTime<Utc>>>,
@@ -364,7 +458,11 @@ mod tests {
         fn load_graph(&self) -> Result<Graph, RepositoryError> {
             Ok(self.graph.lock().unwrap().clone())
         }
-        fn apply_event(&self, _event: &Event) -> Result<(), RepositoryError> { Ok(()) }
+        fn apply_event(&self, event: &Event) -> Result<(), RepositoryError> {
+            let mut g = self.graph.lock().unwrap();
+            apply_event_to_mock_graph(&mut g, event);
+            Ok(())
+        }
         fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError> {
             *self.graph.lock().unwrap() = graph.clone();
             Ok(())
@@ -432,5 +530,34 @@ mod tests {
         assert_eq!(diff.local_changes.len(), 1);
         assert_eq!(diff.remote_changes.len(), 0);
         assert!(matches!(diff.local_changes[0].cmd, Command::CreateNode { id, .. } if id == r_id));
+    }
+
+    #[test]
+    fn test_sync_with_peer() {
+        let local_graph = Graph::new();
+        let mut remote_graph = Graph::new();
+
+        let remote_node = NodeBuilder::new(kinds::page(), Utc::now()).build();
+        let r_id = remote_node.id;
+        remote_graph.insert_root(remote_node).unwrap();
+
+        let repo = MockRepo {
+            graph: Mutex::new(local_graph),
+            tombstones: Mutex::new(HashMap::new()),
+        };
+        let service = Service::new(repo, DummyKindRepo, DummyBus, DummyAssetRepo);
+
+        let peer = DummyPeer {
+            remote_graph,
+            tombstones: HashMap::new(),
+        };
+
+        let summary = service.sync_with_peer(&peer, None).unwrap();
+        assert_eq!(summary.applied_local, 1);
+        assert_eq!(summary.pushed_remote, 0);
+        assert_eq!(summary.has_conflicts, false);
+
+        let updated_local = service.load_graph().unwrap();
+        assert!(updated_local.get(r_id).is_some());
     }
 }

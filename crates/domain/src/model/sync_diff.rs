@@ -66,3 +66,13 @@ impl SyncDiff {
         self.local_changes.is_empty() && self.remote_changes.is_empty()
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SyncSummary {
+    #[serde(rename = "appliedLocal")]
+    pub applied_local: usize,
+    #[serde(rename = "pushedRemote")]
+    pub pushed_remote: usize,
+    #[serde(rename = "hasConflicts")]
+    pub has_conflicts: bool,
+}

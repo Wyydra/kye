@@ -233,15 +233,20 @@ pub fn apply(
             index,
             props,
         } => {
+            if graph.contains(id) {
+                let existing = graph.get(id).unwrap().clone();
+                return Ok(Event::NodeCreated {
+                    node: existing,
+                    parent_id,
+                    index,
+                });
+            }
+
             if let Some(pid) = parent_id {
                 if !graph.contains(pid) {
                     return Err(CommandError::Graph(GraphError::NotFound(pid)));
                 }
             }
-
-            // Note: title uniqueness is enforced by the serializer (infra layer)
-            // which has access to the filesystem path_map and can detect filename collisions
-            // across all node kinds, not just document-titled nodes.
 
             let constraint_cmd = Command::CreateNode {
                 id,
@@ -275,7 +280,11 @@ pub fn apply(
 
         Command::DeleteNode { id, cascade: _ } => {
             if !graph.contains(id) {
-                return Err(CommandError::Graph(GraphError::NotFound(id)));
+                return Ok(Event::NodeDeleted {
+                    nodes: Vec::new(),
+                    old_parent: None,
+                    old_index: 0,
+                });
             }
 
             let old_parent = graph.parent_of(id);

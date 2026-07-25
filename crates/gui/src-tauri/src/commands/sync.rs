@@ -4,7 +4,8 @@ use tauri::State;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use domain::command::Command;
-use infra::dto::{CommandDto, GraphDto, RemoteDto};
+use domain::ports::SyncPeerPort;
+use infra::dto::RemoteDto;
 use infra::sync::server::HandshakeResponse;
 
 fn get_local_ip() -> Option<String> {
@@ -74,59 +75,32 @@ pub fn is_p2p_server_running(state: State<'_, AppState>) -> bool {
 #[tauri::command]
 pub async fn ping_remote_peer(remote_url: String) -> AppResult<HandshakeResponse> {
     tauri::async_runtime::spawn_blocking(move || {
-        infra::sync::ping_remote(&remote_url).map_err(|e| AppError::Internal(e))
+        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let r_url = domain::model::remote::RemoteUrl::new(remote_url)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let handshake = peer.ping(&r_url).map_err(|e| AppError::Internal(e.to_string()))?;
+        Ok(HandshakeResponse {
+            peer_id: handshake.peer_id,
+            name: handshake.name,
+        })
     })
     .await
     .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
 }
 
 #[tauri::command]
-pub async fn push_to_remote_peer(remote_url: String, cmds: Vec<CommandDto>) -> AppResult<()> {
-    let domain_cmds: Vec<Command> = cmds.into_iter().map(Command::from).collect();
+pub async fn push_to_remote_peer(remote_url: String, cmds: Vec<Command>) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        infra::sync::push_to_remote(&remote_url, domain_cmds).map_err(|e| AppError::Internal(e))
+        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let r_url = domain::model::remote::RemoteUrl::new(remote_url)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        peer.push_commands(&r_url, &cmds).map_err(|e| AppError::Internal(e.to_string()))
     })
     .await
     .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
 }
 
-#[tauri::command]
-pub async fn pull_remote_peer_graph(remote_url: String) -> AppResult<GraphDto> {
-    tauri::async_runtime::spawn_blocking(move || {
-        infra::sync::pull_graph_from_remote(&remote_url).map_err(|e| AppError::Internal(e))
-    })
-    .await
-    .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
-}
 
-#[tauri::command]
-pub fn get_local_tombstones(
-    state: State<'_, AppState>,
-) -> AppResult<std::collections::HashMap<String, String>> {
-    let service = state
-        .service()
-        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-    let tombstones = service
-        .load_tombstones()
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-    let mut map = std::collections::HashMap::new();
-    for (id, time) in tombstones {
-        map.insert(id.to_string(), time.to_rfc3339());
-    }
-    Ok(map)
-}
-
-#[tauri::command]
-pub async fn pull_remote_peer_tombstones(
-    remote_url: String,
-) -> AppResult<std::collections::HashMap<String, String>> {
-    tauri::async_runtime::spawn_blocking(move || {
-        infra::sync::pull_tombstones_from_remote(&remote_url).map_err(|e| AppError::Internal(e))
-    })
-    .await
-    .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
-}
 
 #[tauri::command]
 pub fn add_remote(name: String, url: String, state: State<'_, AppState>) -> AppResult<()> {
@@ -177,6 +151,25 @@ pub async fn compute_sync_diff(
         let peer = infra::sync::HttpSyncPeerAdapter::new();
         service
             .compute_sync_diff(&peer, Some(&remote_url))
+            .map_err(|e| AppError::Internal(e.to_string()))
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
+}
+
+#[tauri::command]
+pub async fn sync_with_remote_peer(
+    remote_url: String,
+    state: State<'_, AppState>,
+) -> AppResult<domain::model::sync_diff::SyncSummary> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        service
+            .sync_with_peer(&peer, Some(&remote_url))
             .map_err(|e| AppError::Internal(e.to_string()))
     })
     .await
