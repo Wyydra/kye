@@ -11,9 +11,7 @@ import {
 } from "lucide-react";
 import { kyeService } from "../services/kyeService";
 import { useGraphStore } from "../store/graphStore";
-import { Command, val } from "../types/domain";
-import { RemotePeer, ReviewableCommand, DiffLine } from "../types/sync";
-import { formatValue } from "../lib/syncUtils";
+import { RemotePeer, ReviewableCommand } from "../types/sync";
 import { useQrScanner } from "../hooks/useQrScanner";
 import { PatchReview } from "./PatchReview";
 
@@ -22,7 +20,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [port] = useState(1425);
   const [deviceName, setDeviceName] = useState("");
   const [peerId, setPeerId] = useState("");
-  const [pin, setPin] = useState("");
+  const [pin] = useState("1234");
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const [localIp, setLocalIp] = useState<string | null>(null);
 
@@ -61,44 +59,43 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
   // Load remotes and server status on mount
   useEffect(() => {
-    let storedName = localStorage.getItem("kye_device_name");
-    let storedId = localStorage.getItem("kye_peer_id");
-    let storedPin = localStorage.getItem("kye_pin");
-
-    if (!storedName) {
-      const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-      storedName = `${isMobile ? "Mobile" : "Desktop"} Peer - ${Math.floor(1000 + Math.random() * 9000)}`;
-      localStorage.setItem("kye_device_name", storedName);
-    }
-    if (!storedId) {
-      storedId = crypto.randomUUID();
-      localStorage.setItem("kye_peer_id", storedId);
-    }
-    if (!storedPin) {
-      storedPin = Math.floor(1000 + Math.random() * 9000).toString();
-      localStorage.setItem("kye_pin", storedPin);
-    }
-
-    setDeviceName(storedName);
-    setPeerId(storedId);
-    setPin(storedPin);
-
-    const storedRemotes = localStorage.getItem("kye_remote_peers");
-    if (storedRemotes) {
-      try {
-        setRemotes(JSON.parse(storedRemotes));
-      } catch (e) {
-        console.error(e);
+    kyeService.getMeta().then((meta) => {
+      if (meta) {
+        setDeviceName(meta.name);
+        setPeerId(meta.id);
       }
-    }
+    }).catch(console.error);
+
+    // Load remotes from WorkspaceMeta (Domain Service)
+    kyeService.listRemotes().then((list) => {
+      setRemotes(
+        list.map((r) => ({
+          id: r.name,
+          name: r.name,
+          url: r.url,
+          pin: "",
+        }))
+      );
+    }).catch(console.error);
 
     kyeService.isP2pServerRunning().then(setServerRunning);
     kyeService.getLocalPeerInfo().then(setLocalIp);
   }, []);
 
-  const saveRemotes = (updated: RemotePeer[]) => {
-    setRemotes(updated);
-    localStorage.setItem("kye_remote_peers", JSON.stringify(updated));
+  const refreshRemotes = async () => {
+    try {
+      const list = await kyeService.listRemotes();
+      setRemotes(
+        list.map((r) => ({
+          id: r.name,
+          name: r.name,
+          url: r.url,
+          pin: "",
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const handleToggleServer = async () => {
@@ -121,49 +118,43 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
-  const handleScannedPairingUrl = (url: string) => {
+  const handleScannedPairingUrl = async (url: string) => {
     stopScanning();
     try {
-      let name = "Remote Peer";
-      let pinVal = "";
+      let name = "remote";
       let baseRemoteUrl = "";
 
       if (url.startsWith("kye-remote://")) {
         const cleanUrl = url.replace("kye-remote://", "http://");
         const urlObj = new URL(cleanUrl);
-        name = urlObj.searchParams.get("name") || "Remote Peer";
-        pinVal = urlObj.searchParams.get("pin") || "";
+        name = urlObj.searchParams.get("name") || `peer-${Math.floor(Math.random() * 1000)}`;
         baseRemoteUrl = `${urlObj.protocol}//${urlObj.host}`;
       } else if (url.startsWith("http://") || url.startsWith("https://")) {
         const urlObj = new URL(url);
-        name = urlObj.searchParams.get("name") || `Remote Peer (${urlObj.hostname})`;
-        pinVal = urlObj.searchParams.get("pin") || "";
+        name = urlObj.searchParams.get("name") || `peer-${Math.floor(Math.random() * 1000)}`;
         baseRemoteUrl = `${urlObj.protocol}//${urlObj.host}`;
       } else {
         throw new Error("Invalid pairing format. Paste the full pairing URL (kye-remote://... or http://...)");
       }
 
-      if (remotes.some(r => r.url === baseRemoteUrl)) {
-        setStatusMessage("Remote peer already paired!");
-        return;
-      }
+      // Sanitize remote name for domain validation
+      const sanitizedName = name.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase().slice(0, 32);
 
-      const newPeer: RemotePeer = {
-        id: crypto.randomUUID(),
-        name,
-        url: baseRemoteUrl,
-        pin: pinVal,
-      };
-
-      saveRemotes([...remotes, newPeer]);
-      setStatusMessage(`Successfully paired with "${name}"!`);
+      await kyeService.addRemote(sanitizedName, baseRemoteUrl);
+      await refreshRemotes();
+      setStatusMessage(`Successfully paired with "${sanitizedName}"!`);
     } catch (e: any) {
-      setErrorMessage(`Pairing failed: ${e.message}`);
+      setErrorMessage(`Pairing failed: ${e.message || e}`);
     }
   };
 
-  const handleDeleteRemote = (id: string) => {
-    saveRemotes(remotes.filter(r => r.id !== id));
+  const handleDeleteRemote = async (name: string) => {
+    try {
+      await kyeService.removeRemote(name);
+      await refreshRemotes();
+    } catch (e: any) {
+      setErrorMessage(`Failed to remove remote: ${e.toString()}`);
+    }
   };
 
   const handlePingRemote = async (peer: RemotePeer) => {
@@ -183,265 +174,9 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setErrorMessage(null);
 
     try {
-      const remoteGraph = await kyeService.pullRemotePeerGraph(peer.url);
-      const localTombstones = await kyeService.getLocalTombstones().catch(e => {
-        console.warn("Failed to load local tombstones, continuing with empty:", e);
-        return {} as Record<string, string>;
-      });
-      const remoteTombstones = await kyeService.pullRemotePeerTombstones(peer.url).catch(e => {
-        console.warn("Failed to pull remote tombstones, continuing with empty:", e);
-        return {} as Record<string, string>;
-      });
+      const diff = await kyeService.computeSyncDiff(peer.url);
 
-      const localGraph = await useGraphStore.getState().loadGraph().then(() => {
-        return useGraphStore.getState();
-      });
-
-      const localNodes = localGraph.nodes;
-      const remoteNodes = remoteGraph.nodes;
-
-      const localChanges: ReviewableCommand[] = [];
-      const remoteChanges: ReviewableCommand[] = [];
-
-      const getNodeTitle = (id: string) => {
-        const localTitle = val<string>(localNodes[id]?.props?.title);
-        const remoteTitle = val<string>(remoteNodes[id]?.props?.title);
-        return localTitle || remoteTitle || `Nœud (${id.slice(0, 8)})`;
-      };
-
-      for (const [id, localNode] of Object.entries(localNodes)) {
-        const remoteNode = remoteNodes[id];
-        const nodeTitle = getNodeTitle(id);
-
-        if (!remoteNode) {
-          const bTombstoneStr = remoteTombstones[id];
-          if (bTombstoneStr) {
-            const bTombstoneTime = new Date(bTombstoneStr).getTime();
-            const localTime = new Date(localNode.updated_at).getTime();
-            if (bTombstoneTime > localTime) {
-              const cmd: Command = {
-                type: "delete_node",
-                id: localNode.id,
-                cascade: true
-              };
-              localChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Supprimer le nœud "${nodeTitle}"`,
-                cmd,
-                nodeTitle,
-                diffLines: [
-                  { type: "remove", text: `- Nœud: ${nodeTitle}` },
-                  { type: "remove", text: `- Type: ${localNode.kind}` }
-                ]
-              });
-              continue;
-            }
-          }
-
-          const cmd: Command = {
-            type: "create_node",
-            id: localNode.id,
-            kind: localNode.kind,
-            parent_id: localNode.parent ?? null,
-            index: 0,
-            props: localNode.props
-          };
-          
-          const diffLines: DiffLine[] = [
-            { type: "info", text: `Nœud: ${nodeTitle}` },
-            { type: "info", text: `Type: ${localNode.kind}` },
-            { type: "add", text: `+ parent_id: ${localNode.parent ?? 'root'}` }
-          ];
-          Object.entries(localNode.props).forEach(([k, v]) => {
-            diffLines.push({ type: "add", text: `+ ${k}: ${formatValue(v)}` });
-          });
-
-          remoteChanges.push({
-            id: crypto.randomUUID(),
-            selected: true,
-            description: `Créer le nœud "${nodeTitle}" (${localNode.kind})`,
-            cmd,
-            nodeTitle,
-            diffLines
-          });
-        } else {
-          const localTime = new Date(localNode.updated_at).getTime();
-          const remoteTime = new Date(remoteNode.updated_at).getTime();
-
-          if (localTime > remoteTime) {
-            const changedProps: Record<string, any> = {};
-            const diffLines: DiffLine[] = [];
-            
-            Object.entries(localNode.props).forEach(([k, v]) => {
-              if (JSON.stringify(remoteNode.props[k]) !== JSON.stringify(v)) {
-                changedProps[k] = v;
-                diffLines.push({ type: "remove", text: `- ${k}: ${formatValue(remoteNode.props[k])}` });
-                diffLines.push({ type: "add", text: `+ ${k}: ${formatValue(v)}` });
-              }
-            });
-
-            if (Object.keys(changedProps).length > 0) {
-              remoteChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Mettre à jour les propriétés de "${nodeTitle}"`,
-                cmd: {
-                  type: "set_props",
-                  node_id: localNode.id,
-                  props: changedProps
-                },
-                nodeTitle,
-                diffLines
-              });
-            }
-
-            if (JSON.stringify(localNode.view_override) !== JSON.stringify(remoteNode.view_override)) {
-              const viewDiff: DiffLine[] = [];
-              const oldView: any = remoteNode.view_override || {};
-              const newView: any = localNode.view_override || {};
-              
-              ["x", "y", "w", "h"].forEach(k => {
-                if (oldView[k] !== newView[k]) {
-                  viewDiff.push({ type: "remove", text: `- layout.${k}: ${oldView[k]}` });
-                  viewDiff.push({ type: "add", text: `+ layout.${k}: ${newView[k]}` });
-                }
-              });
-
-              remoteChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Mettre à jour la mise en page de "${nodeTitle}"`,
-                cmd: {
-                  type: "set_view_override",
-                  node_id: localNode.id,
-                  view: localNode.view_override ?? null
-                },
-                nodeTitle,
-                diffLines: viewDiff.length > 0 ? viewDiff : [
-                  { type: "remove", text: `- view_override: ${JSON.stringify(oldView)}` },
-                  { type: "add", text: `+ view_override: ${JSON.stringify(newView)}` }
-                ]
-              });
-            }
-          } else if (remoteTime > localTime) {
-            const changedProps: Record<string, any> = {};
-            const diffLines: DiffLine[] = [];
-            
-            Object.entries(remoteNode.props).forEach(([k, v]) => {
-              if (JSON.stringify(localNode.props[k]) !== JSON.stringify(v)) {
-                changedProps[k] = v;
-                diffLines.push({ type: "remove", text: `- ${k}: ${formatValue(localNode.props[k])}` });
-                diffLines.push({ type: "add", text: `+ ${k}: ${formatValue(v)}` });
-              }
-            });
-
-            if (Object.keys(changedProps).length > 0) {
-              localChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Mettre à jour les propriétés de "${nodeTitle}"`,
-                cmd: {
-                  type: "set_props",
-                  node_id: remoteNode.id,
-                  props: changedProps
-                },
-                nodeTitle,
-                diffLines
-              });
-            }
-
-            if (JSON.stringify(localNode.view_override) !== JSON.stringify(remoteNode.view_override)) {
-              const viewDiff: DiffLine[] = [];
-              const oldView: any = localNode.view_override || {};
-              const newView: any = remoteNode.view_override || {};
-              
-              ["x", "y", "w", "h"].forEach(k => {
-                if (oldView[k] !== newView[k]) {
-                  viewDiff.push({ type: "remove", text: `- layout.${k}: ${oldView[k]}` });
-                  viewDiff.push({ type: "add", text: `+ layout.${k}: ${newView[k]}` });
-                }
-              });
-
-              localChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Mettre à jour la mise en page de "${nodeTitle}"`,
-                cmd: {
-                  type: "set_view_override",
-                  node_id: remoteNode.id,
-                  view: remoteNode.view_override ?? null
-                },
-                nodeTitle,
-                diffLines: viewDiff.length > 0 ? viewDiff : [
-                  { type: "remove", text: `- view_override: ${JSON.stringify(oldView)}` },
-                  { type: "add", text: `+ view_override: ${JSON.stringify(newView)}` }
-                ]
-              });
-            }
-          }
-        }
-      }
-
-      for (const [id, remoteNode] of Object.entries(remoteNodes)) {
-        if (!localNodes[id]) {
-          const nodeTitle = getNodeTitle(id);
-
-          const aTombstoneStr = localTombstones[id];
-          if (aTombstoneStr) {
-            const aTombstoneTime = new Date(aTombstoneStr).getTime();
-            const remoteTime = new Date(remoteNode.updated_at).getTime();
-            if (aTombstoneTime > remoteTime) {
-              const cmd: Command = {
-                type: "delete_node",
-                id: remoteNode.id,
-                cascade: true
-              };
-              remoteChanges.push({
-                id: crypto.randomUUID(),
-                selected: true,
-                description: `Supprimer le nœud "${nodeTitle}"`,
-                cmd,
-                nodeTitle,
-                diffLines: [
-                  { type: "remove", text: `- Nœud: ${nodeTitle}` },
-                  { type: "remove", text: `- Type: ${remoteNode.kind}` }
-                ]
-              });
-              continue;
-            }
-          }
-
-          const cmd: Command = {
-            type: "create_node",
-            id: remoteNode.id,
-            kind: remoteNode.kind,
-            parent_id: remoteNode.parent ?? null,
-            index: 0,
-            props: remoteNode.props
-          };
-
-          const diffLines: DiffLine[] = [
-            { type: "info", text: `Nœud: ${nodeTitle}` },
-            { type: "info", text: `Type: ${remoteNode.kind}` },
-            { type: "add", text: `+ parent_id: ${remoteNode.parent ?? 'root'}` }
-          ];
-          Object.entries(remoteNode.props).forEach(([k, v]) => {
-            diffLines.push({ type: "add", text: `+ ${k}: ${formatValue(v)}` });
-          });
-
-          localChanges.push({
-            id: crypto.randomUUID(),
-            selected: true,
-            description: `Créer le nœud "${nodeTitle}" (${remoteNode.kind})`,
-            cmd,
-            nodeTitle,
-            diffLines
-          });
-        }
-      }
-
-      if (localChanges.length === 0 && remoteChanges.length === 0) {
+      if (diff.local.length === 0 && diff.remote.length === 0) {
         setStatusMessage("Vos graphes sont déjà parfaitement synchronisés !");
         setErrorMessage(null);
         setSyncingPeerId(null);
@@ -449,8 +184,8 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       }
 
       setPendingChanges({
-        local: localChanges,
-        remote: remoteChanges
+        local: diff.local,
+        remote: diff.remote
       });
       setReviewPeer(peer);
       setIsReviewing(true);
@@ -489,7 +224,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       const updatedRemotes = remotes.map(r => 
         r.id === reviewPeer.id ? { ...r, lastSync: nowStr } : r
       );
-      saveRemotes(updatedRemotes);
+      setRemotes(updatedRemotes);
 
       await useGraphStore.getState().loadGraph();
       setStatusMessage("Synchronisation terminée avec succès !");

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { Command, Event, Graph, KindDef, WorkspaceMeta } from "../types/domain";
+import { Command, Event, Graph, KindDef, SyncDiff, WorkspaceMeta } from "../types/domain";
 
 export interface AssetInfo {
   target_path: string;
@@ -117,5 +117,21 @@ export const kyeService = {
 
   async pullRemotePeerTombstones(remoteUrl: string): Promise<Record<string, string>> {
     return invoke("pull_remote_peer_tombstones", { remoteUrl });
+  },
+
+  async addRemote(name: string, url: string): Promise<void> {
+    return invoke("add_remote", { name, url });
+  },
+
+  async removeRemote(name: string): Promise<boolean> {
+    return invoke("remove_remote", { name });
+  },
+
+  async listRemotes(): Promise<{ name: string; url: string }[]> {
+    return invoke("list_remotes");
+  },
+
+  async computeSyncDiff(remoteUrl: string): Promise<SyncDiff> {
+    return invoke("compute_sync_diff", { remoteUrl });
   },
 };

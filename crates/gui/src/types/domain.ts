@@ -156,3 +156,22 @@ export type Event =
     }
   | { type: "kind_set"; node_id: string; new_kind: string; old_kind: string }
   | { type: "batch"; events: Event[] };
+
+export interface DiffLine {
+  type: "add" | "remove" | "info";
+  text: string;
+}
+
+export interface ReviewableCommand {
+  id: string;
+  selected: boolean;
+  description: string;
+  nodeTitle: string;
+  cmd: Command;
+  diffLines: DiffLine[];
+}
+
+export interface SyncDiff {
+  local: ReviewableCommand[];
+  remote: ReviewableCommand[];
+}
