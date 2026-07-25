@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::primitives::{NodeId, PropKey};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Color(Arc<str>);
 
 impl Color {
@@ -17,7 +17,7 @@ impl Color {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Mark {
     Bold,
     Italic,
@@ -29,7 +29,7 @@ pub enum Mark {
     Ref(NodeId),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Span {
     pub text: Arc<str>,
     pub marks: SmallVec<[Mark; 2]>,
@@ -51,7 +51,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct RichText(pub Vec<Span>);
 
 impl RichText {
@@ -76,7 +76,7 @@ impl RichText {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Value {
     Null,
     Bool(bool),
@@ -95,7 +95,7 @@ pub enum Value {
     Color(Color),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct FloatBits(pub f64);
 
 impl PartialEq for FloatBits {

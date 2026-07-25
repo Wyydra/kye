@@ -14,6 +14,14 @@ use domain::workspace::WorkspaceMeta;
 pub struct WorkspaceMetaDto {
     pub id: String,
     pub name: String,
+    pub default_remote: Option<String>,
+    pub remotes: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RemoteDto {
+    pub name: String,
+    pub url: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -87,11 +95,74 @@ impl From<&Graph> for GraphDto {
     }
 }
 
+impl GraphDto {
+    pub fn to_graph(&self) -> Graph {
+        use chrono::{DateTime, Utc};
+        use domain::node::NodeBuilder;
+        use domain::primitives::PropKey;
+        use domain::value::{Props, Value};
+        use domain::view::ViewDef;
+
+        let mut graph = Graph::new();
+        let mut node_parents: HashMap<NodeId, NodeId> = HashMap::new();
+
+        for (node_id_str, node_dto) in &self.nodes {
+            let mut props = Props::new();
+            for (k, v) in &node_dto.props {
+                props.insert(PropKey::from(k.as_str()), Value::from(v.clone()));
+            }
+
+            let node_id = NodeId::from_uuid(
+                uuid::Uuid::parse_str(node_id_str).unwrap_or_else(|_| uuid::Uuid::new_v4()),
+            );
+
+            let created_at = DateTime::parse_from_rfc3339(&node_dto.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
+
+            let mut node = NodeBuilder::new(&node_dto.kind, created_at)
+                .with_id(node_id)
+                .with_props(props)
+                .build();
+
+            node.updated_at = DateTime::parse_from_rfc3339(&node_dto.updated_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
+
+            if let Some(vo_dto) = &node_dto.view_override {
+                node.view_override = Some(ViewDef::from(vo_dto.clone()));
+            }
+
+            if let Some(parent_str) = &node_dto.parent {
+                if let Ok(p_uuid) = uuid::Uuid::parse_str(parent_str) {
+                    node_parents.insert(node_id, NodeId::from_uuid(p_uuid));
+                }
+            }
+
+            let _ = graph.insert_root(node);
+        }
+
+        for (child_id, parent_id) in node_parents {
+            if graph.get(parent_id).is_some() {
+                let _ = graph.move_node(child_id, Some(parent_id), usize::MAX);
+            }
+        }
+
+        graph
+    }
+}
+
 impl From<&WorkspaceMeta> for WorkspaceMetaDto {
     fn from(meta: &WorkspaceMeta) -> Self {
         Self {
             id: meta.id.to_string(),
             name: meta.name.clone(),
+            default_remote: meta.default_remote.as_ref().map(|n| n.as_str().to_string()),
+            remotes: meta
+                .remotes
+                .iter()
+                .map(|(k, v)| (k.as_str().to_string(), v.as_str().to_string()))
+                .collect(),
         }
     }
 }

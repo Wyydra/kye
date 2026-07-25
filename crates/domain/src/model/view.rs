@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use crate::primitives::PropKey;
 use indexmap::IndexMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ViewDef {
     pub layout: Layout,
 
@@ -29,7 +30,7 @@ impl ViewDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Layout {
     Document,
 
@@ -48,20 +49,20 @@ pub enum Layout {
     Widget { name: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Direction {
     Vertical,
     Horizontal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ActionDef {
     pub id: String,
     pub label: String,
     pub kind: ActionKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActionKind {
     ToggleProp { prop: PropKey },
 

@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::graph::{Graph, GraphError};
@@ -35,7 +36,7 @@ pub enum CommandError {
     NotFound(NodeId),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Command {
     CreateNode {
         id: NodeId,

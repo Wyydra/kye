@@ -33,7 +33,7 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct Kind(Arc<str>);
 
 impl Kind {
@@ -54,7 +54,7 @@ impl fmt::Display for Kind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct PropKey(Arc<str>);
 
 impl PropKey {

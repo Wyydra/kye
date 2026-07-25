@@ -21,6 +21,10 @@ use crate::fs::WorkspaceFs;
 struct MetaJson {
     id: Uuid,
     name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_remote: Option<String>,
+    #[serde(default)]
+    remotes: HashMap<String, String>,
 }
 
 pub fn load_meta(fs: &WorkspaceFs) -> Result<WorkspaceMeta, RepositoryError> {
@@ -31,13 +35,39 @@ pub fn load_meta(fs: &WorkspaceFs) -> Result<WorkspaceMeta, RepositoryError> {
     let content = fs.read_file(&path)?;
     let m: MetaJson =
         serde_json::from_str(&content).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
-    Ok(WorkspaceMeta::new(m.id, m.name))
+
+    let default_remote = m
+        .default_remote
+        .and_then(|r| domain::model::remote::RemoteName::new(r).ok());
+
+    let mut remotes = HashMap::new();
+    for (k, v) in m.remotes {
+        if let (Ok(r_name), Ok(r_url)) = (
+            domain::model::remote::RemoteName::new(k),
+            domain::model::remote::RemoteUrl::new(v),
+        ) {
+            remotes.insert(r_name, r_url);
+        }
+    }
+
+    Ok(WorkspaceMeta::with_remotes(
+        m.id,
+        m.name,
+        default_remote,
+        remotes,
+    ))
 }
 
 pub fn save_meta(fs: &WorkspaceFs, meta: &WorkspaceMeta) -> Result<(), RepositoryError> {
     let m = MetaJson {
         id: meta.id,
         name: meta.name.clone(),
+        default_remote: meta.default_remote.as_ref().map(|n| n.as_str().to_string()),
+        remotes: meta
+            .remotes
+            .iter()
+            .map(|(k, v)| (k.as_str().to_string(), v.as_str().to_string()))
+            .collect(),
     };
     let content =
         serde_json::to_string_pretty(&m).map_err(|e| RepositoryError::Corrupted(e.to_string()))?;

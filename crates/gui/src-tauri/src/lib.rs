@@ -118,6 +118,10 @@ pub fn run() {
             commands::sync::pull_remote_peer_graph,
             commands::sync::get_local_tombstones,
             commands::sync::pull_remote_peer_tombstones,
+            commands::sync::add_remote,
+            commands::sync::remove_remote,
+            commands::sync::list_remotes,
+            commands::sync::compute_sync_diff,
         ])
         .run(tauri::generate_context!())
         .expect("Tauri Error");

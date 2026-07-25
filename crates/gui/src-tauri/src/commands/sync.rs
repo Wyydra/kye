@@ -4,7 +4,7 @@ use tauri::State;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use domain::command::Command;
-use infra::dto::{CommandDto, GraphDto};
+use infra::dto::{CommandDto, GraphDto, RemoteDto};
 use infra::sync::server::HandshakeResponse;
 
 fn get_local_ip() -> Option<String> {
@@ -123,6 +123,61 @@ pub async fn pull_remote_peer_tombstones(
 ) -> AppResult<std::collections::HashMap<String, String>> {
     tauri::async_runtime::spawn_blocking(move || {
         infra::sync::pull_tombstones_from_remote(&remote_url).map_err(|e| AppError::Internal(e))
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
+}
+
+#[tauri::command]
+pub fn add_remote(name: String, url: String, state: State<'_, AppState>) -> AppResult<()> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let r_name = domain::model::remote::RemoteName::new(name).map_err(|e| AppError::Internal(e.to_string()))?;
+    let r_url = domain::model::remote::RemoteUrl::new(url).map_err(|e| AppError::Internal(e.to_string()))?;
+    service.add_remote(r_name, r_url).map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_remote(name: String, state: State<'_, AppState>) -> AppResult<bool> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let r_name = domain::model::remote::RemoteName::new(name).map_err(|e| AppError::Internal(e.to_string()))?;
+    let removed = service.remove_remote(&r_name).map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(removed)
+}
+
+#[tauri::command]
+pub fn list_remotes(state: State<'_, AppState>) -> AppResult<Vec<RemoteDto>> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+    let remotes = service.list_remotes().map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(remotes
+        .into_iter()
+        .map(|r| RemoteDto {
+            name: r.name.as_str().to_string(),
+            url: r.url.as_str().to_string(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn compute_sync_diff(
+    remote_url: String,
+    state: State<'_, AppState>,
+) -> AppResult<domain::model::sync_diff::SyncDiff> {
+    let service = state
+        .service()
+        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        service
+            .compute_sync_diff(&peer, Some(&remote_url))
+            .map_err(|e| AppError::Internal(e.to_string()))
     })
     .await
     .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?

@@ -1,3 +1,5 @@
+#![allow(ambiguous_glob_reexports)]
+
 pub mod model;
 pub mod ports;
 pub mod services;
