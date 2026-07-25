@@ -17,7 +17,9 @@ export function useCanvasCamera(
   const updateTransform = useCallback(() => {
     if (layerRef.current) {
       const { x, y, zoom } = cameraRef.current;
-      layerRef.current.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+      const rx = Math.round(x * 10) / 10;
+      const ry = Math.round(y * 10) / 10;
+      layerRef.current.style.transform = `translate3d(${rx}px, ${ry}px, 0px) scale(${zoom})`;
     }
   }, [layerRef]);
 

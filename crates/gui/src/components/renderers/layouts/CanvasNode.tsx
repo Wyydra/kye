@@ -155,9 +155,9 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({ nodeId, depth }) => {
       style={{
         left: 0,
         top: 0,
-        width: localSize.width,
-        height: localSize.height,
-        transform: `translate(${localPos.x}px, ${localPos.y}px)`,
+        width: Math.round(localSize.width),
+        height: Math.round(localSize.height),
+        transform: `translate3d(${Math.round(localPos.x)}px, ${Math.round(localPos.y)}px, 0px)`,
       }}
       onPointerDown={handlePointerDown}
       data-node-id={nodeId}

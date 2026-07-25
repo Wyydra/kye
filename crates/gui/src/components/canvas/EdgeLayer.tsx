@@ -42,7 +42,7 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = React.memo(function EdgeLayer
   }, [connectionDraft, nodes]);
 
   return (
-    <svg className="absolute inset-0 w-[100000px] h-[100000px] -translate-x-[50000px] -translate-y-[50000px] pointer-events-none overflow-visible">
+    <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
       <defs>
         <marker
           id="arrowhead"
@@ -55,7 +55,7 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = React.memo(function EdgeLayer
           <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--primary))" fillOpacity="0.6" />
         </marker>
       </defs>
-      <g transform="translate(50000, 50000)">
+      <g>
         {connectionIds.map((id) => (
           <CanvasConnection key={id} connectionId={id} />
         ))}
