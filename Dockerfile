@@ -1,5 +1,5 @@
 # 1. Base image avec cargo-chef
-FROM lukemathwalker/cargo-chef:latest-rust-1.85-bookworm AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1-bookworm AS chef
 WORKDIR /usr/src/kye
 
 # 2. Planner : analyse les dépendances et génère recipe.json
