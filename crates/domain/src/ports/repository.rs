@@ -38,9 +38,6 @@ pub trait KindRepository: Send + Sync + 'static {
 }
 
 pub trait AssetRepository: Send + Sync + 'static {
-    fn import_media(&self, source_path: &str) -> Result<String, RepositoryError>;
-    fn save_media(&self, data: &[u8], extension: &str) -> Result<String, RepositoryError>;
-
     fn import_asset(&self, source_path: &str) -> Result<AssetInfo, RepositoryError>;
     fn open_external(&self, target_path: &str) -> Result<(), RepositoryError>;
     fn reveal_in_explorer(&self, target_path: &str) -> Result<(), RepositoryError>;

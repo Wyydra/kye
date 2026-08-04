@@ -9,14 +9,6 @@ where
     E: EventBus,
     A: AssetRepository,
 {
-    pub fn import_media(&self, source_path: &str) -> Result<String, ServiceError> {
-        Ok(self.asset_repo.import_media(source_path)?)
-    }
-
-    pub fn save_media(&self, data: &[u8], extension: &str) -> Result<String, ServiceError> {
-        Ok(self.asset_repo.save_media(data, extension)?)
-    }
-
     pub fn import_asset(&self, source_path: &str) -> Result<AssetInfo, ServiceError> {
         Ok(self.asset_repo.import_asset(source_path)?)
     }

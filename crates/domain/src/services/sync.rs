@@ -492,8 +492,6 @@ mod tests {
 
     struct DummyAssetRepo;
     impl AssetRepository for DummyAssetRepo {
-        fn import_media(&self, _source_path: &str) -> Result<String, RepositoryError> { Ok("".into()) }
-        fn save_media(&self, _data: &[u8], _extension: &str) -> Result<String, RepositoryError> { Ok("".into()) }
         fn import_asset(&self, _source_path: &str) -> Result<crate::model::asset::AssetInfo, RepositoryError> {
             Err(RepositoryError::NotFound("none".into()))
         }
