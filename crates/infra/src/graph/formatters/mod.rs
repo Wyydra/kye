@@ -25,6 +25,7 @@ pub fn rich_to_markdown(rt: &RichText) -> String {
                 Mark::Strikethrough => text = format!("~~{}~~", text),
                 Mark::Underline => text = format!("<u>{}</u>", text),
                 Mark::Link(url) => text = format!("[{}]({})", text, url),
+                Mark::Ref(id) => text = format!("[{}]({})", text, id),
                 _ => {}
             }
         }
@@ -45,7 +46,13 @@ pub fn markdown_to_rich(md: &str) -> RichText {
                 Tag::Emphasis => current_marks.push(Mark::Italic),
                 Tag::Strikethrough => current_marks.push(Mark::Strikethrough),
                 Tag::Link { dest_url, .. } => {
-                    current_marks.push(Mark::Link(Arc::from(dest_url.as_ref())))
+                    let dest_str = dest_url.as_ref();
+                    let mark = if let Ok(uuid) = uuid::Uuid::parse_str(dest_str) {
+                        Mark::Ref(domain::NodeId::from_uuid(uuid))
+                    } else {
+                        Mark::Link(Arc::from(dest_str))
+                    };
+                    current_marks.push(mark);
                 }
                 _ => {}
             },
@@ -57,7 +64,7 @@ pub fn markdown_to_rich(md: &str) -> RichText {
                     TagEnd::Link => {
                         if let Some(pos) = current_marks
                             .iter()
-                            .position(|m| matches!(m, Mark::Link(_)))
+                            .position(|m| matches!(m, Mark::Link(_) | Mark::Ref(_)))
                         {
                             current_marks.remove(pos);
                         }

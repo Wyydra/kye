@@ -21,24 +21,18 @@ impl BlockFormatter for ImageFormatter {
     fn format(&self, props: &Props) -> String {
         let url = props
             .get(&PropKey::from("url"))
-            .and_then(|v| {
-                if let Value::Text(t) = v {
-                    Some(t.as_ref())
-                } else {
-                    None
-                }
+            .map(|v| match v {
+                Value::Ref(id) => id.to_string(),
+                Value::Text(t) => t.to_string(),
+                _ => String::new(),
             })
-            .unwrap_or("");
+            .unwrap_or_default();
+
         let alt = props
             .get(&PropKey::from("alt"))
-            .and_then(|v| {
-                if let Value::Text(t) = v {
-                    Some(t.as_ref())
-                } else {
-                    None
-                }
-            })
+            .and_then(|v| v.as_text())
             .unwrap_or("");
+
         format!("![{}]({})", alt, url)
     }
 
@@ -46,13 +40,13 @@ impl BlockFormatter for ImageFormatter {
         use pulldown_cmark::{Event, Options, Parser, Tag};
         let mut props = Props::new();
         let mut in_image = false;
-        let mut url = String::new();
+        let mut url_str = String::new();
         let mut alt_parts: Vec<String> = Vec::new();
 
         for event in Parser::new_ext(text, Options::empty()) {
             match event {
                 Event::Start(Tag::Image { dest_url, .. }) => {
-                    url = dest_url.into_string();
+                    url_str = dest_url.into_string();
                     in_image = true;
                 }
                 Event::Text(t) if in_image => alt_parts.push(t.into_string()),
@@ -61,8 +55,14 @@ impl BlockFormatter for ImageFormatter {
             }
         }
 
-        if !url.is_empty() {
-            props.insert(PropKey::from("url"), Value::Text(Arc::from(url.as_str())));
+        if !url_str.is_empty() {
+            let val = if let Ok(uuid) = uuid::Uuid::parse_str(&url_str) {
+                Value::Ref(domain::NodeId::from_uuid(uuid))
+            } else {
+                Value::Text(Arc::from(url_str.as_str()))
+            };
+
+            props.insert(PropKey::from("url"), val);
             props.insert(
                 PropKey::from("alt"),
                 Value::Text(Arc::from(alt_parts.join("").as_str())),
