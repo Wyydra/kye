@@ -55,6 +55,14 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
           type: "set_prop",
           node_id: node.id,
           key: "url",
+          value: assetInfo.node_id
+            ? { t: "Ref", v: assetInfo.node_id }
+            : { t: "Text", v: assetInfo.target_path },
+        });
+        execute({
+          type: "set_prop",
+          node_id: node.id,
+          key: "target",
           value: { t: "Text", v: assetInfo.target_path },
         });
         execute({
@@ -78,6 +86,14 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
           type: "set_prop",
           node_id: node.id,
           key: "url",
+          value: assetInfo.node_id
+            ? { t: "Ref", v: assetInfo.node_id }
+            : { t: "Text", v: assetInfo.target_path },
+        });
+        execute({
+          type: "set_prop",
+          node_id: node.id,
+          key: "target",
           value: { t: "Text", v: assetInfo.target_path },
         });
         execute({

@@ -3,6 +3,7 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, SyncDiff, WorkspaceMeta } from "../types/domain";
 
 export interface AssetInfo {
+  node_id?: string;
   target_path: string;
   sidecar_path: string;
   mime_type: string;
