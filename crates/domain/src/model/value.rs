@@ -186,15 +186,31 @@ fn extract_uuids_from_text(text: &str, out: &mut Vec<NodeId>) {
         return;
     }
     for i in 0..=len - 36 {
-        if bytes[i + 8] == b'-' && bytes[i + 13] == b'-' && bytes[i + 18] == b'-' && bytes[i + 23] == b'-' {
-            if let Ok(uuid) = uuid::Uuid::parse_str(&text[i..i + 36]) {
-                let node_id = NodeId::from_uuid(uuid);
-                if !out.contains(&node_id) {
-                    out.push(node_id);
-                }
+        if bytes[i + 8] == b'-'
+            && bytes[i + 13] == b'-'
+            && bytes[i + 18] == b'-'
+            && bytes[i + 23] == b'-'
+            && let Ok(uuid) = uuid::Uuid::parse_str(&text[i..i + 36])
+        {
+            let node_id = NodeId::from_uuid(uuid);
+            if !out.contains(&node_id) {
+                out.push(node_id);
             }
         }
     }
+}
+
+pub type Props = IndexMap<PropKey, Value>;
+
+#[macro_export]
+macro_rules! props {
+    ($($key:expr => $val:expr),* $(,)?) => {{
+        let mut map = $crate::value::Props::new();
+        $(
+            map.insert($crate::primitives::PropKey::from($key), $val);
+        )*
+        map
+    }};
 }
 
 #[cfg(test)]
@@ -215,17 +231,4 @@ mod tests {
         assert!(refs.contains(&id1));
         assert!(refs.contains(&id2));
     }
-}
-
-pub type Props = IndexMap<PropKey, Value>;
-
-#[macro_export]
-macro_rules! props {
-    ($($key:expr => $val:expr),* $(,)?) => {{
-        let mut map = $crate::value::Props::new();
-        $(
-            map.insert($crate::primitives::PropKey::from($key), $val);
-        )*
-        map
-    }};
 }
