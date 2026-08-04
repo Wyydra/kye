@@ -51,6 +51,43 @@ impl AssetRepository for FileAssetRepository {
             RepositoryError::Io(format!("Failed to write media file: {}", e))
         })?;
 
+        let node_id = domain::NodeId::new();
+        let mime_type = match extension.to_lowercase().as_str() {
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "webp" => "image/webp",
+            "svg" => "image/svg+xml",
+            "pdf" => "application/pdf",
+            "mp4" => "video/mp4",
+            "mp3" => "audio/mpeg",
+            "json" => "application/json",
+            "txt" | "md" => "text/plain",
+            _ => "application/octet-stream",
+        };
+
+        let kind_str = if mime_type.starts_with("image/") {
+            "core.image"
+        } else {
+            "core.file"
+        };
+
+        let sidecar_filename = format!("{}.md", file_name);
+        let sidecar_abs_path = self.fs.root.join(&sidecar_filename);
+
+        let frontmatter = format!(
+            "---\nid: {}\nkind: {}\ntarget: {}\nmime_type: {}\nsize_bytes: {}\ncreated_at: {}\nupdated_at: {}\n---\n# {}\n",
+            node_id.as_uuid(),
+            kind_str,
+            file_name,
+            mime_type,
+            data.len(),
+            chrono::Utc::now().to_rfc3339(),
+            chrono::Utc::now().to_rfc3339(),
+            file_name
+        );
+
+        let _ = fs::write(sidecar_abs_path, frontmatter);
+
         Ok(rel_path)
     }
 
@@ -101,13 +138,37 @@ impl AssetRepository for FileAssetRepository {
             .map_err(|e| RepositoryError::Io(format!("Failed to read asset metadata: {}", e)))?;
 
         let size_bytes = meta.len();
+        let node_id = domain::NodeId::new();
+        let sidecar_filename = format!("{}.md", target_filename);
+        let sidecar_abs_path = self.fs.root.join(&sidecar_filename);
+
+        let kind_str = if mime_type.starts_with("image/") {
+            "core.image"
+        } else {
+            "core.file"
+        };
+
+        let frontmatter = format!(
+            "---\nid: {}\nkind: {}\ntarget: {}\nmime_type: {}\nsize_bytes: {}\ncreated_at: {}\nupdated_at: {}\n---\n# {}\n",
+            node_id.as_uuid(),
+            kind_str,
+            target_filename,
+            mime_type,
+            size_bytes,
+            chrono::Utc::now().to_rfc3339(),
+            chrono::Utc::now().to_rfc3339(),
+            filename
+        );
+
+        let _ = fs::write(sidecar_abs_path, frontmatter);
 
         Ok(AssetInfo::new(
             rel_path.clone(),
-            format!("{}.meta", rel_path),
+            sidecar_filename,
             mime_type,
             size_bytes,
-        ))
+        )
+        .with_node_id(node_id))
     }
 
     fn open_external(&self, target_path_str: &str) -> Result<(), RepositoryError> {
