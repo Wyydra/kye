@@ -44,10 +44,8 @@ impl WorkspaceMeta {
 
     pub fn remove_remote(&mut self, name: &RemoteName) -> bool {
         let removed = self.remotes.remove(name).is_some();
-        if removed {
-            if self.default_remote.as_ref() == Some(name) {
-                self.default_remote = self.remotes.keys().next().cloned();
-            }
+        if removed && self.default_remote.as_ref() == Some(name) {
+            self.default_remote = self.remotes.keys().next().cloned();
         }
         removed
     }

@@ -103,10 +103,10 @@ impl QueryBuilder {
     }
 
     fn matches(&self, node: &Node) -> bool {
-        if let Some(ref k) = self.kind_filter {
-            if &node.kind != k {
-                return false;
-            }
+        if let Some(ref k) = self.kind_filter
+            && &node.kind != k
+        {
+            return false;
         }
 
         if let Some(ref tag) = self.tag_filter {

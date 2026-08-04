@@ -33,7 +33,7 @@ where
     pub fn set_default_remote(&self, name: &RemoteName) -> Result<(), ServiceError> {
         let mut meta = self.repo.load_meta()?;
         meta.set_default_remote(name.clone())
-            .map_err(|e| ServiceError::RemoteNotFound(e))?;
+            .map_err(ServiceError::RemoteNotFound)?;
         self.repo.save_meta(&meta)?;
         Ok(())
     }

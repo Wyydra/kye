@@ -57,64 +57,64 @@ impl KindRegistry {
 
         match cmd {
             Command::CreateNode {
-                kind, parent_id, ..
+                kind,
+                parent_id: Some(pid),
+                ..
             } => {
-                if let Some(pid) = parent_id {
-                    if let Some(parent) = graph.get(*pid) {
-                        if let Some(parent_def) = self.kinds.get(&parent.kind) {
-                            for c in &parent_def.constraints {
-                                if let Constraint::AllowedChildKinds(allowed) = c {
-                                    if !allowed.contains(kind) {
-                                        errors.push(ValidationError::ConstraintViolation(format!(
-                                            "{} is not an allowed child of {}",
-                                            kind, parent.kind
-                                        )));
-                                    }
-                                }
-                                if let Constraint::MaxChildren(max) = c {
-                                    if graph.children_of(*pid).count() >= *max {
-                                        errors.push(ValidationError::ConstraintViolation(format!(
-                                            "{} has reached max children ({})",
-                                            parent.kind, max
-                                        )));
-                                    }
-                                }
+                if let Some(parent) = graph.get(*pid) {
+                    if let Some(parent_def) = self.kinds.get(&parent.kind) {
+                        for c in &parent_def.constraints {
+                            if let Constraint::AllowedChildKinds(allowed) = c
+                                && !allowed.contains(kind)
+                            {
+                                errors.push(ValidationError::ConstraintViolation(format!(
+                                    "{} is not an allowed child of {}",
+                                    kind, parent.kind
+                                )));
+                            }
+                            if let Constraint::MaxChildren(max) = c
+                                && graph.children_of(*pid).count() >= *max
+                            {
+                                errors.push(ValidationError::ConstraintViolation(format!(
+                                    "{} has reached max children ({})",
+                                    parent.kind, max
+                                )));
                             }
                         }
+                    }
 
-                        if let Some(child_def) = self.kinds.get(kind) {
-                            for c in &child_def.constraints {
-                                if let Constraint::AllowedParentKinds(allowed) = c {
-                                    if !allowed.contains(&parent.kind) {
-                                        errors.push(ValidationError::ConstraintViolation(format!(
-                                            "{} is not an allowed parent of {}",
-                                            parent.kind, kind
-                                        )));
-                                    }
-                                }
+                    if let Some(child_def) = self.kinds.get(kind) {
+                        for c in &child_def.constraints {
+                            if let Constraint::AllowedParentKinds(allowed) = c
+                                && !allowed.contains(&parent.kind)
+                            {
+                                errors.push(ValidationError::ConstraintViolation(format!(
+                                    "{} is not an allowed parent of {}",
+                                    parent.kind, kind
+                                )));
                             }
                         }
                     }
                 }
             }
+            Command::CreateNode { .. } => {}
             Command::MoveNode {
                 node_id,
                 new_parent_id,
                 ..
             } => {
-                if let (Some(node), Some(pid)) = (graph.get(*node_id), new_parent_id) {
-                    if let Some(parent) = graph.get(*pid) {
-                        if let Some(parent_def) = self.kinds.get(&parent.kind) {
-                            for c in &parent_def.constraints {
-                                if let Constraint::AllowedChildKinds(allowed) = c {
-                                    if !allowed.contains(&node.kind) {
-                                        errors.push(ValidationError::ConstraintViolation(format!(
-                                            "{} is not allowed as child of {}",
-                                            node.kind, parent.kind
-                                        )));
-                                    }
-                                }
-                            }
+                if let (Some(node), Some(pid)) = (graph.get(*node_id), new_parent_id)
+                    && let Some(parent) = graph.get(*pid)
+                    && let Some(parent_def) = self.kinds.get(&parent.kind)
+                {
+                    for c in &parent_def.constraints {
+                        if let Constraint::AllowedChildKinds(allowed) = c
+                            && !allowed.contains(&node.kind)
+                        {
+                            errors.push(ValidationError::ConstraintViolation(format!(
+                                "{} is not allowed as child of {}",
+                                node.kind, parent.kind
+                            )));
                         }
                     }
                 }

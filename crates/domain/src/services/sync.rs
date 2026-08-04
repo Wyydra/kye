@@ -109,15 +109,15 @@ where
 
         let title_key = crate::primitives::props::title();
         let get_node_title = |id: NodeId| -> String {
-            if let Some(n) = local_graph.get(id) {
-                if let Some(t) = n.props.get(&title_key).and_then(|v| v.as_text()) {
-                    return t.to_string();
-                }
+            if let Some(n) = local_graph.get(id)
+                && let Some(t) = n.props.get(&title_key).and_then(|v| v.as_text())
+            {
+                return t.to_string();
             }
-            if let Some(n) = remote_graph.get(id) {
-                if let Some(t) = n.props.get(&title_key).and_then(|v| v.as_text()) {
-                    return t.to_string();
-                }
+            if let Some(n) = remote_graph.get(id)
+                && let Some(t) = n.props.get(&title_key).and_then(|v| v.as_text())
+            {
+                return t.to_string();
             }
             let id_str = id.to_string();
             format!("Nœud ({})", &id_str[..8.min(id_str.len())])
@@ -304,24 +304,24 @@ where
             let node_title = get_node_title(id);
 
             if local_graph.get(id).is_none() {
-                if let Some(l_ts) = local_tombstones.get(&id) {
-                    if l_ts > &r_node.updated_at {
-                        remote_changes.push(ReviewableCommand {
-                            id: uuid::Uuid::new_v4().to_string(),
-                            selected: true,
-                            description: format!("Supprimer le nœud distant \"{}\"", node_title),
-                            node_title: node_title.clone(),
-                            cmd: Command::DeleteNode {
-                                id,
-                                cascade: true,
-                            },
-                            diff_lines: vec![
-                                DiffLine::remove(format!("- Nœud: {}", node_title)),
-                                DiffLine::remove(format!("- Type: {}", r_node.kind.as_str())),
-                            ],
-                        });
-                        continue;
-                    }
+                if let Some(l_ts) = local_tombstones.get(&id)
+                    && l_ts > &r_node.updated_at
+                {
+                    remote_changes.push(ReviewableCommand {
+                        id: uuid::Uuid::new_v4().to_string(),
+                        selected: true,
+                        description: format!("Supprimer le nœud distant \"{}\"", node_title),
+                        node_title: node_title.clone(),
+                        cmd: Command::DeleteNode {
+                            id,
+                            cascade: true,
+                        },
+                        diff_lines: vec![
+                            DiffLine::remove(format!("- Nœud: {}", node_title)),
+                            DiffLine::remove(format!("- Type: {}", r_node.kind.as_str())),
+                        ],
+                    });
+                    continue;
                 }
 
                 let mut diff_lines = vec![
@@ -555,7 +555,7 @@ mod tests {
         let summary = service.sync_with_peer(&peer, None).unwrap();
         assert_eq!(summary.applied_local, 1);
         assert_eq!(summary.pushed_remote, 0);
-        assert_eq!(summary.has_conflicts, false);
+        assert!(!summary.has_conflicts);
 
         let updated_local = service.load_graph().unwrap();
         assert!(updated_local.get(r_id).is_some());

@@ -75,6 +75,16 @@ impl fmt::Display for PropKey {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+pub enum EdgeKind {
+    /// Hierarchical parent-child relationship with ordering index
+    ParentChild { index: usize },
+    /// Bi-directional free reference (WikiLink [[Note]] or inline reference)
+    Reference,
+    /// Typed property relation (e.g. PropKey("author") -> NodeId)
+    Property { key: PropKey },
+}
+
 pub mod kinds {
     use super::Kind;
 

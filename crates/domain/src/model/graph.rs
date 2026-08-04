@@ -1,9 +1,8 @@
-use std::collections::{BTreeSet, HashMap};
-
+use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 use crate::node::Node;
-use crate::primitives::{Kind, NodeId, PropKey};
+use crate::primitives::{EdgeKind, Kind, NodeId, PropKey};
 use crate::value::Value;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -20,11 +19,14 @@ pub enum GraphError {
 
 #[derive(Debug, Clone, Default)]
 pub struct Graph {
+    /// Primary Node storage: NodeId -> Node entity
     nodes: HashMap<NodeId, Node>,
+    /// Root node IDs (nodes with no parent)
     roots: Vec<NodeId>,
-    parent_children: HashMap<NodeId, Vec<NodeId>>,
-    node_parent: HashMap<NodeId, NodeId>,
-    backlinks: HashMap<NodeId, BTreeSet<NodeId>>,
+    /// Outgoing edge index: Source NodeId -> List of (Target NodeId, EdgeKind)
+    outgoing: HashMap<NodeId, Vec<(NodeId, EdgeKind)>>,
+    /// Incoming edge index: Target NodeId -> Set of (Source NodeId, EdgeKind)
+    incoming: HashMap<NodeId, HashSet<(NodeId, EdgeKind)>>,
 }
 
 impl Graph {
@@ -61,17 +63,27 @@ impl Graph {
     }
 
     pub fn children_of(&self, id: NodeId) -> impl Iterator<Item = &Node> {
-        let empty: &[NodeId] = &[];
-        let children = self
-            .parent_children
-            .get(&id)
-            .map(|v| v.as_slice())
-            .unwrap_or(empty);
-        children.iter().filter_map(|cid| self.nodes.get(cid))
+        let mut children: Vec<(usize, NodeId)> = Vec::new();
+        if let Some(edges) = self.outgoing.get(&id) {
+            for (target, kind) in edges {
+                if let EdgeKind::ParentChild { index } = kind {
+                    children.push((*index, *target));
+                }
+            }
+        }
+        children.sort_by_key(|(idx, _)| *idx);
+        children.into_iter().filter_map(move |(_, cid)| self.nodes.get(&cid))
     }
 
     pub fn parent_of(&self, id: NodeId) -> Option<NodeId> {
-        self.node_parent.get(&id).copied()
+        if let Some(edges) = self.incoming.get(&id) {
+            for (source, kind) in edges {
+                if matches!(kind, EdgeKind::ParentChild { .. }) {
+                    return Some(*source);
+                }
+            }
+        }
+        None
     }
 
     pub fn ancestors_of(&self, id: NodeId) -> impl Iterator<Item = &Node> + '_ {
@@ -89,10 +101,9 @@ impl Graph {
 
     fn collect_subtree(&self, id: NodeId, out: &mut Vec<NodeId>) {
         out.push(id);
-        if let Some(children) = self.parent_children.get(&id) {
-            for &child in children {
-                self.collect_subtree(child, out);
-            }
+        let children: Vec<NodeId> = self.children_of(id).map(|n| n.id).collect();
+        for child in children {
+            self.collect_subtree(child, out);
         }
     }
 
@@ -106,11 +117,15 @@ impl Graph {
     }
 
     pub fn backlinks(&self, target: NodeId) -> impl Iterator<Item = NodeId> + '_ {
-        self.backlinks
-            .get(&target)
-            .map(|set| set.iter().copied())
-            .into_iter()
-            .flatten()
+        let mut sources = Vec::new();
+        if let Some(edges) = self.incoming.get(&target) {
+            for (source, kind) in edges {
+                if matches!(kind, EdgeKind::Reference | EdgeKind::Property { .. }) {
+                    sources.push(*source);
+                }
+            }
+        }
+        sources.into_iter()
     }
 
     pub fn is_ancestor_of(&self, ancestor: NodeId, node: NodeId) -> bool {
@@ -141,15 +156,35 @@ impl Graph {
         if !self.nodes.contains_key(&parent_id) {
             return Err(GraphError::NotFound(parent_id));
         }
-        let children = self.parent_children.entry(parent_id).or_default();
-        if index > children.len() {
+
+        let current_children_count = self.children_of(parent_id).count();
+        if index > current_children_count {
             return Err(GraphError::IndexOutOfBounds {
                 index,
-                len: children.len(),
+                len: current_children_count,
             });
         }
-        children.insert(index, id);
-        self.node_parent.insert(id, parent_id);
+
+        if let Some(edges) = self.outgoing.get_mut(&parent_id) {
+            for (_, kind) in edges.iter_mut() {
+                if let EdgeKind::ParentChild { index: idx } = kind
+                    && *idx >= index
+                {
+                    *idx += 1;
+                }
+            }
+        }
+
+        let edge_kind = EdgeKind::ParentChild { index };
+        self.outgoing
+            .entry(parent_id)
+            .or_default()
+            .push((id, edge_kind.clone()));
+        self.incoming
+            .entry(id)
+            .or_default()
+            .insert((parent_id, edge_kind));
+
         self.index_refs(&node);
         self.nodes.insert(id, node);
         Ok(())
@@ -174,25 +209,45 @@ impl Graph {
             }
         }
 
-        let old_parent = self.node_parent.remove(&node_id);
-        match old_parent {
-            Some(pid) => {
-                if let Some(children) = self.parent_children.get_mut(&pid) {
-                    children.retain(|&c| c != node_id);
-                }
+        if let Some(old_parent) = self.parent_of(node_id) {
+            if let Some(edges) = self.outgoing.get_mut(&old_parent) {
+                edges.retain(|(target, kind)| {
+                    !(*target == node_id && matches!(kind, EdgeKind::ParentChild { .. }))
+                });
             }
-            None => {
-                self.roots.retain(|&r| r != node_id);
+            if let Some(incoming_set) = self.incoming.get_mut(&node_id) {
+                incoming_set.retain(|(source, kind)| {
+                    !(*source == old_parent && matches!(kind, EdgeKind::ParentChild { .. }))
+                });
             }
+        } else {
+            self.roots.retain(|&r| r != node_id);
         }
 
         match new_parent {
             Some(pid) => {
-                let children = self.parent_children.entry(pid).or_default();
-                let len = children.len();
-                let idx = index.min(len);
-                children.insert(idx, node_id);
-                self.node_parent.insert(node_id, pid);
+                let children_count = self.children_of(pid).count();
+                let idx = index.min(children_count);
+
+                if let Some(edges) = self.outgoing.get_mut(&pid) {
+                    for (_, kind) in edges.iter_mut() {
+                        if let EdgeKind::ParentChild { index: c_idx } = kind
+                            && *c_idx >= idx
+                        {
+                            *c_idx += 1;
+                        }
+                    }
+                }
+
+                let edge_kind = EdgeKind::ParentChild { index: idx };
+                self.outgoing
+                    .entry(pid)
+                    .or_default()
+                    .push((node_id, edge_kind.clone()));
+                self.incoming
+                    .entry(node_id)
+                    .or_default()
+                    .insert((pid, edge_kind));
             }
             None => {
                 let idx = index.min(self.roots.len());
@@ -210,22 +265,25 @@ impl Graph {
 
         let ids = self.subtree_of(id);
 
-        let old_parent = self.node_parent.remove(&id);
-        match old_parent {
-            Some(pid) => {
-                if let Some(children) = self.parent_children.get_mut(&pid) {
-                    children.retain(|&c| c != id);
-                }
+        if let Some(pid) = self.parent_of(id) {
+            if let Some(edges) = self.outgoing.get_mut(&pid) {
+                edges.retain(|(target, kind)| {
+                    !(*target == id && matches!(kind, EdgeKind::ParentChild { .. }))
+                });
             }
-            None => {
-                self.roots.retain(|&r| r != id);
+            if let Some(incoming_set) = self.incoming.get_mut(&id) {
+                incoming_set.retain(|(source, kind)| {
+                    !(*source == pid && matches!(kind, EdgeKind::ParentChild { .. }))
+                });
             }
+        } else {
+            self.roots.retain(|&r| r != id);
         }
 
         let mut removed = Vec::with_capacity(ids.len());
         for nid in ids {
-            self.node_parent.remove(&nid);
-            self.parent_children.remove(&nid);
+            self.outgoing.remove(&nid);
+            self.incoming.remove(&nid);
             if let Some(node) = self.nodes.remove(&nid) {
                 self.deindex_refs(&node);
                 removed.push(node);
@@ -250,11 +308,17 @@ impl Graph {
             let mut old_refs = Vec::new();
             old.collect_refs(&mut old_refs);
             for r in old_refs {
-                if let Some(set) = self.backlinks.get_mut(&r) {
-                    set.remove(&node_id);
-                    if set.is_empty() {
-                        self.backlinks.remove(&r);
-                    }
+                let edge_ref = EdgeKind::Reference;
+                let edge_prop = EdgeKind::Property { key: key.clone() };
+                if let Some(edges) = self.outgoing.get_mut(&node_id) {
+                    edges.retain(|(target, kind)| {
+                        !(*target == r && (*kind == edge_ref || *kind == edge_prop))
+                    });
+                }
+                if let Some(set) = self.incoming.get_mut(&r) {
+                    set.retain(|(source, kind)| {
+                        !(*source == node_id && (*kind == edge_ref || *kind == edge_prop))
+                    });
                 }
             }
         }
@@ -262,7 +326,15 @@ impl Graph {
         let mut new_refs = Vec::new();
         value.collect_refs(&mut new_refs);
         for r in new_refs {
-            self.backlinks.entry(r).or_default().insert(node_id);
+            let edge_ref = EdgeKind::Reference;
+            self.outgoing
+                .entry(node_id)
+                .or_default()
+                .push((r, edge_ref.clone()));
+            self.incoming
+                .entry(r)
+                .or_default()
+                .insert((node_id, edge_ref));
         }
 
         let old = node.props.insert(key, value);
@@ -282,18 +354,20 @@ impl Graph {
         if let Some(old) = node.props.get(key) {
             let mut refs = Vec::new();
             old.collect_refs(&mut refs);
-
-            let refs = refs;
-            let _ = node;
             for r in refs {
-                if let Some(set) = self.backlinks.get_mut(&r) {
-                    set.remove(&node_id);
-                    if set.is_empty() {
-                        self.backlinks.remove(&r);
-                    }
+                let edge_ref = EdgeKind::Reference;
+                let edge_prop = EdgeKind::Property { key: key.clone() };
+                if let Some(edges) = self.outgoing.get_mut(&node_id) {
+                    edges.retain(|(target, kind)| {
+                        !(*target == r && (*kind == edge_ref || *kind == edge_prop))
+                    });
+                }
+                if let Some(set) = self.incoming.get_mut(&r) {
+                    set.retain(|(source, kind)| {
+                        !(*source == node_id && (*kind == edge_ref || *kind == edge_prop))
+                    });
                 }
             }
-            let node = self.nodes.get_mut(&node_id).unwrap();
             return Ok(node.props.shift_remove(key));
         }
 
@@ -306,7 +380,15 @@ impl Graph {
             let mut refs = Vec::new();
             value.collect_refs(&mut refs);
             for r in refs {
-                self.backlinks.entry(r).or_default().insert(id);
+                let edge_ref = EdgeKind::Reference;
+                self.outgoing
+                    .entry(id)
+                    .or_default()
+                    .push((r, edge_ref.clone()));
+                self.incoming
+                    .entry(r)
+                    .or_default()
+                    .insert((id, edge_ref));
             }
         }
     }
@@ -317,11 +399,11 @@ impl Graph {
             let mut refs = Vec::new();
             value.collect_refs(&mut refs);
             for r in refs {
-                if let Some(set) = self.backlinks.get_mut(&r) {
-                    set.remove(&id);
-                    if set.is_empty() {
-                        self.backlinks.remove(&r);
-                    }
+                if let Some(edges) = self.outgoing.get_mut(&id) {
+                    edges.retain(|(target, _)| *target != r);
+                }
+                if let Some(set) = self.incoming.get_mut(&r) {
+                    set.retain(|(source, _)| *source != id);
                 }
             }
         }

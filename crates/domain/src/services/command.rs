@@ -242,10 +242,10 @@ pub fn apply(
                 });
             }
 
-            if let Some(pid) = parent_id {
-                if !graph.contains(pid) {
-                    return Err(CommandError::Graph(GraphError::NotFound(pid)));
-                }
+            if let Some(pid) = parent_id
+                && !graph.contains(pid)
+            {
+                return Err(CommandError::Graph(GraphError::NotFound(pid)));
             }
 
             let constraint_cmd = Command::CreateNode {
@@ -370,7 +370,7 @@ pub fn apply(
 
             let old_value = graph
                 .delete_prop(node_id, &key)?
-                .ok_or_else(|| CommandError::NotFound(node_id))?;
+                .ok_or(CommandError::NotFound(node_id))?;
             graph.get_mut(node_id).unwrap().updated_at = now;
 
             Ok(Event::PropDeleted {

@@ -58,12 +58,12 @@ impl<'a> SchemaResolver<'a> {
         if node.kind == kinds::row() {
             let columns = self.effective_columns(node_id);
             for col in columns {
-                if let Some(col_title) = col.prop_text("title") {
-                    if node.prop(col_title).is_none() {
-                        errors.push(ValidationError::MissingRequiredProp(
-                            crate::primitives::PropKey::from(col_title),
-                        ));
-                    }
+                if let Some(col_title) = col.prop_text("title")
+                    && node.prop(col_title).is_none()
+                {
+                    errors.push(ValidationError::MissingRequiredProp(
+                        crate::primitives::PropKey::from(col_title),
+                    ));
                 }
             }
         }
