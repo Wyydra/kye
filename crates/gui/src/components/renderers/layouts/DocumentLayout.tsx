@@ -59,12 +59,14 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
     <div 
       ref={dropRef}
       className={`document-layout flex flex-col w-full min-h-full transition-all ${
-        depth === 0 ? "max-w-3xl mx-auto px-8 py-12" : "p-2"
+        depth === 0 ? "max-w-[760px] mx-auto px-12 py-14" : "p-2"
       }`}
     >
-      {}
+      {/* Page Title */}
       <input
-        className={`${isCard ? 'text-xl' : 'text-4xl'} font-bold mb-4 text-foreground/90 bg-transparent border-none outline-none w-full placeholder:opacity-20`}
+        className={`${
+          isCard ? "text-xl font-bold mb-3" : "text-4xl font-extrabold tracking-tight mb-6"
+        } text-foreground bg-transparent border-none outline-none w-full placeholder:text-muted-foreground/30 transition-colors`}
         value={titleValue}
         readOnly={!isEditable}
         onChange={(e) => {
@@ -75,21 +77,21 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
             value: { t: "Text", v: e.target.value },
           });
         }}
-        placeholder={kindDef?.label ? `Untitled ${kindDef.label}` : "Untitled Page"}
+        placeholder={kindDef?.label ? `Untitled ${kindDef.label}` : "Untitled"}
       />
 
-      {}
-      <div className="flex flex-col w-full">
+      {/* Block Children Stream */}
+      <div className="flex flex-col w-full space-y-1">
         {node.children.map((childId) => (
           <NodeRenderer key={childId} nodeId={childId} depth={depth + 1} />
         ))}
       </div>
 
-      {}
+      {/* Bottom Clickable Area to Add New Block */}
       {isEditable && (
         <div
-          className={`cursor-text mt-4 text-muted-foreground/20 hover:text-muted-foreground/40 transition-colors ${
-            node.children.length === 0 ? "min-h-[100px]" : "min-h-[30px]"
+          className={`cursor-text mt-4 py-8 text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors flex items-center ${
+            node.children.length === 0 ? "min-h-[160px]" : "min-h-[60px]"
           }`}
           onClick={() => {
             const newId = crypto.randomUUID();
@@ -106,7 +108,9 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
             });
           }}
         >
-          {node.children.length === 0 && "Click to write..."}
+          <span className="text-sm font-normal select-none">
+            {node.children.length === 0 ? "Click here or press '/' to start writing..." : ""}
+          </span>
         </div>
       )}
     </div>
