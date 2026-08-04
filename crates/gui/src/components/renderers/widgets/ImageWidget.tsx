@@ -7,9 +7,9 @@ import { useFileDrop } from "../../../hooks/useFileDrop";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
 
 export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const url = val<string>(node.props.url);
+  const sidecarNodeId = val<string>(node.props.url);
   const title = val<string>(node.props.title);
-  const assetUrl = useAssetUrl(url);
+  const assetUrl = useAssetUrl(sidecarNodeId);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
@@ -21,12 +21,6 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
           node_id: node.id,
           key: "url",
           value: { t: "Ref", v: assetInfo.node_id },
-        });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "target",
-          value: { t: "Text", v: assetInfo.target_path },
         });
       } catch (e) {
         console.error("Failed to import asset on drop", e);
@@ -49,19 +43,13 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
           key: "url",
           value: { t: "Ref", v: assetInfo.node_id },
         });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "target",
-          value: { t: "Text", v: assetInfo.target_path },
-        });
       }
     } catch (e) {
       console.error("Failed to select image", e);
     }
   };
 
-  if (!url) {
+  if (!sidecarNodeId) {
     return (
       <div
         ref={dropRef}

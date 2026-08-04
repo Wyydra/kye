@@ -69,30 +69,9 @@ impl AssetRepository for FileAssetRepository {
         let size_bytes = meta.len();
         let node_id = domain::NodeId::new();
         let sidecar_filename = format!("{}.md", target_filename);
-        let sidecar_abs_path = self.fs.root.join(&sidecar_filename);
-
-        let kind_str = if mime_type.starts_with("image/") {
-            "core.image"
-        } else {
-            "core.file"
-        };
-
-        let frontmatter = format!(
-            "---\nid: {}\nkind: {}\ntarget: {}\nmime_type: {}\nsize_bytes: {}\ncreated_at: {}\nupdated_at: {}\n---\n# {}\n",
-            node_id.as_uuid(),
-            kind_str,
-            target_filename,
-            mime_type,
-            size_bytes,
-            chrono::Utc::now().to_rfc3339(),
-            chrono::Utc::now().to_rfc3339(),
-            filename
-        );
-
-        let _ = fs::write(sidecar_abs_path, frontmatter);
 
         Ok(AssetInfo::new(
-            rel_path.clone(),
+            rel_path,
             sidecar_filename,
             mime_type,
             size_bytes,

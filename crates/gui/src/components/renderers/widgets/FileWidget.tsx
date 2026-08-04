@@ -40,16 +40,16 @@ function getFileTypeInfo(path?: string, mime?: string) {
 }
 
 export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const targetNodeId = val<string>(node.props.url) || val<string>(node.props.target);
-  const targetNode = useGraphStore((state) => (targetNodeId ? state.nodes[targetNodeId] : null));
+  const sidecarNodeId = val<string>(node.props.url);
+  const sidecarNode = useGraphStore((state) => (sidecarNodeId ? state.nodes[sidecarNodeId] : null));
 
-  const path = targetNode ? val<string>(targetNode.props.target) || targetNodeId : targetNodeId;
-  const title = (targetNode ? val<string>(targetNode.props.title) : null) || val<string>(node.props.title) || path || "Untitled File";
-  const mimeType = (targetNode ? val<string>(targetNode.props.mime_type) : null) || val<string>(node.props.mime_type);
-  const sizeBytes = (targetNode ? val<number>(targetNode.props.size_bytes) : null) || val<number>(node.props.size_bytes);
+  const targetFile = sidecarNode ? val<string>(sidecarNode.props.target) : null;
+  const title = (sidecarNode ? val<string>(sidecarNode.props.title) : null) || val<string>(node.props.title) || targetFile || "Untitled File";
+  const mimeType = sidecarNode ? val<string>(sidecarNode.props.mime_type) : val<string>(node.props.mime_type);
+  const sizeBytes = sidecarNode ? val<number>(sidecarNode.props.size_bytes) : val<number>(node.props.size_bytes);
 
-  const assetUrl = useAssetUrl(targetNodeId);
-  const fileInfo = getFileTypeInfo(path, mimeType);
+  const assetUrl = useAssetUrl(sidecarNodeId);
+  const fileInfo = getFileTypeInfo(targetFile || "", mimeType);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
@@ -61,12 +61,6 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
           node_id: node.id,
           key: "url",
           value: { t: "Ref", v: assetInfo.node_id },
-        });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "title",
-          value: { t: "Text", v: assetInfo.target_path },
         });
       } catch (e) {
         console.error("Failed to import asset on drop", e);
@@ -86,12 +80,6 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
           key: "url",
           value: { t: "Ref", v: assetInfo.node_id },
         });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "title",
-          value: { t: "Text", v: assetInfo.target_path },
-        });
       }
     } catch (e) {
       console.error("Failed to select file", e);
@@ -99,24 +87,24 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
   };
 
   const handleOpenExternal = async () => {
-    if (!path) return;
+    if (!targetFile) return;
     try {
-      await kyeService.openAsset(path);
+      await kyeService.openAsset(targetFile);
     } catch (e) {
       console.error("Failed to open file externally", e);
     }
   };
 
   const handleRevealInExplorer = async () => {
-    if (!path) return;
+    if (!targetFile) return;
     try {
-      await kyeService.revealAsset(path);
+      await kyeService.revealAsset(targetFile);
     } catch (e) {
       console.error("Failed to reveal file in folder", e);
     }
   };
 
-  if (!path) {
+  if (!sidecarNodeId) {
     return (
       <div
         ref={dropRef}
@@ -176,7 +164,7 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-sm font-semibold text-foreground truncate">{title}</span>
-          <span className="text-xs text-muted-foreground truncate font-mono">{path} {sizeBytes ? `• ${formatBytes(sizeBytes)}` : ""}</span>
+          <span className="text-xs text-muted-foreground truncate font-mono">{targetFile} {sizeBytes ? `• ${formatBytes(sizeBytes)}` : ""}</span>
         </div>
       </div>
 

@@ -34,21 +34,6 @@ impl InMemoryGraphRepository {
             path_map: Arc::new(RwLock::new(path_map)),
         })
     }
-
-    pub fn invalidate_cache(&self) -> Result<(), RepositoryError> {
-        let (graph, path_map) = deserialize_graph(&self.fs)?;
-        let mut cache = self
-            .cache
-            .write()
-            .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
-        *cache = graph;
-        let mut pm = self
-            .path_map
-            .write()
-            .map_err(|_| RepositoryError::Corrupted("Lock poisoned".into()))?;
-        *pm = path_map;
-        Ok(())
-    }
 }
 
 impl GraphRepository for InMemoryGraphRepository {

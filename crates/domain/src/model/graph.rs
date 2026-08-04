@@ -211,9 +211,26 @@ impl Graph {
 
         if let Some(old_parent) = self.parent_of(node_id) {
             if let Some(edges) = self.outgoing.get_mut(&old_parent) {
+                let mut old_idx_opt = None;
+                for (target, kind) in edges.iter() {
+                    if *target == node_id
+                        && let EdgeKind::ParentChild { index: idx } = kind
+                    {
+                        old_idx_opt = Some(*idx);
+                    }
+                }
                 edges.retain(|(target, kind)| {
                     !(*target == node_id && matches!(kind, EdgeKind::ParentChild { .. }))
                 });
+                if let Some(old_idx) = old_idx_opt {
+                    for (_, kind) in edges.iter_mut() {
+                        if let EdgeKind::ParentChild { index: c_idx } = kind
+                            && *c_idx > old_idx
+                        {
+                            *c_idx -= 1;
+                        }
+                    }
+                }
             }
             if let Some(incoming_set) = self.incoming.get_mut(&node_id) {
                 incoming_set.retain(|(source, kind)| {
