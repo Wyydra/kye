@@ -65,10 +65,10 @@ pub fn markdown_to_rich(md: &str) -> RichText {
                     }
                     _ => None,
                 };
-                if let Some(m) = target_mark {
-                    if let Some(pos) = current_marks.iter().position(|x| x == &m) {
-                        current_marks.remove(pos);
-                    }
+                if let Some(m) = target_mark
+                    && let Some(pos) = current_marks.iter().position(|x| x == &m)
+                {
+                    current_marks.remove(pos);
                 }
             }
             Event::Text(t) => {

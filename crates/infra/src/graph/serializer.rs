@@ -462,10 +462,11 @@ fn serialize_document(
     };
 
     // Handle file rename: if the title changed, remove the old file.
-    if let Some(old_path) = old_path_opt {
-        if old_path != new_path && old_path.exists() {
-            let _ = std::fs::remove_file(old_path);
-        }
+    if let Some(old_path) = old_path_opt
+        && old_path != new_path
+        && old_path.exists()
+    {
+        let _ = std::fs::remove_file(old_path);
     }
     map.insert(node.id, new_path.clone());
 
@@ -591,25 +592,62 @@ pub fn deserialize_graph(
 fn split_blocks(text: &str) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut current = String::new();
+    let mut in_code_block = false;
 
     for line in text.lines() {
-        let is_heading = line.starts_with("# ")
-            || line.starts_with("## ")
-            || line.starts_with("### ")
-            || line.starts_with("#### ")
-            || line.starts_with("##### ")
-            || line.starts_with("###### ");
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            if in_code_block {
+                current.push_str(line);
+                current.push('\n');
+                blocks.push(current.trim().to_string());
+                current.clear();
+                in_code_block = false;
+                continue;
+            } else {
+                if !current.trim().is_empty() {
+                    blocks.push(current.trim().to_string());
+                    current.clear();
+                }
+                in_code_block = true;
+                current.push_str(line);
+                current.push('\n');
+                continue;
+            }
+        }
+
+        if in_code_block {
+            current.push_str(line);
+            current.push('\n');
+            continue;
+        }
+
+        if trimmed.is_empty() {
+            if !current.trim().is_empty() {
+                blocks.push(current.trim().to_string());
+                current.clear();
+            }
+            continue;
+        }
+
+        let is_heading = trimmed.starts_with("# ")
+            || trimmed.starts_with("## ")
+            || trimmed.starts_with("### ")
+            || trimmed.starts_with("#### ")
+            || trimmed.starts_with("##### ")
+            || trimmed.starts_with("###### ");
 
         let is_block_start = is_heading
-            || line.starts_with("- [ ] ")
-            || line.starts_with("- [x] ")
-            || line.starts_with("> ")
-            || line.starts_with("```")
-            || line.starts_with(":::")
-            || line.starts_with("---")
-            || line.starts_with("iframe:")
-            || line.starts_with("card:")
-            || line.starts_with("flashcard:");
+            || trimmed.starts_with("- [ ] ")
+            || trimmed.starts_with("- [x] ")
+            || trimmed.starts_with("> ")
+            || trimmed.starts_with(":::")
+            || trimmed.starts_with("---")
+            || trimmed.starts_with("***")
+            || trimmed.starts_with("iframe:")
+            || trimmed.starts_with("card:")
+            || trimmed.starts_with("flashcard:");
 
         if is_block_start && !current.trim().is_empty() {
             blocks.push(current.trim().to_string());
@@ -632,31 +670,31 @@ fn parse_markdown_document(content: &str, path: &std::path::Path) -> Vec<ParsedN
     let mut body_start = 0;
     let mut parent_info: Option<ParsedNodeInfo> = None;
 
-    if content.starts_with("---\n") {
-        if let Some(end_idx) = content[4..].find("\n---\n") {
-            let yaml_str = &content[4..4 + end_idx];
-            body_start = 4 + end_idx + 5;
-            if let Ok(front) = serde_yaml::from_str::<Frontmatter>(yaml_str) {
-                use domain::node::NodeBuilder;
-                let mut props = Props::new();
-                for (k, v) in front.props {
-                    props.insert(PropKey::from(k.as_str()), yaml_to_value(v));
-                }
-
-                let mut node = NodeBuilder::new(front.kind.as_str(), front.created_at)
-                    .with_id(NodeId::from_uuid(front.id))
-                    .with_props(props)
-                    .build();
-
-                node.updated_at = front.updated_at;
-                node.view_override = front.view_override.map(json_to_view);
-
-                parent_info = Some(ParsedNodeInfo {
-                    node,
-                    parent: front.parent.map(NodeId::from_uuid),
-                    children: front.children.into_iter().map(NodeId::from_uuid).collect(),
-                });
+    if let Some(stripped) = content.strip_prefix("---\n")
+        && let Some(end_idx) = stripped.find("\n---\n")
+    {
+        let yaml_str = &stripped[..end_idx];
+        body_start = 4 + end_idx + 5;
+        if let Ok(front) = serde_yaml::from_str::<Frontmatter>(yaml_str) {
+            use domain::node::NodeBuilder;
+            let mut props = Props::new();
+            for (k, v) in front.props {
+                props.insert(PropKey::from(k.as_str()), yaml_to_value(v));
             }
+
+            let mut node = NodeBuilder::new(front.kind.as_str(), front.created_at)
+                .with_id(NodeId::from_uuid(front.id))
+                .with_props(props)
+                .build();
+
+            node.updated_at = front.updated_at;
+            node.view_override = front.view_override.map(json_to_view);
+
+            parent_info = Some(ParsedNodeInfo {
+                node,
+                parent: front.parent.map(NodeId::from_uuid),
+                children: front.children.into_iter().map(NodeId::from_uuid).collect(),
+            });
         }
     }
 
@@ -772,12 +810,11 @@ pub fn serialize_event(
         if let Some(node) = graph.get(id) {
             if is_document(node, graph) {
                 docs_to_save.insert(id);
-            } else if let Some(pid) = graph.parent_of(node.id) {
-                if let Some(p) = graph.get(pid) {
-                    if is_document(p, graph) {
-                        docs_to_save.insert(pid);
-                    }
-                }
+            } else if let Some(pid) = graph.parent_of(node.id)
+                && let Some(p) = graph.get(pid)
+                && is_document(p, graph)
+            {
+                docs_to_save.insert(pid);
             }
         }
     };
@@ -827,10 +864,10 @@ pub fn serialize_event(
     if let Event::NodeDeleted { nodes, .. } = event {
         let mut map = path_map.write().unwrap();
         for n in nodes {
-            if let Some(path) = map.remove(&n.id) {
-                if path.exists() {
-                    let _ = std::fs::remove_file(path);
-                }
+            if let Some(path) = map.remove(&n.id)
+                && path.exists()
+            {
+                let _ = std::fs::remove_file(path);
             }
         }
     }
@@ -867,10 +904,10 @@ pub fn load_tombstones(
 
     let mut tombstones = HashMap::new();
     for (k, v) in raw {
-        if let Ok(uuid) = Uuid::parse_str(&k) {
-            if let Ok(dt) = DateTime::parse_from_rfc3339(&v) {
-                tombstones.insert(NodeId::from_uuid(uuid), dt.with_timezone(&Utc));
-            }
+        if let Ok(uuid) = Uuid::parse_str(&k)
+            && let Ok(dt) = DateTime::parse_from_rfc3339(&v)
+        {
+            tombstones.insert(NodeId::from_uuid(uuid), dt.with_timezone(&Utc));
         }
     }
     Ok(tombstones)
@@ -888,4 +925,35 @@ pub fn save_tombstones(
         RepositoryError::Corrupted(format!("Failed to serialize tombstones: {}", e))
     })?;
     fs.write_file(&fs.kye_dir().join("tombstones.json"), &content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::formatters::value_to_markdown;
+
+    #[test]
+    fn test_parse_markdown_document_splits_paragraphs_after_title() {
+        let page_id = NodeId::new();
+        let doc_content = format!(
+            "---\nid: {}\nkind: core.page\ncreated_at: '2026-01-01T00:00:00Z'\nupdated_at: '2026-01-01T00:00:00Z'\n---\n# Document Title\n\nFirst paragraph text.\n\nSecond paragraph text.\n",
+            page_id.as_uuid()
+        );
+
+        let parsed_nodes = parse_markdown_document(&doc_content, std::path::Path::new("Document Title.md"));
+        assert_eq!(parsed_nodes.len(), 3);
+
+        let page_node = &parsed_nodes[0];
+        assert_eq!(page_node.node.title(), Some("Document Title"));
+
+        let child1 = &parsed_nodes[1];
+        assert_eq!(child1.node.kind.as_str(), "core.paragraph");
+        let body1 = child1.node.prop("body").unwrap();
+        assert_eq!(value_to_markdown(body1), "First paragraph text.");
+
+        let child2 = &parsed_nodes[2];
+        assert_eq!(child2.node.kind.as_str(), "core.paragraph");
+        let body2 = child2.node.prop("body").unwrap();
+        assert_eq!(value_to_markdown(body2), "Second paragraph text.");
+    }
 }

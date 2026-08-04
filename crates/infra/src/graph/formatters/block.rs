@@ -37,38 +37,38 @@ impl ParsedBlock {
     /// and no hidden props — this handles files edited by hand or created by
     /// other tools.
     pub fn parse(raw: &str) -> Self {
-        if let Some(comment_start) = raw.find("<!-- id: ") {
-            if let Some(comment_end_offset) = raw[comment_start..].find(" -->") {
-                let comment_end = comment_start + comment_end_offset;
-                let comment = &raw[comment_start + 9..comment_end]; // strip "<!-- id: " … " -->"
+        if let Some(comment_start) = raw.find("<!-- id: ")
+            && let Some(comment_end_offset) = raw[comment_start..].find(" -->")
+        {
+            let comment_end = comment_start + comment_end_offset;
+            let comment = &raw[comment_start + 9..comment_end]; // strip "<!-- id: " … " -->"
 
-                // Reconstruct the raw markdown text without the comment.
-                let mut markdown_text = raw[..comment_start].trim_end().to_string();
-                let after_comment = &raw[comment_end + 4..];
-                markdown_text.push_str(after_comment);
+            // Reconstruct the raw markdown text without the comment.
+            let mut markdown_text = raw[..comment_start].trim_end().to_string();
+            let after_comment = &raw[comment_end + 4..];
+            markdown_text.push_str(after_comment);
 
-                let (node_id, hidden_props) = if let Some(props_offset) = comment.find(" props: ") {
-                    let id_str = &comment[..props_offset];
-                    let props_json = &comment[props_offset + 8..];
-                    let id = Uuid::parse_str(id_str)
-                        .map(NodeId::from_uuid)
-                        .unwrap_or_else(|_| NodeId::new());
-                    let props: HashMap<String, serde_yaml::Value> =
-                        serde_json::from_str(props_json).unwrap_or_default();
-                    (id, props)
-                } else {
-                    let id = Uuid::parse_str(comment)
-                        .map(NodeId::from_uuid)
-                        .unwrap_or_else(|_| NodeId::new());
-                    (id, HashMap::new())
-                };
+            let (node_id, hidden_props) = if let Some(props_offset) = comment.find(" props: ") {
+                let id_str = &comment[..props_offset];
+                let props_json = &comment[props_offset + 8..];
+                let id = Uuid::parse_str(id_str)
+                    .map(NodeId::from_uuid)
+                    .unwrap_or_else(|_| NodeId::new());
+                let props: HashMap<String, serde_yaml::Value> =
+                    serde_json::from_str(props_json).unwrap_or_default();
+                (id, props)
+            } else {
+                let id = Uuid::parse_str(comment)
+                    .map(NodeId::from_uuid)
+                    .unwrap_or_else(|_| NodeId::new());
+                (id, HashMap::new())
+            };
 
-                return Self {
-                    node_id,
-                    markdown_text,
-                    hidden_props,
-                };
-            }
+            return Self {
+                node_id,
+                markdown_text,
+                hidden_props,
+            };
         }
 
         // No comment found — treat the entire text as content, assign a fresh id.
@@ -92,10 +92,10 @@ pub fn serialize_block_line(
     hidden_props: HashMap<String, serde_yaml::Value>,
 ) -> String {
     let mut comment = format!("<!-- id: {}", node_id.as_uuid());
-    if !hidden_props.is_empty() {
-        if let Ok(json) = serde_json::to_string(&hidden_props) {
-            comment.push_str(&format!(" props: {}", json));
-        }
+    if !hidden_props.is_empty()
+        && let Ok(json) = serde_json::to_string(&hidden_props)
+    {
+        comment.push_str(&format!(" props: {}", json));
     }
     comment.push_str(" -->");
 

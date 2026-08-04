@@ -44,14 +44,8 @@ impl AssetRepository for FileAssetRepository {
     fn save_media(&self, data: &[u8], extension: &str) -> Result<String, RepositoryError> {
         let file_id = Uuid::new_v4().to_string();
         let file_name = format!("{}.{}", file_id, extension);
-        let rel_path = format!("media/{}", file_name);
+        let rel_path = file_name.clone();
         let abs_path = self.fs.root.join(&rel_path);
-
-        if let Some(parent) = abs_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                RepositoryError::Io(format!("Failed to create media directory: {}", e))
-            })?;
-        }
 
         fs::write(&abs_path, data).map_err(|e| {
             RepositoryError::Io(format!("Failed to write media file: {}", e))
@@ -64,7 +58,7 @@ impl AssetRepository for FileAssetRepository {
         let source_path = Path::new(source_path_str);
         if !source_path.exists() {
             return Err(RepositoryError::NotFound(format!(
-                "Asset file not found: {}",
+                "Asset source file not found: {}",
                 source_path_str
             )));
         }
@@ -81,15 +75,9 @@ impl AssetRepository for FileAssetRepository {
             .to_lowercase();
 
         let asset_id = Uuid::new_v4().to_string();
-        let target_filename = format!("{}_{}", asset_id, filename);
-        let rel_path = format!("assets/{}", target_filename);
+        let target_filename = format!("{}_{}", &asset_id[..8], filename);
+        let rel_path = target_filename.clone();
         let abs_path = self.fs.root.join(&rel_path);
-
-        if let Some(parent) = abs_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                RepositoryError::Io(format!("Failed to create assets directory: {}", e))
-            })?;
-        }
 
         fs::copy(source_path, &abs_path).map_err(|e| {
             RepositoryError::Io(format!("Failed to copy asset file: {}", e))

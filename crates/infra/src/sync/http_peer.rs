@@ -87,10 +87,10 @@ impl SyncPeerPort for HttpSyncPeerAdapter {
 
         let mut result = HashMap::new();
         for (id_str, time_str) in parsed {
-            if let Ok(id_uuid) = uuid::Uuid::parse_str(&id_str) {
-                if let Ok(dt) = DateTime::parse_from_rfc3339(&time_str) {
-                    result.insert(NodeId::from_uuid(id_uuid), dt.with_timezone(&Utc));
-                }
+            if let Ok(id_uuid) = uuid::Uuid::parse_str(&id_str)
+                && let Ok(dt) = DateTime::parse_from_rfc3339(&time_str)
+            {
+                result.insert(NodeId::from_uuid(id_uuid), dt.with_timezone(&Utc));
             }
         }
 

@@ -133,10 +133,10 @@ impl GraphDto {
                 node.view_override = Some(ViewDef::from(vo_dto.clone()));
             }
 
-            if let Some(parent_str) = &node_dto.parent {
-                if let Ok(p_uuid) = uuid::Uuid::parse_str(parent_str) {
-                    node_parents.insert(node_id, NodeId::from_uuid(p_uuid));
-                }
+            if let Some(parent_str) = &node_dto.parent
+                && let Ok(p_uuid) = uuid::Uuid::parse_str(parent_str)
+            {
+                node_parents.insert(node_id, NodeId::from_uuid(p_uuid));
             }
 
             let _ = graph.insert_root(node);
