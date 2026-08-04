@@ -101,7 +101,7 @@ pub async fn select_workspace_folder(
     let store = StoreBuilder::new(&app_handle, settings_path)
         .build()
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    let _ = store.set(
+    store.set(
         "workspace_path",
         serde_json::json!(path.to_string_lossy().to_string()),
     );
@@ -139,12 +139,11 @@ pub async fn list_workspaces(app_handle: tauri::AppHandle) -> AppResult<Vec<Stri
     let mut workspaces = vec![];
     if let Ok(entries) = std::fs::read_dir(base_path) {
         for entry in entries.flatten() {
-            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                if let Some(name) = entry.file_name().to_str() {
-                    if !name.starts_with('.') {
-                        workspaces.push(name.to_string());
-                    }
-                }
+            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
+                && let Some(name) = entry.file_name().to_str()
+                && !name.starts_with('.')
+            {
+                workspaces.push(name.to_string());
             }
         }
     }

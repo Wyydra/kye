@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
+export type ViewMode = "editor" | "graph";
+
 interface UIState {
+  activeViewMode: ViewMode;
+  setActiveViewMode: (mode: ViewMode) => void;
   focusedNodeId: string | null;
   setFocusedNode: (id: string | null) => void;
   modalNodeId: string | null;
@@ -15,6 +19,8 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
+  activeViewMode: "editor",
+  setActiveViewMode: (activeViewMode) => set({ activeViewMode }),
   focusedNodeId: null,
   setFocusedNode: (id) => set({ focusedNodeId: id }),
   modalNodeId: null,

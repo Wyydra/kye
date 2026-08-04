@@ -54,7 +54,7 @@ impl AppState {
         F: FnOnce(&mut AppStateInner) -> R,
     {
         let mut inner = self.inner.lock().unwrap();
-        f(&mut *inner)
+        f(&mut inner)
     }
 
     pub fn service(&self) -> Option<AppService> {

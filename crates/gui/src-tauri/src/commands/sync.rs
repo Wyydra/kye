@@ -28,7 +28,7 @@ pub fn generate_pairing_qr(port: u16, name: String, pin: String) -> AppResult<St
     let ip = get_local_ip()
         .ok_or_else(|| AppError::Internal("Could not resolve local network IP address".into()))?;
     let url = format!("kye-remote://{}:{}?name={}&pin={}", ip, port, name, pin);
-    let svg = infra::sync::generate_qr_svg(&url).map_err(|e| AppError::Internal(e))?;
+    let svg = infra::sync::generate_qr_svg(&url).map_err(AppError::Internal)?;
     Ok(svg)
 }
 
@@ -50,7 +50,7 @@ pub fn start_p2p_server(
         }
 
         let server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
-            .map_err(|e| AppError::Internal(e))?;
+            .map_err(AppError::Internal)?;
 
         inner.p2p_server = Some(server);
         Ok(())
