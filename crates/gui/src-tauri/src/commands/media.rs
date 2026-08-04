@@ -4,19 +4,6 @@ use domain::AssetInfo;
 use tauri::State;
 
 #[tauri::command]
-pub async fn import_media(source_path: String, state: State<'_, AppState>) -> AppResult<String> {
-    let service = state
-        .service()
-        .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-
-    let asset_info = service
-        .import_asset(&source_path)
-        .map_err(|e| AppError::Internal(format!("Failed to import asset: {}", e)))?;
-
-    Ok(asset_info.target_path)
-}
-
-#[tauri::command]
 pub async fn import_asset(source_path: String, state: State<'_, AppState>) -> AppResult<AssetInfo> {
     let service = state
         .service()

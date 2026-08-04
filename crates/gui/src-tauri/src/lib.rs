@@ -102,7 +102,6 @@ pub fn run() {
             commands::kind::get_kinds,
             commands::kind::register_kind,
             commands::kind::delete_kind,
-            commands::media::import_media,
             commands::media::import_asset,
             commands::media::open_asset,
             commands::media::reveal_asset,

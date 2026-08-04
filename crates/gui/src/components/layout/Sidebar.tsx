@@ -41,7 +41,8 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({ nodeId, depth = 0 }) 
       (child.kind === "core.page" ||
         child.kind === "core.canvas" ||
         child.kind === "core.database" ||
-        child.kind === "core.image")
+        child.kind === "core.image" ||
+        child.kind === "core.file")
     );
   });
 
@@ -50,7 +51,7 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({ nodeId, depth = 0 }) 
   const hasChildren = childDocumentIds.length > 0;
 
   let IconComponent = FileText;
-  if (node.kind === "core.image") IconComponent = ImageIcon;
+  if (node.kind === "core.image" || node.kind === "core.file") IconComponent = ImageIcon;
   else if (node.kind === "core.canvas") IconComponent = Layout;
   else if (node.kind === "core.database") IconComponent = Table;
 

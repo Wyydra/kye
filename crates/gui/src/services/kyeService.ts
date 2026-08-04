@@ -45,10 +45,6 @@ export const kyeService = {
     return invoke("execute_batch", { commands });
   },
 
-  async importMedia(sourcePath: string): Promise<string> {
-    return invoke("import_media", { sourcePath });
-  },
-
   async importAsset(sourcePath: string): Promise<AssetInfo> {
     return invoke("import_asset", { sourcePath });
   },

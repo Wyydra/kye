@@ -5,6 +5,7 @@ import { execute } from "../../../lib/commands";
 import { kyeService } from "../../../services/kyeService";
 import { useFileDrop } from "../../../hooks/useFileDrop";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
+import { useGraphStore } from "../../../store/graphStore";
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return "0 B";
@@ -39,31 +40,27 @@ function getFileTypeInfo(path?: string, mime?: string) {
 }
 
 export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const path = val<string>(node.props.url) || val<string>(node.props.path) || val<string>(node.props.target);
-  const title = val<string>(node.props.title) || path || "Untitled File";
-  const mimeType = val<string>(node.props.mime_type);
-  const sizeBytes = val<number>(node.props.size_bytes);
+  const targetNodeId = val<string>(node.props.url) || val<string>(node.props.target);
+  const targetNode = useGraphStore((state) => (targetNodeId ? state.nodes[targetNodeId] : null));
 
-  const assetUrl = useAssetUrl(path);
+  const path = targetNode ? val<string>(targetNode.props.target) || targetNodeId : targetNodeId;
+  const title = (targetNode ? val<string>(targetNode.props.title) : null) || val<string>(node.props.title) || path || "Untitled File";
+  const mimeType = (targetNode ? val<string>(targetNode.props.mime_type) : null) || val<string>(node.props.mime_type);
+  const sizeBytes = (targetNode ? val<number>(targetNode.props.size_bytes) : null) || val<number>(node.props.size_bytes);
+
+  const assetUrl = useAssetUrl(targetNodeId);
   const fileInfo = getFileTypeInfo(path, mimeType);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
       try {
         const assetInfo = await kyeService.importAsset(paths[0]);
+        if (!assetInfo.node_id) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: assetInfo.node_id
-            ? { t: "Ref", v: assetInfo.node_id }
-            : { t: "Text", v: assetInfo.target_path },
-        });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "target",
-          value: { t: "Text", v: assetInfo.target_path },
+          value: { t: "Ref", v: assetInfo.node_id },
         });
         execute({
           type: "set_prop",
@@ -82,19 +79,12 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
       const selected = await open({ multiple: false });
       if (typeof selected === "string") {
         const assetInfo = await kyeService.importAsset(selected);
+        if (!assetInfo.node_id) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: assetInfo.node_id
-            ? { t: "Ref", v: assetInfo.node_id }
-            : { t: "Text", v: assetInfo.target_path },
-        });
-        execute({
-          type: "set_prop",
-          node_id: node.id,
-          key: "target",
-          value: { t: "Text", v: assetInfo.target_path },
+          value: { t: "Ref", v: assetInfo.node_id },
         });
         execute({
           type: "set_prop",
