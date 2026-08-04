@@ -157,6 +157,9 @@ impl Value {
     pub fn collect_refs(&self, out: &mut Vec<NodeId>) {
         match self {
             Self::Ref(id) => out.push(*id),
+            Self::Text(text) => {
+                extract_uuids_from_text(text, out);
+            }
             Self::Array(values) => {
                 for v in values {
                     v.collect_refs(out);
@@ -173,6 +176,44 @@ impl Value {
             }
             _ => {}
         }
+    }
+}
+
+fn extract_uuids_from_text(text: &str, out: &mut Vec<NodeId>) {
+    let bytes = text.as_bytes();
+    let len = bytes.len();
+    if len < 36 {
+        return;
+    }
+    for i in 0..=len - 36 {
+        if bytes[i + 8] == b'-' && bytes[i + 13] == b'-' && bytes[i + 18] == b'-' && bytes[i + 23] == b'-' {
+            if let Ok(uuid) = uuid::Uuid::parse_str(&text[i..i + 36]) {
+                let node_id = NodeId::from_uuid(uuid);
+                if !out.contains(&node_id) {
+                    out.push(node_id);
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_inline_refs_from_text() {
+        let id1 = NodeId::new();
+        let id2 = NodeId::new();
+        let text = format!("Check this note [[{}]] and image ![{}]({})", id1, id2, id2);
+
+        let val = Value::Text(std::sync::Arc::from(text.as_str()));
+        let mut refs = Vec::new();
+        val.collect_refs(&mut refs);
+
+        assert_eq!(refs.len(), 2);
+        assert!(refs.contains(&id1));
+        assert!(refs.contains(&id2));
     }
 }
 
