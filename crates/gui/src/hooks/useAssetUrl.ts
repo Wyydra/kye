@@ -7,31 +7,48 @@ import { val } from "../types/domain";
 let cachedWorkspacePath: string | null = null;
 
 /**
- * Pure NodeId Asset Resolver Hook.
- * Accepts strictly an asset NodeId pointing to an asset node in the graph,
- * and resolves assetNode.props.target to a local Tauri asset URL.
+ * Universal Asset URL Resolver Hook.
+ * Accepts a target URL (e.g. "sqlar://assets/...", "assets/...", "data:...")
+ * OR a Node ID whose props.url contains the target URL string.
  */
-export function useAssetUrl(nodeId: string | undefined): string | null {
+export function useAssetUrl(urlOrNodeId: string | undefined): string | null {
   const [assetUrl, setAssetUrl] = useState<string | null>(null);
 
-  const targetFile = useGraphStore((state) => {
-    if (!nodeId) return null;
-    const node = state.nodes[nodeId];
-    if (!node) return null;
-    return val<string>(node.props.target) || val<string>(node.props.url) || null;
+  const resolvedTarget = useGraphStore((state) => {
+    if (!urlOrNodeId) return null;
+    const node = state.nodes[urlOrNodeId];
+    if (node) {
+      return val<string>(node.props.url) || val<string>(node.props.target) || null;
+    }
+    return urlOrNodeId;
   });
 
   useEffect(() => {
-    if (!nodeId || !targetFile) {
+    if (!resolvedTarget) {
       setAssetUrl(null);
       return;
     }
 
     let isMounted = true;
 
+    if (resolvedTarget.startsWith("sqlar://") || resolvedTarget.startsWith("sqlite://")) {
+      kyeService
+        .readAssetDataUrl(resolvedTarget)
+        .then((dataUrl) => {
+          if (isMounted) setAssetUrl(dataUrl);
+        })
+        .catch((err) => console.error("Failed to read sqlar asset url:", err));
+      return;
+    }
+
+    if (resolvedTarget.startsWith("data:") || resolvedTarget.startsWith("http://") || resolvedTarget.startsWith("https://")) {
+      setAssetUrl(resolvedTarget);
+      return;
+    }
+
     const resolve = (rootPath: string) => {
       if (!isMounted) return;
-      const fullPath = rootPath.endsWith("/") ? `${rootPath}${targetFile}` : `${rootPath}/${targetFile}`;
+      const fullPath = rootPath.endsWith("/") ? `${rootPath}${resolvedTarget}` : `${rootPath}/${resolvedTarget}`;
       setAssetUrl(convertFileSrc(fullPath));
     };
 
@@ -41,7 +58,7 @@ export function useAssetUrl(nodeId: string | undefined): string | null {
       kyeService
         .getWorkspacePath()
         .then((path) => {
-          if (path) {
+          if (path && isMounted) {
             cachedWorkspacePath = path;
             resolve(path);
           }
@@ -52,7 +69,7 @@ export function useAssetUrl(nodeId: string | undefined): string | null {
     return () => {
       isMounted = false;
     };
-  }, [nodeId, targetFile]);
+  }, [resolvedTarget]);
 
   return assetUrl;
 }

@@ -6,22 +6,58 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreBuilder;
 
 use domain::service::Service;
-use infra::fs::WorkspaceFs;
-use infra::graph::InMemoryGraphRepository;
-use infra::kind::FileKindRepository;
-use infra::media::FileAssetRepository;
+use shell_desktop::DesktopSystemShell;
+use storage_fs::WorkspaceFs;
+use storage_sqlite::{SqlarAssetRepository, SqliteConnection, SqliteGraphRepository};
 
+use crate::backend::{DynamicAssetRepository, DynamicGraphRepository, DynamicKindRepository};
 use crate::dto::{GraphDto, WorkspaceMetaDto};
-
 use crate::error::{AppError, AppResult};
-use crate::state::{AppState, TauriEventBus};
+use crate::state::{AppState, AppService, TauriEventBus};
 
-fn get_kye_base_dir(app_handle: &tauri::AppHandle) -> PathBuf {
-    app_handle
-        .path()
-        .document_dir()
-        .map(|p| p.join("Kye"))
-        .unwrap_or_else(|_| PathBuf::from("Kye"))
+pub fn open_workspace_service(
+    uri_or_path: &str,
+    app_handle: tauri::AppHandle,
+) -> AppResult<(AppService, PathBuf)> {
+    let clean_path_str = uri_or_path
+        .strip_prefix("sqlite://")
+        .or_else(|| uri_or_path.strip_prefix("file://"))
+        .or_else(|| uri_or_path.strip_prefix("fs://"))
+        .unwrap_or(uri_or_path);
+
+    let mut path = PathBuf::from(clean_path_str);
+
+    // If path is a folder (or doesn't have a db extension), place workspace.kye inside it
+    if path.is_dir() || path.extension().is_none() {
+        if !path.exists() {
+            let _ = std::fs::create_dir_all(&path);
+        }
+        path = path.join("workspace.kye");
+    }
+
+    let event_bus = TauriEventBus {
+        app_handle: app_handle.clone(),
+    };
+
+    // Open SQLite database
+    let conn = SqliteConnection::open(&path)
+        .map_err(|e| AppError::Internal(format!("Failed to open SQLite database: {:?}", e)))?;
+
+    let sqlite_repo = SqliteGraphRepository::new(conn.clone());
+    let graph_repo = DynamicGraphRepository::Sqlite(sqlite_repo.clone());
+    let kind_repo = DynamicKindRepository::Sqlite(sqlite_repo);
+    let asset_repo = DynamicAssetRepository::Sqlite(SqlarAssetRepository::new(conn));
+
+    // Desktop shell integration
+    let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
+    let fs_workspace = WorkspaceFs::new(parent_dir);
+    let shell = DesktopSystemShell::new(fs_workspace);
+
+    let service = Arc::new(Service::new(
+        graph_repo, kind_repo, event_bus, asset_repo, shell,
+    ));
+
+    Ok((service, path))
 }
 
 #[tauri::command]
@@ -58,21 +94,19 @@ pub async fn select_workspace_folder(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Option<String>> {
-    let path: PathBuf = match path {
-        Some(p) => {
-            if !p.contains('/') && !p.contains('\\') {
-                get_kye_base_dir(&app_handle).join(p)
-            } else {
-                PathBuf::from(p)
-            }
-        }
+    let target_uri: String = match path {
+        Some(p) => p,
         None => {
             #[cfg(desktop)]
             {
                 let (tx, rx) = tokio::sync::oneshot::channel();
-                app_handle.dialog().file().pick_folder(move |picked| {
-                    let _ = tx.send(picked);
-                });
+                app_handle
+                    .dialog()
+                    .file()
+                    .add_filter("Kye Workspace Database", &["kye", "db", "sqlite"])
+                    .pick_file(move |picked| {
+                        let _ = tx.send(picked);
+                    });
 
                 let picked = rx
                     .await
@@ -80,7 +114,9 @@ pub async fn select_workspace_folder(
                 match picked {
                     Some(p) => p
                         .into_path()
-                        .map_err(|_| AppError::Internal("Invalid path".into()))?,
+                        .map_err(|_| AppError::Internal("Invalid path".into()))?
+                        .to_string_lossy()
+                        .to_string(),
                     None => return Ok(None),
                 }
             }
@@ -93,6 +129,8 @@ pub async fn select_workspace_folder(
         }
     };
 
+    let (service, resolved_path) = open_workspace_service(&target_uri, app_handle.clone())?;
+
     let settings_path = app_handle
         .path()
         .app_data_dir()
@@ -101,68 +139,84 @@ pub async fn select_workspace_folder(
     let store = StoreBuilder::new(&app_handle, settings_path)
         .build()
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    store.set(
-        "workspace_path",
-        serde_json::json!(path.to_string_lossy().to_string()),
-    );
+    store.set("workspace_path", serde_json::json!(target_uri));
     let _ = store.save();
-
-    let fs = WorkspaceFs::new(path.clone());
-    fs.init()
-        .map_err(|e| AppError::Internal(format!("Failed to init FS: {:?}", e)))?;
-
-    let graph_repo = InMemoryGraphRepository::load(fs.clone())
-        .map_err(|e| AppError::Internal(format!("Failed to load graph: {:?}", e)))?;
-    let kind_repo = FileKindRepository::new(fs.clone());
-    let asset_repo = FileAssetRepository::new(fs.clone());
-    let shell = infra::shell::DesktopSystemShell::new(fs);
-    let event_bus = TauriEventBus {
-        app_handle: app_handle.clone(),
-    };
-
-    let service = Arc::new(Service::new(
-        graph_repo, kind_repo, event_bus, asset_repo, shell,
-    ));
 
     state.with_inner(|inner| {
         inner.service = Some(service);
-        inner.workspace_path = Some(path.clone());
+        inner.workspace_path = Some(resolved_path.clone());
     });
 
-    Ok(Some(path.to_string_lossy().to_string()))
+    Ok(Some(resolved_path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
-pub async fn list_workspaces(app_handle: tauri::AppHandle) -> AppResult<Vec<String>> {
-    let base_path = get_kye_base_dir(&app_handle);
-    if !base_path.exists() {
-        return Ok(vec![]);
-    }
+pub async fn create_workspace_file(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Option<String>> {
+    #[cfg(desktop)]
+    {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        app_handle
+            .dialog()
+            .file()
+            .add_filter("Kye Workspace Database", &["kye"])
+            .set_file_name("mon_workspace.kye")
+            .save_file(move |picked| {
+                let _ = tx.send(picked);
+            });
 
-    let mut workspaces = vec![];
-    if let Ok(entries) = std::fs::read_dir(base_path) {
-        for entry in entries.flatten() {
-            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false)
-                && let Some(name) = entry.file_name().to_str()
-                && !name.starts_with('.')
-            {
-                workspaces.push(name.to_string());
-            }
-        }
-    }
+        let picked = rx
+            .await
+            .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
+        let path = match picked {
+            Some(p) => p
+                .into_path()
+                .map_err(|_| AppError::Internal("Invalid path".into()))?,
+            None => return Ok(None),
+        };
 
-    workspaces.sort();
-    Ok(workspaces)
+        let target_uri = path.to_string_lossy().to_string();
+        let (service, resolved_path) = open_workspace_service(&target_uri, app_handle.clone())?;
+
+        let settings_path = app_handle
+            .path()
+            .app_data_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("settings.json");
+        let store = StoreBuilder::new(&app_handle, settings_path)
+            .build()
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        store.set("workspace_path", serde_json::json!(target_uri));
+        let _ = store.save();
+
+        state.with_inner(|inner| {
+            inner.service = Some(service);
+            inner.workspace_path = Some(resolved_path.clone());
+        });
+
+        Ok(Some(target_uri))
+    }
+    #[cfg(mobile)]
+    {
+        Err(AppError::Internal("Mobile save dialog not supported".into()))
+    }
+}
+
+#[tauri::command]
+pub async fn list_workspaces(_app_handle: tauri::AppHandle) -> AppResult<Vec<String>> {
+    Ok(vec![])
 }
 
 #[tauri::command]
 pub async fn create_workspace(name: String, app_handle: tauri::AppHandle) -> AppResult<String> {
-    let new_path = get_kye_base_dir(&app_handle).join(&name);
+    let target_uri = if name.ends_with(".kye") || name.ends_with(".db") || name.ends_with(".sqlite") {
+        name
+    } else {
+        format!("{}.kye", name)
+    };
 
-    if !new_path.exists() {
-        std::fs::create_dir_all(&new_path)
-            .map_err(|e| AppError::Internal(format!("Failed to create workspace: {}", e)))?;
-    }
-
-    Ok(new_path.to_string_lossy().to_string())
+    let _ = open_workspace_service(&target_uri, app_handle)?;
+    Ok(target_uri)
 }

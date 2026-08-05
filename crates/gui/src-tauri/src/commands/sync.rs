@@ -5,8 +5,9 @@ use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use domain::command::Command;
 use domain::ports::SyncPeerPort;
-use infra::dto::RemoteDto;
-use infra::sync::server::HandshakeResponse;
+use storage_fs::dto::RemoteDto;
+use sync_http::server::HandshakeResponse;
+use sync_http::{generate_qr_svg, HttpSyncPeerAdapter, HttpSyncServer};
 
 fn get_local_ip() -> Option<String> {
     UdpSocket::bind("0.0.0.0:0")
@@ -28,7 +29,7 @@ pub fn generate_pairing_qr(port: u16, name: String, pin: String) -> AppResult<St
     let ip = get_local_ip()
         .ok_or_else(|| AppError::Internal("Could not resolve local network IP address".into()))?;
     let url = format!("kye-remote://{}:{}?name={}&pin={}", ip, port, name, pin);
-    let svg = infra::sync::generate_qr_svg(&url).map_err(AppError::Internal)?;
+    let svg = generate_qr_svg(&url).map_err(AppError::Internal)?;
     Ok(svg)
 }
 
@@ -49,7 +50,7 @@ pub fn start_p2p_server(
             server.stop();
         }
 
-        let server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
+        let server = HttpSyncServer::start(service, peer_id, device_name, port)
             .map_err(AppError::Internal)?;
 
         inner.p2p_server = Some(server);
@@ -75,7 +76,7 @@ pub fn is_p2p_server_running(state: State<'_, AppState>) -> bool {
 #[tauri::command]
 pub async fn ping_remote_peer(remote_url: String) -> AppResult<HandshakeResponse> {
     tauri::async_runtime::spawn_blocking(move || {
-        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let peer = HttpSyncPeerAdapter::new();
         let r_url = domain::model::remote::RemoteUrl::new(remote_url)
             .map_err(|e| AppError::Internal(e.to_string()))?;
         let handshake = peer.ping(&r_url).map_err(|e| AppError::Internal(e.to_string()))?;
@@ -91,7 +92,7 @@ pub async fn ping_remote_peer(remote_url: String) -> AppResult<HandshakeResponse
 #[tauri::command]
 pub async fn push_to_remote_peer(remote_url: String, cmds: Vec<Command>) -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || {
-        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let peer = HttpSyncPeerAdapter::new();
         let r_url = domain::model::remote::RemoteUrl::new(remote_url)
             .map_err(|e| AppError::Internal(e.to_string()))?;
         peer.push_commands(&r_url, &cmds).map_err(|e| AppError::Internal(e.to_string()))
@@ -99,8 +100,6 @@ pub async fn push_to_remote_peer(remote_url: String, cmds: Vec<Command>) -> AppR
     .await
     .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
 }
-
-
 
 #[tauri::command]
 pub fn add_remote(name: String, url: String, state: State<'_, AppState>) -> AppResult<()> {
@@ -148,7 +147,7 @@ pub async fn compute_sync_diff(
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let peer = HttpSyncPeerAdapter::new();
         service
             .compute_sync_diff(&peer, Some(&remote_url))
             .map_err(|e| AppError::Internal(e.to_string()))
@@ -167,7 +166,7 @@ pub async fn sync_with_remote_peer(
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
 
     tauri::async_runtime::spawn_blocking(move || {
-        let peer = infra::sync::HttpSyncPeerAdapter::new();
+        let peer = HttpSyncPeerAdapter::new();
         service
             .sync_with_peer(&peer, Some(&remote_url))
             .map_err(|e| AppError::Internal(e.to_string()))

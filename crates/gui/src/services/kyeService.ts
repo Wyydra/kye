@@ -19,6 +19,10 @@ export const kyeService = {
     return invoke("create_workspace", { name });
   },
 
+  async createWorkspaceFile(): Promise<string | null> {
+    return invoke("create_workspace_file");
+  },
+
   async getMeta(): Promise<WorkspaceMeta> {
     return invoke("get_meta");
   },
@@ -45,6 +49,10 @@ export const kyeService = {
 
   async revealAsset(targetPath: string): Promise<void> {
     return invoke("reveal_asset", { targetPath });
+  },
+
+  async readAssetDataUrl(targetPath: string): Promise<string> {
+    return invoke("read_asset_data_url", { targetPath });
   },
 
 

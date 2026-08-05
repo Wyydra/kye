@@ -5,24 +5,22 @@ import { execute } from "../../../lib/commands";
 import { kyeService } from "../../../services/kyeService";
 import { useFileDrop } from "../../../hooks/useFileDrop";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
-import { useGraphStore } from "../../../store/graphStore";
 
 export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const assetNodeId = val<string>(node.props.url);
-  const assetNode = useGraphStore((state) => (assetNodeId ? state.nodes[assetNodeId] : null));
-  const title = assetNode ? val<string>(assetNode.props.title) : null;
-  const assetUrl = useAssetUrl(assetNodeId);
+  const urlProp = val<string>(node.props.url);
+  const title = val<string>(node.props.title) || (urlProp ? urlProp.split('/').pop() : null);
+  const assetUrl = useAssetUrl(urlProp);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
       try {
-        const importedAssetId = await kyeService.importAsset(paths[0]);
-        if (!importedAssetId) return;
+        const importedUrl = await kyeService.importAsset(paths[0]);
+        if (!importedUrl) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: importedAssetId },
+          value: { t: "Text", v: importedUrl },
         });
       } catch (e) {
         console.error("Failed to import asset on drop", e);
@@ -37,13 +35,13 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
         filters: [{ name: "Images", extensions: ["png", "jpeg", "jpg", "gif", "webp"] }],
       });
       if (typeof selected === "string") {
-        const importedAssetId = await kyeService.importAsset(selected);
-        if (!importedAssetId) return;
+        const importedUrl = await kyeService.importAsset(selected);
+        if (!importedUrl) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: importedAssetId },
+          value: { t: "Text", v: importedUrl },
         });
       }
     } catch (e) {
@@ -51,7 +49,7 @@ export const ImageWidget: React.FC<{ node: Node }> = ({ node }) => {
     }
   };
 
-  if (!assetNodeId) {
+  if (!urlProp) {
     return (
       <div
         ref={dropRef}

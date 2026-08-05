@@ -1,3 +1,4 @@
+pub mod backend;
 pub mod commands;
 pub mod dto;
 pub mod error;
@@ -9,12 +10,12 @@ use tauri::Manager;
 use tauri_plugin_store::StoreBuilder;
 
 use domain::service::Service;
-use infra::fs::WorkspaceFs;
-use infra::graph::InMemoryGraphRepository;
-use infra::kind::FileKindRepository;
-use infra::media::FileAssetRepository;
+use shell_desktop::DesktopSystemShell;
+use storage_fs::{FileAssetRepository, FileKindRepository, FsGraphRepository, WorkspaceFs};
+use sync_http::HttpSyncServer;
 
-use crate::state::{AppState, TauriEventBus};
+use crate::commands::workspace::open_workspace_service;
+use crate::state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -34,19 +35,10 @@ pub fn run() {
                 .join("settings.json");
             let store_rc = StoreBuilder::new(app, settings_path).build();
 
-            let workspace_path = match &store_rc {
+            let raw_workspace_uri = match &store_rc {
                 Ok(store) => {
                     let _ = store.reload();
-                    if let Some(path_val) = store.get("workspace_path") {
-                        if let Some(s) = path_val.as_str() {
-                            let p = PathBuf::from(s);
-                            if p.exists() { Some(p) } else { None }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                    store.get("workspace_path").and_then(|v| v.as_str().map(|s| s.to_string()))
                 }
                 Err(e) => {
                     tracing::error!("Store error: {:?}", e);
@@ -56,39 +48,18 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
 
-            let service = if let Some(path) = &workspace_path {
-                let fs = WorkspaceFs::new(path.clone());
-                if let Err(e) = fs.init() {
-                    tracing::error!("Failed to init WorkspaceFs: {:?}", e);
-                    None
-                } else {
-                    let _ = InMemoryGraphRepository::load(fs.clone());
-
-                    let graph_repo = match InMemoryGraphRepository::load(fs.clone()) {
-                        Ok(repo) => repo,
-                        Err(e) => {
-                            tracing::error!("Failed to load graph repository: {:?}", e);
-
-                            return Err(e.to_string().into());
-                        }
-                    };
-
-                    let kind_repo = FileKindRepository::new(fs.clone());
-                    let asset_repo = FileAssetRepository::new(fs.clone());
-                    let shell = infra::shell::DesktopSystemShell::new(fs);
-                    let event_bus = TauriEventBus {
-                        app_handle: app_handle.clone(),
-                    };
-
-                    Some(Arc::new(Service::new(
-                        graph_repo, kind_repo, event_bus, asset_repo, shell,
-                    )))
-                }
-            } else {
-                None
+            let (service, resolved_path) = match raw_workspace_uri {
+                Some(uri) => match open_workspace_service(&uri, app_handle.clone()) {
+                    Ok((svc, p)) => (Some(svc), Some(p)),
+                    Err(e) => {
+                        tracing::error!("Failed to open workspace '{}': {:?}", uri, e);
+                        (None, None)
+                    }
+                },
+                None => (None, None),
             };
 
-            let app_state = AppState::new(service, workspace_path);
+            let app_state = AppState::new(service, resolved_path);
             app.manage(app_state);
 
             Ok(())
@@ -104,10 +75,12 @@ pub fn run() {
             commands::kind::register_kind,
             commands::kind::delete_kind,
             commands::media::import_asset,
+            commands::media::read_asset_data_url,
             commands::media::open_asset,
             commands::media::reveal_asset,
             commands::workspace::list_workspaces,
             commands::workspace::create_workspace,
+            commands::workspace::create_workspace_file,
             commands::sync::get_local_peer_info,
             commands::sync::generate_pairing_qr,
             commands::sync::start_p2p_server,
@@ -141,7 +114,7 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
     fs.init()
         .map_err(|e| format!("Failed to initialize workspace: {:?}", e))?;
 
-    let graph_repo = InMemoryGraphRepository::load(fs.clone())
+    let graph_repo = FsGraphRepository::load(fs.clone())
         .map_err(|e| format!("Failed to load graph repository: {:?}", e))?;
 
     use domain::ports::GraphRepository;
@@ -161,11 +134,17 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
 
     let kind_repo = FileKindRepository::new(fs.clone());
     let asset_repo = FileAssetRepository::new(fs.clone());
-    let shell = infra::shell::DesktopSystemShell::new(fs);
+    let shell = DesktopSystemShell::new(fs);
 
-    let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo, shell));
+    let service = Arc::new(Service::new(
+        crate::backend::DynamicGraphRepository::Fs(graph_repo),
+        crate::backend::DynamicKindRepository::Fs(kind_repo),
+        (),
+        crate::backend::DynamicAssetRepository::Fs(asset_repo),
+        shell,
+    ));
 
-    let _server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
+    let _server = HttpSyncServer::start(service, peer_id, device_name, port)
         .map_err(|e| format!("Failed to start sync server: {}", e))?;
 
     tracing::info!("Kye headless server is running on port {}", port);

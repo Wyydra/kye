@@ -5,19 +5,18 @@ use tauri::Emitter;
 use domain::command::Event;
 use domain::ports::EventBus;
 use domain::service::Service;
-use infra::graph::InMemoryGraphRepository;
-use infra::kind::FileKindRepository;
-use infra::media::FileAssetRepository;
-use infra::shell::DesktopSystemShell;
+use shell_desktop::DesktopSystemShell;
+use sync_http::HttpSyncServer;
 
+use crate::backend::{DynamicAssetRepository, DynamicGraphRepository, DynamicKindRepository};
 use crate::dto::EventDto;
 
 pub type AppService = Arc<
     Service<
-        InMemoryGraphRepository,
-        FileKindRepository,
+        DynamicGraphRepository,
+        DynamicKindRepository,
         TauriEventBus,
-        FileAssetRepository,
+        DynamicAssetRepository,
         DesktopSystemShell,
     >,
 >;
@@ -43,7 +42,7 @@ pub struct AppState {
 pub struct AppStateInner {
     pub service: Option<AppService>,
     pub workspace_path: Option<PathBuf>,
-    pub p2p_server: Option<infra::sync::P2pServer>,
+    pub p2p_server: Option<HttpSyncServer>,
 }
 
 impl AppState {
