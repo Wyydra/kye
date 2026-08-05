@@ -37,5 +37,6 @@ pub trait KindRepository: Send + Sync + 'static {
 }
 
 pub trait AssetRepository: Send + Sync + 'static {
-    fn import_asset(&self, source_path: &str) -> Result<crate::model::node::Node, RepositoryError>;
+    fn save_asset(&self, filename: &str, data: &[u8]) -> Result<String, RepositoryError>;
+    fn read_asset(&self, target: &str) -> Result<Vec<u8>, RepositoryError>;
 }

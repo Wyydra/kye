@@ -493,7 +493,10 @@ mod tests {
 
     struct DummyAssetRepo;
     impl AssetRepository for DummyAssetRepo {
-        fn import_asset(&self, _source_path: &str) -> Result<crate::model::node::Node, RepositoryError> {
+        fn save_asset(&self, _filename: &str, _data: &[u8]) -> Result<String, RepositoryError> {
+            Err(RepositoryError::NotFound("none".into()))
+        }
+        fn read_asset(&self, _target: &str) -> Result<Vec<u8>, RepositoryError> {
             Err(RepositoryError::NotFound("none".into()))
         }
     }
