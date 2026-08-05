@@ -139,13 +139,17 @@ pub mod kinds {
     pub fn callout() -> Kind {
         Kind::from("core.callout")
     }
-    /// Embedded image asset.
+    /// Embedded image asset node.
     pub fn image() -> Kind {
         Kind::from("core.image")
     }
-    /// Embedded general file asset.
-    pub fn file() -> Kind {
-        Kind::from("core.file")
+    /// Embedded audio asset node.
+    pub fn audio() -> Kind {
+        Kind::from("core.audio")
+    }
+    /// Embedded binary asset node (universal fallback).
+    pub fn binary() -> Kind {
+        Kind::from("core.binary")
     }
     /// External web embed.
     pub fn embed() -> Kind {

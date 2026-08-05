@@ -1,4 +1,3 @@
-pub mod asset;
 pub mod graph;
 pub mod node;
 pub mod primitives;
@@ -10,7 +9,6 @@ pub mod value;
 pub mod view;
 pub mod workspace;
 
-pub use asset::*;
 pub use graph::*;
 pub use node::*;
 pub use primitives::*;

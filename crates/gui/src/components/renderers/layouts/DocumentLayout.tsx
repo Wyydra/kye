@@ -34,8 +34,8 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
       const path = paths[i];
       if (typeof path === 'string') {
         try {
-          const assetInfo = await kyeService.importAsset(path);
-          if (!assetInfo.node_id) continue;
+          const assetNodeId = await kyeService.importAsset(path);
+          if (!assetNodeId) continue;
 
           execute({
             type: "create_node",
@@ -44,8 +44,7 @@ export const DocumentLayout: React.FC<LayoutProps> = ({ node, depth }) => {
             parent_id: node.id,
             index: node.children.length + i,
             props: {
-              url: { t: "Ref", v: assetInfo.node_id },
-              target: { t: "Text", v: assetInfo.target_path },
+              url: { t: "Ref", v: assetNodeId },
             },
           });
         } catch (e) {

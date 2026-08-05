@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useGraphStore } from "../../store/graphStore";
 import { val } from "../../types/domain";
 import { useCanvasStore } from "../../store/canvasStore";
@@ -40,9 +40,7 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({ nodeId, depth = 0 }) 
       child &&
       (child.kind === "core.page" ||
         child.kind === "core.canvas" ||
-        child.kind === "core.database" ||
-        child.kind === "core.image" ||
-        child.kind === "core.file")
+        child.kind === "core.database")
     );
   });
 
@@ -138,6 +136,20 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({ nodeId, depth = 0 }) 
 
 export const Sidebar: React.FC = () => {
   const roots = useGraphStore((state) => state.roots);
+  const nodes = useGraphStore((state) => state.nodes);
+
+  const documentRoots = useMemo(() => {
+    return roots.filter((id) => {
+      const node = nodes[id];
+      return (
+        node &&
+        (node.kind === "core.page" ||
+          node.kind === "core.canvas" ||
+          node.kind === "core.database")
+      );
+    });
+  }, [roots, nodes]);
+
   const setSelectedNodeId = useCanvasStore((state) => state.setSelectedNodeId);
 
   const setWorkspacePickerOpen = useUIStore((state) => state.setWorkspacePickerOpen);
@@ -225,12 +237,12 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <div className="space-y-0.5">
-          {roots.length === 0 ? (
+          {documentRoots.length === 0 ? (
             <div className="p-3 text-center text-xs text-muted-foreground/60 italic">
               No notes yet. Click + New Note above.
             </div>
           ) : (
-            roots.map((id) => <SidebarTreeItem key={id} nodeId={id} depth={0} />)
+            documentRoots.map((id) => <SidebarTreeItem key={id} nodeId={id} depth={0} />)
           )}
         </div>
       </div>

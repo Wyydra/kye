@@ -206,8 +206,27 @@ impl CoreLibrary {
         );
 
         registry.register(
-            kinds::file(),
-            KindDef::new("File", props::title())
+            kinds::audio(),
+            KindDef::new("Audio", props::title())
+                .with_icon("🎵")
+                .with_prop(
+                    props::url(),
+                    PropDef::new(ValueType::Text).with_label("URL"),
+                )
+                .with_prop(
+                    props::title(),
+                    PropDef::new(ValueType::Text)
+                        .optional()
+                        .with_label("Title"),
+                )
+                .with_view(ViewDef::new(Layout::Widget {
+                    name: "audio".into(),
+                })),
+        );
+
+        registry.register(
+            kinds::binary(),
+            KindDef::new("Binary", props::title())
                 .with_icon("📎")
                 .with_prop(
                     props::url(),
@@ -409,7 +428,8 @@ mod tests {
         assert!(registry.contains(&kinds::heading()));
         assert!(registry.contains(&kinds::task()));
         assert!(registry.contains(&kinds::image()));
-        assert!(registry.contains(&kinds::file()));
+        assert!(registry.contains(&kinds::audio()));
+        assert!(registry.contains(&kinds::binary()));
         assert!(registry.contains(&kinds::flashcard()));
         assert!(registry.contains(&kinds::canvas()));
         assert!(registry.contains(&kinds::connection()));

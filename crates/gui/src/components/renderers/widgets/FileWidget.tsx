@@ -40,27 +40,27 @@ function getFileTypeInfo(path?: string, mime?: string) {
 }
 
 export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const sidecarNodeId = val<string>(node.props.url);
-  const sidecarNode = useGraphStore((state) => (sidecarNodeId ? state.nodes[sidecarNodeId] : null));
+  const assetNodeId = val<string>(node.props.url);
+  const assetNode = useGraphStore((state) => (assetNodeId ? state.nodes[assetNodeId] : null));
 
-  const targetFile = sidecarNode ? val<string>(sidecarNode.props.target) : null;
-  const title = (sidecarNode ? val<string>(sidecarNode.props.title) : null) || val<string>(node.props.title) || targetFile || "Untitled File";
-  const mimeType = sidecarNode ? val<string>(sidecarNode.props.mime_type) : val<string>(node.props.mime_type);
-  const sizeBytes = sidecarNode ? val<number>(sidecarNode.props.size_bytes) : val<number>(node.props.size_bytes);
+  const targetFile = assetNode ? val<string>(assetNode.props.target) : null;
+  const title = (assetNode ? val<string>(assetNode.props.title) : null) || targetFile || "Untitled File";
+  const mimeType = assetNode ? val<string>(assetNode.props.mime_type) : undefined;
+  const sizeBytes = assetNode ? val<number>(assetNode.props.size_bytes) : undefined;
 
-  const assetUrl = useAssetUrl(sidecarNodeId);
+  const assetUrl = useAssetUrl(assetNodeId);
   const fileInfo = getFileTypeInfo(targetFile || "", mimeType);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
       try {
-        const assetInfo = await kyeService.importAsset(paths[0]);
-        if (!assetInfo.node_id) return;
+        const importedAssetId = await kyeService.importAsset(paths[0]);
+        if (!importedAssetId) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: assetInfo.node_id },
+          value: { t: "Ref", v: importedAssetId },
         });
       } catch (e) {
         console.error("Failed to import asset on drop", e);
@@ -72,13 +72,13 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
     try {
       const selected = await open({ multiple: false });
       if (typeof selected === "string") {
-        const assetInfo = await kyeService.importAsset(selected);
-        if (!assetInfo.node_id) return;
+        const importedAssetId = await kyeService.importAsset(selected);
+        if (!importedAssetId) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: assetInfo.node_id },
+          value: { t: "Ref", v: importedAssetId },
         });
       }
     } catch (e) {
@@ -104,7 +104,7 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
     }
   };
 
-  if (!sidecarNodeId) {
+  if (!assetNodeId) {
     return (
       <div
         ref={dropRef}

@@ -38,8 +38,8 @@ export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }
       const path = paths[i];
       if (typeof path === "string") {
         try {
-          const assetInfo = await kyeService.importAsset(path);
-          if (!assetInfo.node_id) continue;
+          const assetNodeId = await kyeService.importAsset(path);
+          if (!assetNodeId) continue;
 
           execute({
             type: "create_node",
@@ -48,8 +48,7 @@ export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }
             parent_id: parentId,
             index: childrenIds.length + i,
             props: {
-              url: { t: "Ref", v: assetInfo.node_id },
-              target: { t: "Text", v: assetInfo.target_path },
+              url: { t: "Ref", v: assetNodeId },
               x: { t: "Float", v: x + i * 20 },
               y: { t: "Float", v: y + i * 20 },
               width: { t: "Float", v: 300 },

@@ -114,12 +114,15 @@ pub async fn select_workspace_folder(
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| AppError::Internal(format!("Failed to load graph: {:?}", e)))?;
     let kind_repo = FileKindRepository::new(fs.clone());
-    let asset_repo = FileAssetRepository::new(fs);
+    let asset_repo = FileAssetRepository::new(fs.clone());
+    let shell = infra::shell::DesktopSystemShell::new(fs);
     let event_bus = TauriEventBus {
         app_handle: app_handle.clone(),
     };
 
-    let service = Arc::new(Service::new(graph_repo, kind_repo, event_bus, asset_repo));
+    let service = Arc::new(Service::new(
+        graph_repo, kind_repo, event_bus, asset_repo, shell,
+    ));
 
     state.with_inner(|inner| {
         inner.service = Some(service);

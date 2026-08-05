@@ -1,13 +1,14 @@
 use crate::model::remote::{Remote, RemoteName, RemoteUrl};
-use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository};
+use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort};
 use super::service::{Service, ServiceError};
 
-impl<R, K, E, A> Service<R, K, E, A>
+impl<R, K, E, A, S> Service<R, K, E, A, S>
 where
     R: GraphRepository,
     K: KindRepository,
     E: EventBus,
     A: AssetRepository,
+    S: SystemShellPort,
 {
     pub fn add_remote(&self, name: RemoteName, url: RemoteUrl) -> Result<(), ServiceError> {
         let mut meta = self.repo.load_meta()?;

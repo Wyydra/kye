@@ -492,6 +492,10 @@ fn serialize_document(
     fs.write_file(&new_path, &markdown_with_title)
 }
 
+fn is_asset_kind(kind: &str) -> bool {
+    matches!(kind, "core.image" | "core.audio" | "core.binary")
+}
+
 fn serialize_block(out: &mut String, node: &Node) {
     let formatter = REGISTRY.get_by_kind(node.kind.as_str());
     let native_keys = formatter.native_keys();
@@ -504,7 +508,11 @@ fn serialize_block(out: &mut String, node: &Node) {
         .collect();
 
     let native_text = formatter.format(&node.props);
-    let line = md_block::serialize_block_line(node.id, &native_text, hidden_props);
+    let line = if is_asset_kind(node.kind.as_str()) && hidden_props.is_empty() {
+        native_text
+    } else {
+        md_block::serialize_block_line(node.id, &native_text, hidden_props)
+    };
     out.push_str(&line);
     out.push_str("\n\n");
 }
@@ -955,5 +963,21 @@ mod tests {
         assert_eq!(child2.node.kind.as_str(), "core.paragraph");
         let body2 = child2.node.prop("body").unwrap();
         assert_eq!(value_to_markdown(body2), "Second paragraph text.");
+    }
+
+    #[test]
+    fn test_asset_block_serialization_has_no_html_comment() {
+        let mut out = String::new();
+        let asset_id = NodeId::new();
+        let mut props = domain::value::Props::new();
+        props.insert(domain::primitives::PropKey::from("url"), Value::Ref(asset_id));
+
+        let node = domain::NodeBuilder::new(domain::primitives::kinds::image(), Utc::now())
+            .with_props(props)
+            .build();
+
+        serialize_block(&mut out, &node);
+
+        assert_eq!(out, format!("![]({})\n\n", asset_id.as_uuid()));
     }
 }

@@ -6,7 +6,7 @@ use tiny_http::{Header, Method, Response, Server};
 
 use crate::dto::{CommandDto, GraphDto};
 use domain::command::Command;
-use domain::ports::{AssetRepository, EventBus, GraphRepository, KindRepository};
+use domain::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort};
 use domain::service::Service;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,8 +33,8 @@ pub struct P2pServer {
 }
 
 impl P2pServer {
-    pub fn start<R, K, E, A>(
-        service: Arc<Service<R, K, E, A>>,
+    pub fn start<R, K, E, A, S>(
+        service: Arc<Service<R, K, E, A, S>>,
         peer_id: String,
         device_name: String,
         port: u16,
@@ -44,6 +44,7 @@ impl P2pServer {
         K: KindRepository,
         E: EventBus,
         A: AssetRepository,
+        S: SystemShellPort,
     {
         let server = Server::http(format!("0.0.0.0:{}", port))
             .map_err(|e| format!("Failed to start P2P server: {:?}", e))?;
@@ -97,8 +98,8 @@ impl Drop for P2pServer {
     }
 }
 
-fn handle_request<R, K, E, A>(
-    service: &Arc<Service<R, K, E, A>>,
+fn handle_request<R, K, E, A, S>(
+    service: &Arc<Service<R, K, E, A, S>>,
     peer_id: &str,
     device_name: &str,
     mut request: tiny_http::Request,
@@ -108,6 +109,7 @@ where
     K: KindRepository,
     E: EventBus,
     A: AssetRepository,
+    S: SystemShellPort,
 {
     let url = request.url();
     let method = request.method();

@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-use crate::model::asset::AssetInfo;
 use crate::model::graph::Graph;
 use crate::model::primitives::{Kind, NodeId};
 use crate::model::schema::KindDef;
@@ -38,7 +37,5 @@ pub trait KindRepository: Send + Sync + 'static {
 }
 
 pub trait AssetRepository: Send + Sync + 'static {
-    fn import_asset(&self, source_path: &str) -> Result<AssetInfo, RepositoryError>;
-    fn open_external(&self, target_path: &str) -> Result<(), RepositoryError>;
-    fn reveal_in_explorer(&self, target_path: &str) -> Result<(), RepositoryError>;
+    fn import_asset(&self, source_path: &str) -> Result<crate::model::node::Node, RepositoryError>;
 }

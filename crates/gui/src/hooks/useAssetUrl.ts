@@ -8,8 +8,8 @@ let cachedWorkspacePath: string | null = null;
 
 /**
  * Pure NodeId Asset Resolver Hook.
- * Accepts strictly a sidecar NodeId pointing to an asset node in the graph,
- * and resolves sidecarNode.props.target to a local Tauri asset URL.
+ * Accepts strictly an asset NodeId pointing to an asset node in the graph,
+ * and resolves assetNode.props.target to a local Tauri asset URL.
  */
 export function useAssetUrl(nodeId: string | undefined): string | null {
   const [assetUrl, setAssetUrl] = useState<string | null>(null);

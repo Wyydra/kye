@@ -74,13 +74,14 @@ pub fn run() {
                     };
 
                     let kind_repo = FileKindRepository::new(fs.clone());
-                    let asset_repo = FileAssetRepository::new(fs);
+                    let asset_repo = FileAssetRepository::new(fs.clone());
+                    let shell = infra::shell::DesktopSystemShell::new(fs);
                     let event_bus = TauriEventBus {
                         app_handle: app_handle.clone(),
                     };
 
                     Some(Arc::new(Service::new(
-                        graph_repo, kind_repo, event_bus, asset_repo,
+                        graph_repo, kind_repo, event_bus, asset_repo, shell,
                     )))
                 }
             } else {
@@ -159,9 +160,10 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
     tracing::info!("Workspace Path: {}", workspace_path.display());
 
     let kind_repo = FileKindRepository::new(fs.clone());
-    let asset_repo = FileAssetRepository::new(fs);
+    let asset_repo = FileAssetRepository::new(fs.clone());
+    let shell = infra::shell::DesktopSystemShell::new(fs);
 
-    let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo));
+    let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo, shell));
 
     let _server = infra::sync::P2pServer::start(service, peer_id, device_name, port)
         .map_err(|e| format!("Failed to start sync server: {}", e))?;

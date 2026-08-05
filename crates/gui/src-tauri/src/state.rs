@@ -8,11 +8,19 @@ use domain::service::Service;
 use infra::graph::InMemoryGraphRepository;
 use infra::kind::FileKindRepository;
 use infra::media::FileAssetRepository;
+use infra::shell::DesktopSystemShell;
 
 use crate::dto::EventDto;
 
-pub type AppService =
-    Arc<Service<InMemoryGraphRepository, FileKindRepository, TauriEventBus, FileAssetRepository>>;
+pub type AppService = Arc<
+    Service<
+        InMemoryGraphRepository,
+        FileKindRepository,
+        TauriEventBus,
+        FileAssetRepository,
+        DesktopSystemShell,
+    >,
+>;
 
 #[derive(Clone)]
 pub struct TauriEventBus {

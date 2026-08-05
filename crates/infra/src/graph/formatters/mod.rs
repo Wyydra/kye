@@ -1,3 +1,5 @@
+pub mod audio;
+pub mod binary;
 pub mod block;
 pub mod code_block;
 pub mod divider;
@@ -154,6 +156,8 @@ impl FormatterRegistry {
         reg.formatters.push(Box::new(heading::HeadingFormatter));
         reg.formatters.push(Box::new(task::TaskFormatter));
         reg.formatters.push(Box::new(image::ImageFormatter));
+        reg.formatters.push(Box::new(audio::AudioFormatter));
+        reg.formatters.push(Box::new(binary::BinaryFormatter));
         reg.formatters.push(Box::new(quote::QuoteFormatter));
         reg.formatters
             .push(Box::new(code_block::CodeBlockFormatter));

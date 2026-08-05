@@ -10,6 +10,7 @@ use infra::fs::WorkspaceFs;
 use infra::graph::InMemoryGraphRepository;
 use infra::kind::FileKindRepository;
 use infra::media::FileAssetRepository;
+use infra::shell::DesktopSystemShell;
 use infra::sync::{HttpSyncPeerAdapter, P2pServer};
 
 #[derive(Parser, Debug)]
@@ -100,6 +101,7 @@ fn build_service(
         FileKindRepository,
         (),
         FileAssetRepository,
+        DesktopSystemShell,
     >,
     Box<dyn std::error::Error>,
 > {
@@ -110,9 +112,10 @@ fn build_service(
     let graph_repo = InMemoryGraphRepository::load(fs.clone())
         .map_err(|e| format!("Failed to load graph: {:?}", e))?;
     let kind_repo = FileKindRepository::new(fs.clone());
-    let asset_repo = FileAssetRepository::new(fs);
+    let asset_repo = FileAssetRepository::new(fs.clone());
+    let shell = DesktopSystemShell::new(fs);
 
-    Ok(Service::new(graph_repo, kind_repo, (), asset_repo))
+    Ok(Service::new(graph_repo, kind_repo, (), asset_repo, shell))
 }
 
 #[tokio::main]
@@ -204,9 +207,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let graph_repo = InMemoryGraphRepository::load(fs.clone())
                 .map_err(|e| format!("Failed to load graph: {:?}", e))?;
             let kind_repo = FileKindRepository::new(fs.clone());
-            let asset_repo = FileAssetRepository::new(fs);
+            let asset_repo = FileAssetRepository::new(fs.clone());
+            let shell = DesktopSystemShell::new(fs);
 
-            let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo));
+            let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo, shell));
 
             let peer_id = uuid::Uuid::new_v4().to_string();
             tracing::info!("Starting P2P Sync listener on 0.0.0.0:{}", port);

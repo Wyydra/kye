@@ -4,16 +4,17 @@ use chrono::{DateTime, Utc};
 use crate::command::Command;
 use crate::graph::Graph;
 use crate::model::sync_diff::{DiffLine, ReviewableCommand, SyncDiff, SyncSummary};
-use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SyncPeerPort};
+use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort, SyncPeerPort};
 use crate::primitives::NodeId;
 use super::service::{Service, ServiceError};
 
-impl<R, K, E, A> Service<R, K, E, A>
+impl<R, K, E, A, S> Service<R, K, E, A, S>
 where
     R: GraphRepository,
     K: KindRepository,
     E: EventBus,
     A: AssetRepository,
+    S: SystemShellPort,
 {
     pub fn load_tombstones(&self) -> Result<HashMap<NodeId, DateTime<Utc>>, ServiceError> {
         Ok(self.repo.load_tombstones()?)
@@ -492,11 +493,9 @@ mod tests {
 
     struct DummyAssetRepo;
     impl AssetRepository for DummyAssetRepo {
-        fn import_asset(&self, _source_path: &str) -> Result<crate::model::asset::AssetInfo, RepositoryError> {
+        fn import_asset(&self, _source_path: &str) -> Result<crate::model::node::Node, RepositoryError> {
             Err(RepositoryError::NotFound("none".into()))
         }
-        fn open_external(&self, _target_path: &str) -> Result<(), RepositoryError> { Ok(()) }
-        fn reveal_in_explorer(&self, _target_path: &str) -> Result<(), RepositoryError> { Ok(()) }
     }
 
     struct DummyBus;
@@ -517,7 +516,7 @@ mod tests {
             graph: Mutex::new(local_graph),
             tombstones: Mutex::new(HashMap::new()),
         };
-        let service = Service::new(repo, DummyKindRepo, DummyBus, DummyAssetRepo);
+        let service = Service::new(repo, DummyKindRepo, DummyBus, DummyAssetRepo, ());
 
         let peer = DummyPeer {
             remote_graph,
@@ -543,7 +542,7 @@ mod tests {
             graph: Mutex::new(local_graph),
             tombstones: Mutex::new(HashMap::new()),
         };
-        let service = Service::new(repo, DummyKindRepo, DummyBus, DummyAssetRepo);
+        let service = Service::new(repo, DummyKindRepo, DummyBus, DummyAssetRepo, ());
 
         let peer = DummyPeer {
             remote_graph,

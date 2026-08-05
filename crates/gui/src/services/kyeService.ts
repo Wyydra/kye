@@ -2,17 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, SyncDiff, WorkspaceMeta } from "../types/domain";
 
-export interface AssetInfo {
-  node_id?: string;
-  target_path: string;
-  sidecar_path: string;
-  mime_type: string;
-  size_bytes: number;
-}
-
 export const kyeService = {
-
-
   async selectWorkspaceFolder(path?: string): Promise<string | null> {
     return invoke("select_workspace_folder", { path });
   },
@@ -45,7 +35,7 @@ export const kyeService = {
     return invoke("execute_batch", { commands });
   },
 
-  async importAsset(sourcePath: string): Promise<AssetInfo> {
+  async importAsset(sourcePath: string): Promise<string> {
     return invoke("import_asset", { sourcePath });
   },
 
