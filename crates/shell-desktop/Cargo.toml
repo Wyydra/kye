@@ -1,0 +1,10 @@
+[package]
+name = "shell-desktop"
+version = "0.1.0"
+edition = "2024"
+description = "Desktop OS system shell adapter for Kye"
+
+[dependencies]
+domain = { path = "../domain" }
+storage-fs = { path = "../storage-fs" }
+thiserror = "2.0.18"

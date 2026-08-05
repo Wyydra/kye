@@ -1,7 +1,10 @@
 [workspace]
 members = [
     "crates/domain",
-    "crates/infra",
+    "crates/storage-fs",
+    "crates/storage-sqlite",
+    "crates/sync-http",
+    "crates/shell-desktop",
     "crates/cli",
     "crates/gui/src-tauri",
 ]

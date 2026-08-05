@@ -6,7 +6,7 @@ pub mod server;
 
 pub use http_peer::HttpSyncPeerAdapter;
 pub use qrcode::generate_qr_svg;
-pub use server::P2pServer;
+pub use server::{HttpSyncServer, P2pServer};
 
 pub fn get_local_ip() -> Option<String> {
     UdpSocket::bind("0.0.0.0:0")

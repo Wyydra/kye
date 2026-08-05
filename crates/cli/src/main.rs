@@ -6,12 +6,9 @@ use tracing_subscriber::EnvFilter;
 use domain::model::remote::{RemoteName, RemoteUrl};
 use domain::ports::SyncPeerPort;
 use domain::services::service::Service;
-use infra::fs::WorkspaceFs;
-use infra::graph::InMemoryGraphRepository;
-use infra::kind::FileKindRepository;
-use infra::media::FileAssetRepository;
-use infra::shell::DesktopSystemShell;
-use infra::sync::{HttpSyncPeerAdapter, P2pServer};
+use shell_desktop::DesktopSystemShell;
+use storage_fs::{FileAssetRepository, FileKindRepository, FsGraphRepository, WorkspaceFs};
+use sync_http::{get_local_ip, HttpSyncPeerAdapter, P2pServer};
 
 #[derive(Parser, Debug)]
 #[command(name = "kye-cli")]
@@ -97,7 +94,7 @@ fn build_service(
     workspace_path: &PathBuf,
 ) -> Result<
     Service<
-        InMemoryGraphRepository,
+        FsGraphRepository,
         FileKindRepository,
         (),
         FileAssetRepository,
@@ -109,7 +106,7 @@ fn build_service(
     let fs = WorkspaceFs::new(abs_path);
     fs.init().map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
 
-    let graph_repo = InMemoryGraphRepository::load(fs.clone())
+    let graph_repo = FsGraphRepository::load(fs.clone())
         .map_err(|e| format!("Failed to load graph: {:?}", e))?;
     let kind_repo = FileKindRepository::new(fs.clone());
     let asset_repo = FileAssetRepository::new(fs.clone());
@@ -204,7 +201,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let fs = WorkspaceFs::new(abs_path);
             fs.init().map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
 
-            let graph_repo = InMemoryGraphRepository::load(fs.clone())
+            let graph_repo = FsGraphRepository::load(fs.clone())
                 .map_err(|e| format!("Failed to load graph: {:?}", e))?;
             let kind_repo = FileKindRepository::new(fs.clone());
             let asset_repo = FileAssetRepository::new(fs.clone());
@@ -226,7 +223,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Commands::Info => {
-            if let Some(ip) = infra::sync::get_local_ip() {
+            if let Some(ip) = get_local_ip() {
                 println!("Local IP: {}", ip);
                 println!("Default P2P Port: 7272");
                 println!("Default Sync URL: http://{}:7272", ip);

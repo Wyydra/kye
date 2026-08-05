@@ -1,7 +1,8 @@
 [package]
-name = "infra"
+name = "storage-fs"
 version = "0.1.0"
 edition = "2024"
+description = "Filesystem & Markdown storage adapter for Kye"
 
 [dependencies]
 domain = { path = "../domain" }
@@ -17,8 +18,3 @@ notify = "8.2.0"
 tracing = "0.1"
 once_cell = "1"
 smallvec = "1"
-qrcode = { version = "0.14.0", default-features = false, features = ["svg"] }
-tiny_http = "0.12.0"
-ureq = { version = "2.9.7", features = ["json"] }
-
-

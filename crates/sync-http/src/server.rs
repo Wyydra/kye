@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use tiny_http::{Header, Method, Response, Server};
 
-use crate::dto::{CommandDto, GraphDto};
+use storage_fs::dto::{CommandDto, GraphDto};
 use domain::command::Command;
 use domain::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort};
 use domain::service::Service;
@@ -25,14 +25,15 @@ pub struct PushResponse {
     pub success: bool,
 }
 
-pub struct P2pServer {
+pub struct HttpSyncServer {
     is_running: Arc<AtomicBool>,
     port: u16,
-    // Store the server instance so that dropping P2pServer will drop the server socket.
     _server: Arc<Server>,
 }
 
-impl P2pServer {
+pub type P2pServer = HttpSyncServer;
+
+impl HttpSyncServer {
     pub fn start<R, K, E, A, S>(
         service: Arc<Service<R, K, E, A, S>>,
         peer_id: String,

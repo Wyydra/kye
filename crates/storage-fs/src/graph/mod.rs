@@ -19,13 +19,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Clone)]
-pub struct InMemoryGraphRepository {
+pub struct FsGraphRepository {
     fs: WorkspaceFs,
     cache: Arc<RwLock<Graph>>,
     path_map: Arc<RwLock<HashMap<domain::primitives::NodeId, PathBuf>>>,
 }
 
-impl InMemoryGraphRepository {
+pub type InMemoryGraphRepository = FsGraphRepository;
+
+impl FsGraphRepository {
     pub fn load(fs: WorkspaceFs) -> Result<Self, RepositoryError> {
         let (graph, path_map) = deserialize_graph(&fs)?;
         Ok(Self {
@@ -36,7 +38,7 @@ impl InMemoryGraphRepository {
     }
 }
 
-impl GraphRepository for InMemoryGraphRepository {
+impl GraphRepository for FsGraphRepository {
     fn load_meta(&self) -> Result<WorkspaceMeta, RepositoryError> {
         load_meta(&self.fs)
     }

@@ -10,7 +10,7 @@ use domain::model::remote::RemoteUrl;
 use domain::ports::sync::{PeerHandshake, SyncError, SyncPeerPort};
 
 use super::server::{HandshakeResponse, PushRequest, PushResponse};
-use crate::dto::{CommandDto, GraphDto};
+use storage_fs::dto::{CommandDto, GraphDto};
 
 #[derive(Debug, Clone, Default)]
 pub struct HttpSyncPeerAdapter;

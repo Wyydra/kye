@@ -348,11 +348,12 @@ fn json_to_layout(j: LayoutJson) -> Layout {
     }
 }
 
-fn is_document(node: &Node, _graph: &Graph) -> bool {
-    matches!(
-        node.kind.as_str(),
-        "core.page" | "core.canvas" | "core.database"
-    )
+fn is_document(node: &Node, graph: &Graph) -> bool {
+    graph.parent_of(node.id).is_none()
+        || matches!(
+            node.kind.as_str(),
+            "core.page" | "core.canvas" | "core.database"
+        )
 }
 
 fn sanitize_title(title: &str) -> String {

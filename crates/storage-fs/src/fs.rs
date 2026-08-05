@@ -11,6 +11,8 @@ pub struct WorkspaceFs {
     pub root: PathBuf,
 }
 
+pub type WorkspaceStorageLayout = WorkspaceFs;
+
 impl WorkspaceFs {
     pub fn new(workspace_root: impl AsRef<Path>) -> Self {
         Self {

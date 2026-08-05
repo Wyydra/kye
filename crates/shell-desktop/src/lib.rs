@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use domain::ports::{RepositoryError, SystemShellPort};
-use crate::fs::WorkspaceFs;
+use storage_fs::WorkspaceFs;
 
 pub struct DesktopSystemShell {
     fs: WorkspaceFs,
