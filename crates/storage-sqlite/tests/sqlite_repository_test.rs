@@ -126,7 +126,7 @@ fn test_sqlar_asset_repository_import_and_decompress() {
         .save_asset("test_asset.txt", sample_bytes)
         .expect("Failed to save asset into sqlar");
 
-    assert!(target_url.starts_with("sqlar://assets/"));
+    assert!(target_url.starts_with("sqlar://"));
 
     let read_bytes = asset_repo
         .read_asset(&target_url)

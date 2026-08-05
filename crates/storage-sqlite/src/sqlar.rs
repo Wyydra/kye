@@ -32,7 +32,7 @@ impl AssetRepository for SqlarAssetRepository {
         let mtime = chrono::Utc::now().timestamp();
         let uncompressed_sz = raw_bytes.len();
         let asset_id = Uuid::new_v4().to_string();
-        let target_filename = format!("assets/{}_{}", &asset_id[..8], filename);
+        let target_filename = format!("{}_{}", &asset_id[..8], filename);
 
         // Compress text/svg/json with Zlib if beneficial
         let (store_bytes, _is_compressed) = if ext == "svg" || ext == "json" || ext == "txt" || ext == "md" {
