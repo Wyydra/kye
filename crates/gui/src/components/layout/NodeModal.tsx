@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from "react";
 import { useUIStore } from "../../store/uiStore";
 import { useGraphStore } from "../../store/graphStore";
-import { DocumentLayout } from "../renderers/layouts/DocumentLayout";
+import { DocumentSurface } from "../renderers/surfaces/DocumentSurface";
 import { X } from "lucide-react";
+import { ModalOverlay, ModalContent, ModalHeader } from "../ui/Modal";
 
 export const NodeModal: React.FC = () => {
   const modalNodeId = useUIStore((state) => state.modalNodeId);
   const setModalNodeId = useUIStore((state) => state.setModalNodeId);
-  const node = useGraphStore((state) => modalNodeId ? state.nodes[modalNodeId] : undefined);
+  const node = useGraphStore((state) => (modalNodeId ? state.nodes[modalNodeId] : undefined));
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,37 +27,31 @@ export const NodeModal: React.FC = () => {
   if (!modalNodeId || !node) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-background/50 backdrop-blur-sm animate-in fade-in duration-200"
+    <ModalOverlay
       onPointerDown={(e) => {
-
         if (e.target === overlayRef.current) {
           setModalNodeId(null);
         }
       }}
       ref={overlayRef}
     >
-      <div 
-        className="relative w-full md:max-w-4xl h-full md:h-[85vh] bg-background border-none md:border md:border-border shadow-2xl md:rounded-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
-      >
-        {}
-        <div className="flex items-center justify-between p-3 border-b border-border bg-muted/30">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider ml-2">
-            Editing {node.kind.split('.').pop()}
+      <ModalContent>
+        <ModalHeader>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider ml-1">
+            Editing {node.kind.split(".").pop()}
           </div>
-          <button 
-            className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          <button
+            className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             onClick={() => setModalNodeId(null)}
           >
             <X className="w-4 h-4" />
           </button>
-        </div>
+        </ModalHeader>
 
-        {}
-        <div className="flex-1 overflow-y-auto">
-          <DocumentLayout node={node} depth={0} layout={{ t: "Document" }} />
+        <div className="flex-1 overflow-y-auto p-4">
+          <DocumentSurface node={node} depth={0} layout={{ t: "VerticalStream" }} />
         </div>
-      </div>
-    </div>
+      </ModalContent>
+    </ModalOverlay>
   );
 };

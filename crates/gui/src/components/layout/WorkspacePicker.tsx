@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useUIStore } from "../../store/uiStore";
 import { kyeService } from "../../services/kyeService";
-import { Plus, X, HardDrive, FileSpreadsheet, FolderOpen } from "lucide-react";
+import { Plus, X, FolderOpen } from "lucide-react";
 
 export const WorkspacePicker: React.FC = () => {
   const isOpen = useUIStore((state) => state.isWorkspacePickerOpen);

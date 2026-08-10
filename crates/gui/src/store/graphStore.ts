@@ -24,7 +24,7 @@ const applyEventToState = (
   switch (event.type) {
     case "node_created": {
       if (newNodes[event.node.id]) return state;
-      const parentId = (event as any).parent_id ?? event.node.parent ?? null;
+      const parentId = event.parent_id ?? event.node.parent ?? null;
       const createdNode = { ...event.node, parent: parentId };
       newNodes[createdNode.id] = createdNode;
 

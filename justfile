@@ -50,8 +50,8 @@ android-dev:
 android-run:
     cd crates/gui && bunx tauri android run
 
-android-build:
-    cd crates/gui && bunx tauri android build
+android-build *args="--target aarch64":
+    cd crates/gui && bunx tauri android build --apk {{args}}
 
 # Watch cargo build
 build-watch:

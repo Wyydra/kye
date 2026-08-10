@@ -1,22 +1,35 @@
 use serde::{Deserialize, Serialize};
-use crate::primitives::PropKey;
+use crate::primitives::{Kind, NodeId, PropKey};
 use indexmap::IndexMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ViewDef {
-    pub layout: Layout,
-
+    pub surface: Surface,
+    pub source: DataSource,
+    pub overlay: ViewOverlay,
     pub bindings: IndexMap<String, PropKey>,
     pub actions: Vec<ActionDef>,
 }
 
 impl ViewDef {
-    pub fn new(layout: Layout) -> Self {
+    pub fn new(surface: Surface) -> Self {
         Self {
-            layout,
+            surface,
+            source: DataSource::DirectChildren,
+            overlay: ViewOverlay::default(),
             bindings: IndexMap::new(),
             actions: Vec::new(),
         }
+    }
+
+    pub fn with_source(mut self, source: DataSource) -> Self {
+        self.source = source;
+        self
+    }
+
+    pub fn with_overlay(mut self, overlay: ViewOverlay) -> Self {
+        self.overlay = overlay;
+        self
     }
 
     pub fn with_binding(mut self, slot: &str, prop: impl Into<PropKey>) -> Self {
@@ -31,28 +44,46 @@ impl ViewDef {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Layout {
-    Document,
-
-    Canvas,
-
-    Grid { columns: u32 },
-
-    Stack { direction: Direction },
-
-    Gallery,
-
-    Table,
-
-    Kanban { group_by: PropKey },
-
+pub enum Surface {
+    Document { layout: DocumentLayout },
+    Canvas { layout: CanvasLayout, diagram_kind: Option<String> },
+    Collection { layout: CollectionLayout },
     Widget { name: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Direction {
-    Vertical,
-    Horizontal,
+pub enum DocumentLayout {
+    VerticalStream,
+    Columns { count: u8 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CanvasLayout {
+    Absolute,
+    AutoTree,
+    ForceDirected,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CollectionLayout {
+    Table { columns: Vec<PropKey> },
+    Kanban { group_by: PropKey },
+    Gallery,
+    List,
+    Matrix { edge_kind: Kind },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DataSource {
+    DirectChildren,
+    PersistedQuery { query_node_id: NodeId },
+    DualQuery { row_query_node_id: NodeId, col_query_node_id: NodeId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ViewOverlay {
+    pub hidden_edge_kinds: Vec<Kind>,
+    pub focus_node_id: Option<NodeId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -65,8 +96,7 @@ pub struct ActionDef {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ActionKind {
     ToggleProp { prop: PropKey },
-
-    NavigateTo { node_id: crate::primitives::NodeId },
-
+    NavigateTo { node_id: NodeId },
     Custom { name: String },
 }
+

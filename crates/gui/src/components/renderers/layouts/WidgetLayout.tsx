@@ -1,12 +1,16 @@
 import React from "react";
+import { Node } from "../../../types/domain";
 import { NodeRenderer } from "../NodeRenderer";
-import { LayoutProps } from "./types";
 import * as widgetRegistry from "../widgets";
 
-export const WidgetLayout: React.FC<LayoutProps> = ({ node, layout, depth }) => {
-  if (layout.t !== "Widget") return null;
+interface WidgetLayoutProps {
+  node: Node;
+  widgetName: string;
+  depth?: number;
+}
 
-  const Widget = widgetRegistry.getWidget(layout.v.name);
+export const WidgetLayout: React.FC<WidgetLayoutProps> = ({ node, widgetName, depth = 0 }) => {
+  const Widget = widgetRegistry.getWidget(widgetName);
   let widgetContent;
 
   if (Widget) {
@@ -14,7 +18,7 @@ export const WidgetLayout: React.FC<LayoutProps> = ({ node, layout, depth }) => 
   } else {
     widgetContent = (
       <div className="p-3 border border-dashed border-border rounded text-muted-foreground text-sm flex items-center justify-between">
-        <span>Widget: {layout.v.name}</span>
+        <span>Widget: {widgetName}</span>
         <span className="text-xs bg-muted px-2 py-1 rounded">
           {node.kind}
         </span>
@@ -37,3 +41,4 @@ export const WidgetLayout: React.FC<LayoutProps> = ({ node, layout, depth }) => 
     </div>
   );
 };
+

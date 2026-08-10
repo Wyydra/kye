@@ -5,7 +5,7 @@ use crate::graph::Graph;
 use crate::node::Node;
 use crate::primitives::{Kind, PropKey, kinds, props};
 use crate::schema::{Constraint, KindDef, PropDef, ValidationError, ValueType};
-use crate::view::{Direction, Layout, ViewDef};
+use crate::view::{CanvasLayout, CollectionLayout, DocumentLayout, Surface, ViewDef};
 
 #[derive(Debug, Clone, Default)]
 pub struct KindRegistry {
@@ -138,7 +138,9 @@ impl CoreLibrary {
                     props::title(),
                     PropDef::new(ValueType::Text).with_label("Title"),
                 )
-                .with_view(ViewDef::new(Layout::Document)),
+                .with_view(ViewDef::new(Surface::Document {
+                    layout: DocumentLayout::VerticalStream,
+                })),
         );
 
         registry.register(
@@ -148,7 +150,7 @@ impl CoreLibrary {
                     props::body(),
                     PropDef::new(ValueType::Rich).with_label("Content"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "paragraph".into(),
                 })),
         );
@@ -164,7 +166,7 @@ impl CoreLibrary {
                     props::level(),
                     PropDef::new(ValueType::Int).optional().with_label("Level"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "heading".into(),
                 })),
         );
@@ -181,7 +183,7 @@ impl CoreLibrary {
                     props::checked(),
                     PropDef::new(ValueType::Bool).optional().with_label("Done"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "task".into(),
                 })),
         );
@@ -200,7 +202,7 @@ impl CoreLibrary {
                         .optional()
                         .with_label("Caption"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "image".into(),
                 })),
         );
@@ -219,7 +221,7 @@ impl CoreLibrary {
                         .optional()
                         .with_label("Title"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "audio".into(),
                 })),
         );
@@ -238,42 +240,10 @@ impl CoreLibrary {
                         .optional()
                         .with_label("Filename"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "file".into(),
                 })),
         );
-
-        /* TODO: Implement Later - Unhandled GUI Widgets
-
-        registry.register(kinds::code_block(), KindDef::new("Code Block", props::body())
-            .with_icon("</> ")
-            .with_prop(props::body(), PropDef::new(ValueType::Text).with_label("Code"))
-            .with_prop(props::lang(), PropDef::new(ValueType::Text).optional().with_label("Language"))
-            .with_view(ViewDef::new(Layout::Widget { name: "code_block".into() }))
-        );
-
-        registry.register(kinds::quote(), KindDef::new("Quote", props::body())
-            .with_icon("❝")
-            .with_prop(props::body(), PropDef::new(ValueType::Rich).with_label("Content"))
-            .with_view(ViewDef::new(Layout::Widget { name: "quote".into() }))
-        );
-
-        registry.register(kinds::divider(), KindDef::new("Divider", props::title())
-            .with_view(ViewDef::new(Layout::Widget { name: "divider".into() }))
-        );
-
-        registry.register(kinds::callout(), KindDef::new("Callout", props::body())
-            .with_icon("💡")
-            .with_prop(props::body(), PropDef::new(ValueType::Rich).with_label("Content"))
-            .with_prop(props::icon(), PropDef::new(ValueType::Text).optional().with_label("Icon"))
-            .with_view(ViewDef::new(Layout::Widget { name: "callout".into() }))
-        );
-
-        registry.register(kinds::embed(), KindDef::new("Embed", props::url())
-            .with_prop(props::url(), PropDef::new(ValueType::Text).with_label("URL"))
-            .with_view(ViewDef::new(Layout::Widget { name: "embed".into() }))
-        );
-        */
 
         registry.register(
             kinds::flashcard(),
@@ -287,59 +257,20 @@ impl CoreLibrary {
                     props::back(),
                     PropDef::new(ValueType::Rich).with_label("Back"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "flashcard".into(),
                 })),
         );
-
-        /* TODO: Implement Later - Form Kinds
-        registry.register(kinds::form(), KindDef::new("Form", props::title())
-            .with_icon("📋")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_view(ViewDef::new(Layout::Stack { direction: Direction::Vertical }))
-            .with_constraint(Constraint::AllowedChildKinds(vec![kinds::form_field()]))
-        );
-
-        registry.register(kinds::form_field(), KindDef::new("Form Field", props::title())
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Label"))
-            .with_view(ViewDef::new(Layout::Widget { name: "form_field".into() }))
-            .with_constraint(Constraint::AllowedParentKinds(vec![kinds::form()]))
-        );
-        */
-
-        /* TODO: Implement Later - Database & Dynamic Views
-        registry.register(kinds::database(), KindDef::new("Database", props::title())
-            .with_icon("🗃")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_view(ViewDef::new(Layout::Table))
-            .with_constraint(Constraint::AllowedChildKinds(vec![kinds::column(), kinds::row()]))
-        );
-
-        registry.register(kinds::row(), KindDef::new("Row", props::title())
-            .with_constraint(Constraint::AllowedParentKinds(vec![kinds::database()]))
-        );
-
-        registry.register(kinds::column(), KindDef::new("Column", props::title())
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Column name"))
-            .with_constraint(Constraint::AllowedParentKinds(vec![kinds::database()]))
-        );
-
-        registry.register(kinds::query(), KindDef::new("Query", props::title())
-            .with_icon("🔍")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-            .with_prop(PropKey::from("kind_filter"), PropDef::new(ValueType::Text).optional().with_label("Kind filter"))
-            .with_prop(PropKey::from("tag_filter"), PropDef::new(ValueType::Text).optional().with_label("Tag filter"))
-            .with_prop(PropKey::from("limit"), PropDef::new(ValueType::Int).optional().with_label("Limit"))
-            .with_view(ViewDef::new(Layout::Table))
-        );
-        */
 
         registry.register(
             kinds::canvas(),
             KindDef::new("Canvas", props::title())
                 .with_icon("🎨")
                 .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-                .with_view(ViewDef::new(Layout::Canvas)),
+                .with_view(ViewDef::new(Surface::Canvas {
+                    layout: CanvasLayout::Absolute,
+                    diagram_kind: None,
+                })),
         );
 
         registry.register(
@@ -357,7 +288,7 @@ impl CoreLibrary {
                         .optional()
                         .with_label("Routing"),
                 )
-                .with_view(ViewDef::new(Layout::Widget {
+                .with_view(ViewDef::new(Surface::Widget {
                     name: "connection".into(),
                 })),
         );
@@ -367,50 +298,10 @@ impl CoreLibrary {
             KindDef::new("Inbox", props::title())
                 .with_icon("📥")
                 .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-                .with_view(ViewDef::new(Layout::Stack {
-                    direction: Direction::Vertical,
+                .with_view(ViewDef::new(Surface::Collection {
+                    layout: CollectionLayout::List,
                 })),
         );
-
-        /* TODO: Implement Later - MBSE Domain Extensions
-        registry.register(kinds::state(), KindDef::new("State", props::title())
-            .with_icon("⬡")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
-            .with_view(ViewDef::new(Layout::Widget { name: "mbse_state".into() }))
-        );
-
-        registry.register(kinds::port(), KindDef::new("Port", props::title())
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
-            .with_view(ViewDef::new(Layout::Widget { name: "mbse_port".into() }))
-        );
-
-        registry.register(kinds::transition(), KindDef::new("Transition", props::from())
-            .with_icon("↗")
-            .with_prop(props::from(), PropDef::new(ValueType::RefTo(kinds::state())).with_label("Source"))
-            .with_prop(props::to(), PropDef::new(ValueType::RefTo(kinds::state())).with_label("Target"))
-            .with_view(ViewDef::new(Layout::Widget { name: "mbse_transition".into() }))
-            .with_constraint(Constraint::ConnectionSourceKinds(vec![kinds::state()]))
-            .with_constraint(Constraint::ConnectionTargetKinds(vec![kinds::state()]))
-        );
-
-        registry.register(kinds::component(), KindDef::new("Component", props::title())
-            .with_icon("🔲")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
-            .with_view(ViewDef::new(Layout::Widget { name: "mbse_component".into() }))
-        );
-
-        registry.register(kinds::requirement(), KindDef::new("Requirement", props::title())
-            .with_icon("📌")
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Title"))
-            .with_prop(props::body(), PropDef::new(ValueType::Rich).optional().with_label("Description"))
-            .with_view(ViewDef::new(Layout::Widget { name: "requirement".into() }))
-        );
-
-        registry.register(kinds::interface(), KindDef::new("Interface", props::title())
-            .with_prop(props::title(), PropDef::new(ValueType::Text).with_label("Name"))
-            .with_view(ViewDef::new(Layout::Widget { name: "mbse_interface".into() }))
-        );
-        */
     }
 }
 

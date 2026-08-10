@@ -7,13 +7,14 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 use super::formatters::{REGISTRY, block as md_block};
+use crate::dto::ViewDefDto;
 use domain::command::Event;
 use domain::graph::Graph;
 use domain::node::Node;
 use domain::ports::RepositoryError;
 use domain::primitives::{NodeId, PropKey};
 use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
-use domain::view::{Direction, Layout, ViewDef};
+use domain::view::ViewDef;
 use domain::workspace::WorkspaceMeta;
 
 use crate::fs::WorkspaceFs;
@@ -252,100 +253,14 @@ fn json_to_mark(j: MarkJson) -> Mark {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-struct ViewDefJson {
-    layout: LayoutJson,
-    bindings: HashMap<String, String>,
-    actions: Vec<ActionDefJson>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(tag = "t", content = "v")]
-enum LayoutJson {
-    Document,
-    Canvas,
-    Grid { columns: u32 },
-    Stack { direction: String },
-    Gallery,
-    Table,
-    Kanban { group_by: String },
-    Widget { name: String },
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct ActionDefJson {
-    id: String,
-    label: String,
-    kind: String,
-}
+type ViewDefJson = ViewDefDto;
 
 fn view_to_json(v: &ViewDef) -> ViewDefJson {
-    ViewDefJson {
-        layout: layout_to_json(&v.layout),
-        bindings: v
-            .bindings
-            .iter()
-            .map(|(k, v)| (k.clone(), v.as_str().to_string()))
-            .collect(),
-        actions: v
-            .actions
-            .iter()
-            .map(|a| ActionDefJson {
-                id: a.id.clone(),
-                label: a.label.clone(),
-                kind: "custom".to_string(),
-            })
-            .collect(),
-    }
+    ViewDefDto::from(v)
 }
 
 fn json_to_view(j: ViewDefJson) -> ViewDef {
-    let mut view = ViewDef::new(json_to_layout(j.layout));
-    for (k, v) in j.bindings {
-        view.bindings.insert(k, PropKey::from(v.as_str()));
-    }
-    view
-}
-
-fn layout_to_json(l: &Layout) -> LayoutJson {
-    match l {
-        Layout::Document => LayoutJson::Document,
-        Layout::Canvas => LayoutJson::Canvas,
-        Layout::Grid { columns } => LayoutJson::Grid { columns: *columns },
-        Layout::Stack { direction } => LayoutJson::Stack {
-            direction: match direction {
-                Direction::Vertical => "vertical".to_string(),
-                Direction::Horizontal => "horizontal".to_string(),
-            },
-        },
-        Layout::Gallery => LayoutJson::Gallery,
-        Layout::Table => LayoutJson::Table,
-        Layout::Kanban { group_by } => LayoutJson::Kanban {
-            group_by: group_by.as_str().to_string(),
-        },
-        Layout::Widget { name } => LayoutJson::Widget { name: name.clone() },
-    }
-}
-
-fn json_to_layout(j: LayoutJson) -> Layout {
-    match j {
-        LayoutJson::Document => Layout::Document,
-        LayoutJson::Canvas => Layout::Canvas,
-        LayoutJson::Grid { columns } => Layout::Grid { columns },
-        LayoutJson::Stack { direction } => Layout::Stack {
-            direction: if direction == "horizontal" {
-                Direction::Horizontal
-            } else {
-                Direction::Vertical
-            },
-        },
-        LayoutJson::Gallery => Layout::Gallery,
-        LayoutJson::Table => Layout::Table,
-        LayoutJson::Kanban { group_by } => Layout::Kanban {
-            group_by: PropKey::from(group_by.as_str()),
-        },
-        LayoutJson::Widget { name } => Layout::Widget { name },
-    }
+    ViewDef::from(j)
 }
 
 fn is_document(node: &Node, graph: &Graph) -> bool {

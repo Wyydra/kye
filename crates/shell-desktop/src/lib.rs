@@ -64,12 +64,12 @@ impl SystemShellPort for DesktopSystemShell {
             self.fs.root.join(target_path_str)
         };
 
-        let parent_dir = abs_path.parent().unwrap_or(&self.fs.root);
+        let _parent_dir = abs_path.parent().unwrap_or(&self.fs.root);
 
         #[cfg(target_os = "linux")]
         {
             Command::new("xdg-open")
-                .arg(parent_dir)
+                .arg(_parent_dir)
                 .spawn()
                 .map_err(|e| {
                     RepositoryError::Io(format!("Failed to open directory in file manager: {}", e))

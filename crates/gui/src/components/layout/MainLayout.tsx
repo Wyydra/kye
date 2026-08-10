@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { WorkspacePicker } from "./WorkspacePicker";
 import { SyncPanel } from "../SyncPanel";
-import { bootstrapLayouts } from "../renderers/layouts";
 
 export const MainLayout: React.FC = () => {
   const { isLoaded, loadGraph, error } = useGraphStore();
@@ -59,7 +58,6 @@ export const MainLayout: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    bootstrapLayouts();
     DropManager.init();
 
     Promise.all([kyeService.getMeta(), kyeService.getWorkspacePath()])

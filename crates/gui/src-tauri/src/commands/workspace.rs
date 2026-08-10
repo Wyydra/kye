@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::Manager;
-#[cfg(desktop)]
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreBuilder;
 
@@ -97,34 +96,25 @@ pub async fn select_workspace_folder(
     let target_uri: String = match path {
         Some(p) => p,
         None => {
-            #[cfg(desktop)]
-            {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                app_handle
-                    .dialog()
-                    .file()
-                    .add_filter("Kye Workspace Database", &["kye", "db", "sqlite"])
-                    .pick_file(move |picked| {
-                        let _ = tx.send(picked);
-                    });
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            app_handle
+                .dialog()
+                .file()
+                .add_filter("Kye Workspace Database", &["kye", "db", "sqlite"])
+                .pick_file(move |picked| {
+                    let _ = tx.send(picked);
+                });
 
-                let picked = rx
-                    .await
-                    .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
-                match picked {
-                    Some(p) => p
-                        .into_path()
-                        .map_err(|_| AppError::Internal("Invalid path".into()))?
-                        .to_string_lossy()
-                        .to_string(),
-                    None => return Ok(None),
-                }
-            }
-            #[cfg(mobile)]
-            {
-                return Err(AppError::Internal(
-                    "No path provided for mobile workspace".into(),
-                ));
+            let picked = rx
+                .await
+                .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
+            match picked {
+                Some(p) => p
+                    .into_path()
+                    .map_err(|_| AppError::Internal("Invalid path".into()))?
+                    .to_string_lossy()
+                    .to_string(),
+                None => return Ok(None),
             }
         }
     };
@@ -155,53 +145,61 @@ pub async fn create_workspace_file(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Option<String>> {
-    #[cfg(desktop)]
-    {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        app_handle
-            .dialog()
-            .file()
-            .add_filter("Kye Workspace Database", &["kye"])
-            .set_file_name("mon_workspace.kye")
-            .save_file(move |picked| {
-                let _ = tx.send(picked);
-            });
+    let target_uri = {
+        #[cfg(desktop)]
+        {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            app_handle
+                .dialog()
+                .file()
+                .add_filter("Kye Workspace Database", &["kye"])
+                .set_file_name("mon_workspace.kye")
+                .save_file(move |picked| {
+                    let _ = tx.send(picked);
+                });
 
-        let picked = rx
-            .await
-            .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
-        let path = match picked {
-            Some(p) => p
-                .into_path()
-                .map_err(|_| AppError::Internal("Invalid path".into()))?,
-            None => return Ok(None),
-        };
+            let picked = rx
+                .await
+                .map_err(|_| AppError::Internal("Dialog channel closed".into()))?;
+            match picked {
+                Some(p) => p
+                    .into_path()
+                    .map_err(|_| AppError::Internal("Invalid path".into()))?
+                    .to_string_lossy()
+                    .to_string(),
+                None => return Ok(None),
+            }
+        }
+        #[cfg(mobile)]
+        {
+            let dir = app_handle
+                .path()
+                .app_data_dir()
+                .map_err(|_| AppError::Internal("Failed to access app_data_dir".into()))?;
+            let _ = std::fs::create_dir_all(&dir);
+            dir.join("workspace.kye").to_string_lossy().to_string()
+        }
+    };
 
-        let target_uri = path.to_string_lossy().to_string();
-        let (service, resolved_path) = open_workspace_service(&target_uri, app_handle.clone())?;
+    let (service, resolved_path) = open_workspace_service(&target_uri, app_handle.clone())?;
 
-        let settings_path = app_handle
-            .path()
-            .app_data_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("settings.json");
-        let store = StoreBuilder::new(&app_handle, settings_path)
-            .build()
-            .map_err(|e| AppError::Internal(e.to_string()))?;
-        store.set("workspace_path", serde_json::json!(target_uri));
-        let _ = store.save();
+    let settings_path = app_handle
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("settings.json");
+    let store = StoreBuilder::new(&app_handle, settings_path)
+        .build()
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    store.set("workspace_path", serde_json::json!(target_uri));
+    let _ = store.save();
 
-        state.with_inner(|inner| {
-            inner.service = Some(service);
-            inner.workspace_path = Some(resolved_path.clone());
-        });
+    state.with_inner(|inner| {
+        inner.service = Some(service);
+        inner.workspace_path = Some(resolved_path.clone());
+    });
 
-        Ok(Some(target_uri))
-    }
-    #[cfg(mobile)]
-    {
-        Err(AppError::Internal("Mobile save dialog not supported".into()))
-    }
+    Ok(Some(target_uri))
 }
 
 #[tauri::command]

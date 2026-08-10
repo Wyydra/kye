@@ -7,7 +7,11 @@ use domain::node::Node;
 use domain::primitives::{Kind, NodeId, PropKey};
 
 use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
-use domain::view::{ActionDef, ActionKind, Direction, Layout, ViewDef};
+use domain::occurrence::{DetailLevel, NodeOccurrence};
+use domain::view::{
+    ActionDef, ActionKind, CanvasLayout, CollectionLayout, DataSource, DocumentLayout, Surface,
+    ViewDef, ViewOverlay,
+};
 use domain::workspace::WorkspaceMeta;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -298,22 +302,72 @@ impl From<&Mark> for MarkDto {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ViewDefDto {
-    pub layout: LayoutDto,
+    pub surface: SurfaceDto,
+    pub source: DataSourceDto,
+    pub overlay: ViewOverlayDto,
     pub bindings: HashMap<String, String>,
     pub actions: Vec<ActionDefDto>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "t", content = "v")]
-pub enum LayoutDto {
-    Document,
-    Canvas,
-    Grid { columns: u32 },
-    Stack { direction: String },
-    Gallery,
-    Table,
-    Kanban { group_by: String },
+pub enum SurfaceDto {
+    Document { layout: DocumentLayoutDto },
+    Canvas { layout: CanvasLayoutDto, diagram_kind: Option<String> },
+    Collection { layout: CollectionLayoutDto },
     Widget { name: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "t", content = "v")]
+pub enum DocumentLayoutDto {
+    VerticalStream,
+    Columns { count: u8 },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "t", content = "v")]
+pub enum CanvasLayoutDto {
+    Absolute,
+    AutoTree,
+    ForceDirected,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "t", content = "v")]
+pub enum CollectionLayoutDto {
+    Table { columns: Vec<String> },
+    Kanban { group_by: String },
+    Gallery,
+    List,
+    Matrix { edge_kind: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "t", content = "v")]
+pub enum DataSourceDto {
+    DirectChildren,
+    PersistedQuery { query_node_id: String },
+    DualQuery { row_query_node_id: String, col_query_node_id: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct ViewOverlayDto {
+    pub hidden_edge_kinds: Vec<String>,
+    pub focus_node_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NodeOccurrenceDto {
+    pub id: String,
+    pub node_id: String,
+    pub canvas_id: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub z_index: i32,
+    pub detail_level: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -326,7 +380,9 @@ pub struct ActionDefDto {
 impl From<&ViewDef> for ViewDefDto {
     fn from(v: &ViewDef) -> Self {
         Self {
-            layout: LayoutDto::from(&v.layout),
+            surface: SurfaceDto::from(&v.surface),
+            source: DataSourceDto::from(&v.source),
+            overlay: ViewOverlayDto::from(&v.overlay),
             bindings: v
                 .bindings
                 .iter()
@@ -339,7 +395,9 @@ impl From<&ViewDef> for ViewDefDto {
 
 impl From<ViewDefDto> for ViewDef {
     fn from(dto: ViewDefDto) -> Self {
-        let mut view = ViewDef::new(Layout::from(dto.layout));
+        let mut view = ViewDef::new(Surface::from(dto.surface))
+            .with_source(DataSource::from(dto.source))
+            .with_overlay(ViewOverlay::from(dto.overlay));
         for (k, v) in dto.bindings {
             view.bindings.insert(k, PropKey::from(v.as_str()));
         }
@@ -350,47 +408,214 @@ impl From<ViewDefDto> for ViewDef {
     }
 }
 
-impl From<&Layout> for LayoutDto {
-    fn from(l: &Layout) -> Self {
-        match l {
-            Layout::Document => LayoutDto::Document,
-            Layout::Canvas => LayoutDto::Canvas,
-            Layout::Grid { columns } => LayoutDto::Grid { columns: *columns },
-            Layout::Stack { direction } => LayoutDto::Stack {
-                direction: match direction {
-                    Direction::Vertical => "vertical".to_string(),
-                    Direction::Horizontal => "horizontal".to_string(),
-                },
+impl From<&Surface> for SurfaceDto {
+    fn from(s: &Surface) -> Self {
+        match s {
+            Surface::Document { layout } => SurfaceDto::Document {
+                layout: DocumentLayoutDto::from(layout),
             },
-            Layout::Gallery => LayoutDto::Gallery,
-            Layout::Table => LayoutDto::Table,
-            Layout::Kanban { group_by } => LayoutDto::Kanban {
-                group_by: group_by.as_str().to_string(),
+            Surface::Canvas { layout, diagram_kind } => SurfaceDto::Canvas {
+                layout: CanvasLayoutDto::from(layout),
+                diagram_kind: diagram_kind.clone(),
             },
-            Layout::Widget { name } => LayoutDto::Widget { name: name.clone() },
+            Surface::Collection { layout } => SurfaceDto::Collection {
+                layout: CollectionLayoutDto::from(layout),
+            },
+            Surface::Widget { name } => SurfaceDto::Widget { name: name.clone() },
         }
     }
 }
 
-impl From<LayoutDto> for Layout {
-    fn from(dto: LayoutDto) -> Self {
+impl From<SurfaceDto> for Surface {
+    fn from(dto: SurfaceDto) -> Self {
         match dto {
-            LayoutDto::Document => Layout::Document,
-            LayoutDto::Canvas => Layout::Canvas,
-            LayoutDto::Grid { columns } => Layout::Grid { columns },
-            LayoutDto::Stack { direction } => Layout::Stack {
-                direction: if direction == "horizontal" {
-                    Direction::Horizontal
-                } else {
-                    Direction::Vertical
-                },
+            SurfaceDto::Document { layout } => Surface::Document {
+                layout: DocumentLayout::from(layout),
             },
-            LayoutDto::Gallery => Layout::Gallery,
-            LayoutDto::Table => Layout::Table,
-            LayoutDto::Kanban { group_by } => Layout::Kanban {
+            SurfaceDto::Canvas { layout, diagram_kind } => Surface::Canvas {
+                layout: CanvasLayout::from(layout),
+                diagram_kind,
+            },
+            SurfaceDto::Collection { layout } => Surface::Collection {
+                layout: CollectionLayout::from(layout),
+            },
+            SurfaceDto::Widget { name } => Surface::Widget { name },
+        }
+    }
+}
+
+impl From<&DocumentLayout> for DocumentLayoutDto {
+    fn from(l: &DocumentLayout) -> Self {
+        match l {
+            DocumentLayout::VerticalStream => DocumentLayoutDto::VerticalStream,
+            DocumentLayout::Columns { count } => DocumentLayoutDto::Columns { count: *count },
+        }
+    }
+}
+
+impl From<DocumentLayoutDto> for DocumentLayout {
+    fn from(dto: DocumentLayoutDto) -> Self {
+        match dto {
+            DocumentLayoutDto::VerticalStream => DocumentLayout::VerticalStream,
+            DocumentLayoutDto::Columns { count } => DocumentLayout::Columns { count },
+        }
+    }
+}
+
+impl From<&CanvasLayout> for CanvasLayoutDto {
+    fn from(l: &CanvasLayout) -> Self {
+        match l {
+            CanvasLayout::Absolute => CanvasLayoutDto::Absolute,
+            CanvasLayout::AutoTree => CanvasLayoutDto::AutoTree,
+            CanvasLayout::ForceDirected => CanvasLayoutDto::ForceDirected,
+        }
+    }
+}
+
+impl From<CanvasLayoutDto> for CanvasLayout {
+    fn from(dto: CanvasLayoutDto) -> Self {
+        match dto {
+            CanvasLayoutDto::Absolute => CanvasLayout::Absolute,
+            CanvasLayoutDto::AutoTree => CanvasLayout::AutoTree,
+            CanvasLayoutDto::ForceDirected => CanvasLayout::ForceDirected,
+        }
+    }
+}
+
+impl From<&CollectionLayout> for CollectionLayoutDto {
+    fn from(l: &CollectionLayout) -> Self {
+        match l {
+            CollectionLayout::Table { columns } => CollectionLayoutDto::Table {
+                columns: columns.iter().map(|c| c.as_str().to_string()).collect(),
+            },
+            CollectionLayout::Kanban { group_by } => CollectionLayoutDto::Kanban {
+                group_by: group_by.as_str().to_string(),
+            },
+            CollectionLayout::Gallery => CollectionLayoutDto::Gallery,
+            CollectionLayout::List => CollectionLayoutDto::List,
+            CollectionLayout::Matrix { edge_kind } => CollectionLayoutDto::Matrix {
+                edge_kind: edge_kind.as_str().to_string(),
+            },
+        }
+    }
+}
+
+impl From<CollectionLayoutDto> for CollectionLayout {
+    fn from(dto: CollectionLayoutDto) -> Self {
+        match dto {
+            CollectionLayoutDto::Table { columns } => CollectionLayout::Table {
+                columns: columns.into_iter().map(|c| PropKey::from(c.as_str())).collect(),
+            },
+            CollectionLayoutDto::Kanban { group_by } => CollectionLayout::Kanban {
                 group_by: PropKey::from(group_by.as_str()),
             },
-            LayoutDto::Widget { name } => Layout::Widget { name },
+            CollectionLayoutDto::Gallery => CollectionLayout::Gallery,
+            CollectionLayoutDto::List => CollectionLayout::List,
+            CollectionLayoutDto::Matrix { edge_kind } => CollectionLayout::Matrix {
+                edge_kind: Kind::from(edge_kind),
+            },
+        }
+    }
+}
+
+impl From<&DataSource> for DataSourceDto {
+    fn from(s: &DataSource) -> Self {
+        match s {
+            DataSource::DirectChildren => DataSourceDto::DirectChildren,
+            DataSource::PersistedQuery { query_node_id } => DataSourceDto::PersistedQuery {
+                query_node_id: query_node_id.to_string(),
+            },
+            DataSource::DualQuery {
+                row_query_node_id,
+                col_query_node_id,
+            } => DataSourceDto::DualQuery {
+                row_query_node_id: row_query_node_id.to_string(),
+                col_query_node_id: col_query_node_id.to_string(),
+            },
+        }
+    }
+}
+
+impl From<DataSourceDto> for DataSource {
+    fn from(dto: DataSourceDto) -> Self {
+        match dto {
+            DataSourceDto::DirectChildren => DataSource::DirectChildren,
+            DataSourceDto::PersistedQuery { query_node_id } => DataSource::PersistedQuery {
+                query_node_id: NodeId::from_uuid(
+                    uuid::Uuid::parse_str(&query_node_id).unwrap_or_default(),
+                ),
+            },
+            DataSourceDto::DualQuery {
+                row_query_node_id,
+                col_query_node_id,
+            } => DataSource::DualQuery {
+                row_query_node_id: NodeId::from_uuid(
+                    uuid::Uuid::parse_str(&row_query_node_id).unwrap_or_default(),
+                ),
+                col_query_node_id: NodeId::from_uuid(
+                    uuid::Uuid::parse_str(&col_query_node_id).unwrap_or_default(),
+                ),
+            },
+        }
+    }
+}
+
+impl From<&ViewOverlay> for ViewOverlayDto {
+    fn from(o: &ViewOverlay) -> Self {
+        Self {
+            hidden_edge_kinds: o.hidden_edge_kinds.iter().map(|k| k.as_str().to_string()).collect(),
+            focus_node_id: o.focus_node_id.map(|id| id.to_string()),
+        }
+    }
+}
+
+impl From<ViewOverlayDto> for ViewOverlay {
+    fn from(dto: ViewOverlayDto) -> Self {
+        Self {
+            hidden_edge_kinds: dto.hidden_edge_kinds.into_iter().map(Kind::from).collect(),
+            focus_node_id: dto.focus_node_id.map(|id| {
+                NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())
+            }),
+        }
+    }
+}
+
+impl From<&NodeOccurrence> for NodeOccurrenceDto {
+    fn from(o: &NodeOccurrence) -> Self {
+        Self {
+            id: o.id.to_string(),
+            node_id: o.node_id.to_string(),
+            canvas_id: o.canvas_id.to_string(),
+            x: o.x,
+            y: o.y,
+            width: o.width,
+            height: o.height,
+            z_index: o.z_index,
+            detail_level: match o.detail_level {
+                DetailLevel::Compact => "compact".to_string(),
+                DetailLevel::Full => "full".to_string(),
+                DetailLevel::Expanded => "expanded".to_string(),
+            },
+        }
+    }
+}
+
+impl From<NodeOccurrenceDto> for NodeOccurrence {
+    fn from(dto: NodeOccurrenceDto) -> Self {
+        Self {
+            id: uuid::Uuid::parse_str(&dto.id).unwrap_or_else(|_| uuid::Uuid::new_v4()),
+            node_id: NodeId::from_uuid(uuid::Uuid::parse_str(&dto.node_id).unwrap_or_default()),
+            canvas_id: NodeId::from_uuid(uuid::Uuid::parse_str(&dto.canvas_id).unwrap_or_default()),
+            x: dto.x,
+            y: dto.y,
+            width: dto.width,
+            height: dto.height,
+            z_index: dto.z_index,
+            detail_level: match dto.detail_level.as_str() {
+                "compact" => DetailLevel::Compact,
+                "expanded" => DetailLevel::Expanded,
+                _ => DetailLevel::Full,
+            },
         }
     }
 }
@@ -401,8 +626,8 @@ impl From<&ActionDef> for ActionDefDto {
             id: a.id.clone(),
             label: a.label.clone(),
             kind: match &a.kind {
-                ActionKind::ToggleProp { .. } => "toggle_prop".to_string(),
-                ActionKind::NavigateTo { .. } => "navigate_to".to_string(),
+                ActionKind::ToggleProp { prop } => format!("toggle_prop:{}", prop.as_str()),
+                ActionKind::NavigateTo { node_id } => format!("navigate_to:{}", node_id),
                 ActionKind::Custom { name } => name.clone(),
             },
         }
@@ -418,6 +643,7 @@ impl From<ActionDefDto> for ActionDef {
         }
     }
 }
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]

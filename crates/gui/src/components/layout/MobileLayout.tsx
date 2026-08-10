@@ -3,7 +3,7 @@ import { useGraphStore } from "../../store/graphStore";
 import { useUIStore } from "../../store/uiStore";
 import { val } from "../../types/domain";
 import { execute } from "../../lib/commands";
-import { DocumentLayout } from "../renderers/layouts/DocumentLayout";
+import { DocumentSurface } from "../renderers/surfaces/DocumentSurface";
 import { CanvasLayout } from "../renderers/layouts/CanvasLayout";
 import { 
   FileText, 
@@ -23,6 +23,10 @@ import {
 import { InboxQuickCapture } from "./InboxQuickCapture";
 
 export const MobileLayout: React.FC = () => {
+  // ...
+  // inside component:
+  // ...
+  // <DocumentSurface node={activeNode} depth={0} layout={{ t: "VerticalStream" }} />
   const roots = useGraphStore((state) => state.roots);
   const nodes = useGraphStore((state) => state.nodes);
   const setWorkspacePickerOpen = useUIStore((state) => state.setWorkspacePickerOpen);
@@ -138,7 +142,7 @@ export const MobileLayout: React.FC = () => {
 
         {/* Editor Body */}
         <div className="flex-1 overflow-y-auto pb-safe-bottom">
-          <DocumentLayout node={activeNode} depth={0} layout={{ t: "Document" }} />
+          <DocumentSurface node={activeNode} depth={0} layout={{ t: "VerticalStream" }} />
         </div>
       </div>
     );

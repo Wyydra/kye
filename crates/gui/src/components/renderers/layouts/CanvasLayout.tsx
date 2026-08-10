@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutProps } from "./types";
+import { Node } from "../../../types/domain";
 import { CanvasContainer } from "../../canvas/CanvasContainer";
 import { execute } from "../../../lib/commands";
 import { useGraphStore } from "../../../store/graphStore";
@@ -7,7 +7,12 @@ import { kyeService } from "../../../services/kyeService";
 import { useCanvasStore } from "../../../store/canvasStore";
 import { useFileDrop } from "../../../hooks/useFileDrop";
 
-export const CanvasLayout: React.FC<Partial<LayoutProps>> = ({ node, depth = 0 }) => {
+interface CanvasLayoutProps {
+  node?: Node;
+  depth?: number;
+}
+
+export const CanvasLayout: React.FC<CanvasLayoutProps> = ({ node, depth = 0 }) => {
   const roots = useGraphStore((state) => state.roots);
 
   const parentId = node ? node.id : null;

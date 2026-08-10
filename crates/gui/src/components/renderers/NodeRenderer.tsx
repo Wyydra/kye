@@ -1,7 +1,7 @@
 import React from "react";
 import { useGraphStore } from "../../store/graphStore";
-import { LayoutRenderer } from "./LayoutRenderer";
-import { ViewDef, Layout } from "../../types/domain";
+import { SurfaceRenderer } from "./surfaces/SurfaceRenderer";
+import { ViewDef } from "../../types/domain";
 import { BlockWrapper } from "./layouts/BlockWrapper";
 
 interface NodeRendererProps {
@@ -31,14 +31,18 @@ export const NodeRenderer = React.memo(function NodeRenderer({
     activeView = kindDef.view;
   }
 
-  const activeLayout: Layout = activeView?.layout || {
-    t: "Widget",
-    v: { name: "fallback" },
+  const defaultView: ViewDef = {
+    surface: { t: "Document", v: { layout: { t: "VerticalStream" } } },
+    source: { t: "DirectChildren" },
+    overlay: { hidden_edge_kinds: [] },
+    bindings: {},
+    actions: [],
   };
 
   return (
     <BlockWrapper node={node} depth={depth}>
-      <LayoutRenderer node={node} layout={activeLayout} depth={depth} />
+      <SurfaceRenderer node={node} viewDef={activeView || defaultView} depth={depth} />
     </BlockWrapper>
   );
 });
+

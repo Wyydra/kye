@@ -69,20 +69,56 @@ export type Mark =
   | { t: "Ref"; v: string };
 
 export interface ViewDef {
-  layout: Layout;
+  surface: Surface;
+  source: DataSource;
+  overlay: ViewOverlay;
   bindings: Record<string, string>;
   actions: ActionDef[];
 }
 
-export type Layout =
-  | { t: "Document" }
-  | { t: "Canvas" }
-  | { t: "Grid"; v: { columns: number } }
-  | { t: "Stack"; v: { direction: "horizontal" | "vertical" } }
-  | { t: "Gallery" }
-  | { t: "Table" }
-  | { t: "Kanban"; v: { group_by: string } }
+export type Surface =
+  | { t: "Document"; v: { layout: DocumentLayout } }
+  | { t: "Canvas"; v: { layout: CanvasLayout; diagram_kind: string | null } }
+  | { t: "Collection"; v: { layout: CollectionLayout } }
   | { t: "Widget"; v: { name: string } };
+
+export type DocumentLayout =
+  | { t: "VerticalStream" }
+  | { t: "Columns"; v: { count: number } };
+
+export type CanvasLayout =
+  | { t: "Absolute" }
+  | { t: "AutoTree" }
+  | { t: "ForceDirected" };
+
+export type CollectionLayout =
+  | { t: "Table"; v: { columns: string[] } }
+  | { t: "Kanban"; v: { group_by: string } }
+  | { t: "Gallery" }
+  | { t: "List" }
+  | { t: "Matrix"; v: { edge_kind: string } };
+
+export type DataSource =
+  | { t: "DirectChildren" }
+  | { t: "PersistedQuery"; v: { query_node_id: string } }
+  | { t: "DualQuery"; v: { row_query_node_id: string; col_query_node_id: string } };
+
+export interface ViewOverlay {
+  hidden_edge_kinds: string[];
+  focus_node_id?: string | null;
+}
+
+export interface NodeOccurrence {
+  id: string;
+  node_id: string;
+  canvas_id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  z_index: number;
+  detail_level: "compact" | "full" | "expanded";
+}
 
 export interface ActionDef {
   id: string;
@@ -120,7 +156,7 @@ export type Command =
   | { type: "set_kind"; node_id: string; new_kind: string };
 
 export type Event =
-  | { type: "node_created"; node: Node; index: number }
+  | { type: "node_created"; node: Node; parent_id: string | null; index: number }
   | {
       type: "node_deleted";
       nodes: Node[];

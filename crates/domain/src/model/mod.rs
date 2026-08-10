@@ -1,5 +1,6 @@
 pub mod graph;
 pub mod node;
+pub mod occurrence;
 pub mod primitives;
 pub mod query;
 pub mod remote;
@@ -11,6 +12,7 @@ pub mod workspace;
 
 pub use graph::*;
 pub use node::*;
+pub use occurrence::*;
 pub use primitives::*;
 pub use query::*;
 pub use remote::*;
@@ -19,3 +21,5 @@ pub use sync_diff::*;
 pub use value::*;
 pub use view::*;
 pub use workspace::*;
+
+
