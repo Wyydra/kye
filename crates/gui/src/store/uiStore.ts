@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useCanvasStore } from "./canvasStore";
 
 export type ViewMode = "editor" | "graph";
 
@@ -16,9 +17,14 @@ interface UIState {
   toggleSidebar: () => void;
   isSyncPanelOpen: boolean;
   setSyncPanelOpen: (open: boolean) => void;
+
+  // Real Multi-Buffer State
+  openBufferIds: string[];
+  openBuffer: (id: string) => void;
+  closeBuffer: (id: string) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   activeViewMode: "editor",
   setActiveViewMode: (activeViewMode) => set({ activeViewMode }),
   focusedNodeId: null,
@@ -32,4 +38,25 @@ export const useUIStore = create<UIState>((set) => ({
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   isSyncPanelOpen: false,
   setSyncPanelOpen: (open) => set({ isSyncPanelOpen: open }),
+
+  openBufferIds: [],
+  openBuffer: (id: string) => {
+    const current = get().openBufferIds;
+    if (!current.includes(id)) {
+      set({ openBufferIds: [...current, id] });
+    }
+    useCanvasStore.getState().setSelectedNodeId(id);
+    set({ activeViewMode: "editor" });
+  },
+  closeBuffer: (id: string) => {
+    const current = get().openBufferIds;
+    const updated = current.filter((bId) => bId !== id);
+    set({ openBufferIds: updated });
+
+    const selectedId = useCanvasStore.getState().selectedNodeId;
+    if (selectedId === id) {
+      const nextId = updated.length > 0 ? updated[updated.length - 1] : null;
+      useCanvasStore.getState().setSelectedNodeId(nextId);
+    }
+  },
 }));
