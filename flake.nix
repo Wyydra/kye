@@ -83,6 +83,7 @@
           libraries
           ++ (with pkgs; [
             pkg-config
+            mise
             bun
             rust
             cargo-tauri
