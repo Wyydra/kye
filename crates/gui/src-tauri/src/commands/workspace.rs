@@ -10,7 +10,7 @@ use storage_fs::WorkspaceFs;
 use storage_sqlite::{SqlarAssetRepository, SqliteConnection, SqliteGraphRepository};
 
 use crate::backend::{DynamicAssetRepository, DynamicGraphRepository, DynamicKindRepository};
-use crate::dto::{GraphDto, WorkspaceMetaDto};
+use crate::dto::{GraphDto, WorkspaceMetaDto, WorkspaceStatusDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{AppState, AppService, TauriEventBus};
 
@@ -18,6 +18,8 @@ pub fn open_workspace_service(
     uri_or_path: &str,
     app_handle: tauri::AppHandle,
 ) -> AppResult<(AppService, PathBuf)> {
+    tracing::info!("Opening workspace at URI/Path: '{}'", uri_or_path);
+
     let clean_path_str = uri_or_path
         .strip_prefix("sqlite://")
         .or_else(|| uri_or_path.strip_prefix("file://"))
@@ -39,10 +41,31 @@ pub fn open_workspace_service(
     };
 
     // Open SQLite database
-    let conn = SqliteConnection::open(&path)
-        .map_err(|e| AppError::Internal(format!("Failed to open SQLite database: {:?}", e)))?;
+    let conn = SqliteConnection::open(&path).map_err(|e| {
+        tracing::error!("Failed to open SQLite database at '{}': {:?}", path.display(), e);
+        AppError::Internal(format!("Failed to open SQLite database: {:?}", e))
+    })?;
 
     let sqlite_repo = SqliteGraphRepository::new(conn.clone());
+
+    use domain::ports::GraphRepository;
+    use domain::workspace::WorkspaceMeta;
+
+    // Auto-bootstrap workspace metadata for newly created databases
+    if sqlite_repo.load_meta().is_err() {
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Workspace");
+        tracing::info!("Initializing new workspace metadata: '{}'", name);
+        let default_meta = WorkspaceMeta::new(uuid::Uuid::new_v4(), name);
+        if let Err(e) = sqlite_repo.save_meta(&default_meta) {
+            tracing::error!("Failed to bootstrap workspace metadata: {:?}", e);
+        }
+    }
+
+    tracing::info!("Successfully initialized workspace service at: '{}'", path.display());
+
     let graph_repo = DynamicGraphRepository::Sqlite(sqlite_repo.clone());
     let kind_repo = DynamicKindRepository::Sqlite(sqlite_repo);
     let asset_repo = DynamicAssetRepository::Sqlite(SqlarAssetRepository::new(conn));
@@ -57,6 +80,17 @@ pub fn open_workspace_service(
     ));
 
     Ok((service, path))
+}
+
+#[tauri::command]
+pub fn get_workspace_status(state: tauri::State<'_, AppState>) -> WorkspaceStatusDto {
+    state.with_inner(|inner| WorkspaceStatusDto {
+        is_selected: inner.service.is_some() && inner.workspace_path.is_some(),
+        path: inner
+            .workspace_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
+    })
 }
 
 #[tauri::command]

@@ -65,6 +65,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::workspace::get_workspace_status,
             commands::workspace::get_workspace_path,
             commands::workspace::get_meta,
             commands::workspace::get_graph,

@@ -1,8 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, SyncDiff, WorkspaceMeta } from "../types/domain";
+import { WorkspaceStatus } from "../types/appLifecycle";
 
 export const kyeService = {
+  async getWorkspaceStatus(): Promise<WorkspaceStatus> {
+    return invoke("get_workspace_status");
+  },
+
   async selectWorkspaceFolder(path?: string): Promise<string | null> {
     return invoke("select_workspace_folder", { path });
   },

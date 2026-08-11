@@ -194,7 +194,7 @@ export const SyncPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         return;
       }
 
-      await useGraphStore.getState().loadGraph();
+      await useGraphStore.getState().loadGraph(true);
 
       const nowStr = new Date().toLocaleTimeString();
       setRemotes(remotes.map(r => r.id === peer.id ? { ...r, lastSync: nowStr } : r));
