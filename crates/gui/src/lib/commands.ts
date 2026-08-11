@@ -121,7 +121,7 @@ export const execute = async (cmd: Command): Promise<void> => {
     }
   } catch (e: any) {
     console.error("Command failed:", e);
-    useGraphStore.getState().loadGraph();
+    useGraphStore.getState().loadGraph(true);
   }
 };
 
@@ -136,6 +136,7 @@ export const executeBatch = async (cmds: Command[]): Promise<void> => {
     await kyeService.executeBatch(cmds);
   } catch (e: any) {
     console.error("Batch commands failed:", e);
-    useGraphStore.getState().loadGraph();
+    useGraphStore.getState().loadGraph(true);
   }
 };
+

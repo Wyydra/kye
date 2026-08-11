@@ -8,9 +8,7 @@ import { Node } from "../types/domain";
 
 interface Options {
   node: Node;
-
   nextKind?: string;
-
   nextProps?: Record<string, any>;
 }
 
@@ -24,6 +22,7 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
 
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+        e.stopPropagation();
         if (!parentNode) return;
         const index = parentNode.children.indexOf(node.id);
         const newId = crypto.randomUUID();
@@ -44,23 +43,28 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
         (e.currentTarget.textContent || "").length === 0
       ) {
         e.preventDefault();
+        e.stopPropagation();
         if (!parentNode) return;
         const index = parentNode.children.indexOf(node.id);
         if (index > 0) {
           const prevId = parentNode.children[index - 1];
           execute({ type: "delete_node", id: node.id, cascade: true });
           setFocusedNode(prevId);
+        } else if (node.parent) {
+          execute({ type: "delete_node", id: node.id, cascade: true });
+          setFocusedNode(node.parent);
         }
         return;
       }
 
       if (e.key === "Tab") {
         e.preventDefault();
+        e.stopPropagation();
         if (!parentNode) return;
         const index = parentNode.children.indexOf(node.id);
 
         if (e.shiftKey) {
-
+          // Outdent to parent container
           if (parentNode.parent) {
             const grandParent = graphState.nodes[parentNode.parent];
             if (grandParent) {
@@ -75,7 +79,7 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
             }
           }
         } else {
-
+          // Indent under previous sibling
           if (index > 0) {
             const prevSiblingId = parentNode.children[index - 1];
             const prevSibling = graphState.nodes[prevSiblingId];
@@ -95,10 +99,10 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
 
       if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         const index = parentNode?.children.indexOf(node.id) ?? -1;
 
         if (index > 0) {
-
           let targetId = parentNode!.children[index - 1];
           let targetNode = graphState.nodes[targetId];
           while (targetNode && targetNode.children.length > 0) {
@@ -107,7 +111,6 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
           }
           setFocusedNode(targetId);
         } else if (node.parent) {
-
           setFocusedNode(node.parent);
         }
         return;
@@ -115,12 +118,11 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
 
         if (node.children.length > 0) {
-
           setFocusedNode(node.children[0]);
         } else {
-
           let currentId = node.id;
           let currentParent = parentNode;
 
@@ -141,3 +143,4 @@ export function useBlockKeyDown({ node, nextKind = "core.paragraph", nextProps }
     [node, nextKind, nextProps, setFocusedNode],
   );
 }
+

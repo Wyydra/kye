@@ -6,6 +6,7 @@ import { execute } from "../../../lib/commands";
 import { useEditor } from "../../../context/EditorContext";
 import { convertBlockType } from "../../../extensions/registry";
 import { Node } from "../../../types/domain";
+import { useBlockDrag } from "../../../hooks/useBlockDrag";
 
 interface BlockWrapperProps {
   node: Node;
@@ -14,7 +15,6 @@ interface BlockWrapperProps {
 }
 
 export const BlockWrapper: React.FC<BlockWrapperProps> = React.memo(({ node, depth, children }) => {
-  const [dragState, setDragState] = useState<"none" | "top" | "bottom">("none");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -23,6 +23,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = React.memo(({ node, dep
   const isFocused = focusedNodeId === node.id;
 
   const { blockTypes } = useEditor();
+  const { dragState, handleDragStart, handleDragOver, handleDragLeave, handleDrop } = useBlockDrag(node);
 
   const handleAddBelow = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,55 +74,7 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = React.memo(({ node, dep
     setFocusedNode(newId);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isTopHalf = e.clientY < rect.top + rect.height / 2;
-    setDragState(isTopHalf ? "top" : "bottom");
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragState("none");
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const currentDragState = dragState;
-    setDragState("none");
-
-    const sourceId = e.dataTransfer.getData("application/kye-node");
-    if (!sourceId || sourceId === node.id) return;
-
-    const state = useGraphStore.getState();
-    const sourceNode = state.nodes[sourceId];
-    if (!sourceNode) return;
-
-    const targetParentNode = state.nodes[node.parent || ""];
-    if (!targetParentNode) return;
-
-    const childrenWithoutSource = targetParentNode.children.filter((id) => id !== sourceId);
-    const targetIndex = childrenWithoutSource.indexOf(node.id);
-    if (targetIndex === -1) return;
-
-    let newIndex = targetIndex;
-    if (currentDragState === "bottom") {
-      newIndex += 1;
-    }
-
-    execute({
-      type: "move_node",
-      node_id: sourceId,
-      new_parent_id: node.parent,
-      new_index: newIndex,
-    });
-  };
-
-  const showGutter = depth > 0;
+  const showGutter = node.parent !== null || depth > 0;
 
   return (
     <div
@@ -154,21 +107,20 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = React.memo(({ node, dep
           </button>
 
           <div className="relative">
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuOpen((prev) => !prev);
               }}
               draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData("application/kye-node", node.id);
-                e.dataTransfer.effectAllowed = "move";
-              }}
-              className="p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 rounded cursor-grab active:cursor-grabbing transition-colors"
+              onDragStart={handleDragStart}
+              className="p-1 text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 rounded cursor-grab active:cursor-grabbing transition-colors select-none"
               title="Drag to move • Click for options"
             >
-              <GripVertical className="w-3.5 h-3.5" />
-            </button>
+              <GripVertical className="w-3.5 h-3.5 pointer-events-none" />
+            </div>
 
             {/* Notion-Style Block Context Menu */}
             {menuOpen && (
@@ -230,3 +182,4 @@ export const BlockWrapper: React.FC<BlockWrapperProps> = React.memo(({ node, dep
     </div>
   );
 });
+

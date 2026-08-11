@@ -94,12 +94,14 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   }
 
   return (
-    <VStack gap="xs">
+    <VStack gap="xs" className={depth > 0 ? "border-l border-border/30 pl-4 my-0.5" : ""}>
       {titleHeader}
       {node.children.map((childId) => (
         <NodeRenderer key={childId} nodeId={childId} depth={depth + 1} />
       ))}
-      <DocumentAddBlockZone onClick={() => handleCreateBlockAt(node.children.length)} />
+      {depth === 0 && (
+        <DocumentAddBlockZone onClick={() => handleCreateBlockAt(node.children.length)} />
+      )}
     </VStack>
   );
 };

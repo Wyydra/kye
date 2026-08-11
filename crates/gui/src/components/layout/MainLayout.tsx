@@ -18,7 +18,7 @@ import { cn } from "../../lib/utils";
 /* --- Factorized UI Building Blocks for MainLayout --- */
 
 const MainLayoutContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden relative select-none font-mono">
+  <div className="flex flex-col h-screen w-screen bg-background text-foreground overflow-hidden relative select-none font-sans">
     {children}
   </div>
 );
@@ -63,19 +63,17 @@ const MainEmptyState: React.FC = () => (
   </div>
 );
 
-/* --- Main Functional Component (0 Raw CSS Strings in JSX) --- */
+/* --- Main Functional Component (Academic Hexagonal Lifecycle State Machine) --- */
 
 export const MainLayout: React.FC = () => {
-  const { isLoaded, loadGraph, error } = useGraphStore();
+  const { loadGraph, appLifecycle } = useGraphStore();
   const isSidebarOpen = useUIStore((state) => state.isSidebarOpen);
   const activeViewMode = useUIStore((state) => state.activeViewMode);
   const selectedNodeId = useCanvasStore((state) => state.selectedNodeId);
 
   const [isMobile, setIsMobile] = useState(false);
 
-  const setWorkspacePickerOpen = useUIStore(
-    (state) => state.setWorkspacePickerOpen
-  );
+  const setWorkspacePickerOpen = useUIStore((state) => state.setWorkspacePickerOpen);
   const isSyncPanelOpen = useUIStore((state) => state.isSyncPanelOpen);
   const setSyncPanelOpen = useUIStore((state) => state.setSyncPanelOpen);
 
@@ -96,29 +94,31 @@ export const MainLayout: React.FC = () => {
         // Workspace path initialized
       })
       .catch(console.error);
+
     loadGraph();
   }, [loadGraph]);
 
   useEffect(() => {
-    if (error && error.includes("No workspace selected")) {
+    if (appLifecycle.status === "NO_WORKSPACE") {
       setWorkspacePickerOpen(true);
     }
-  }, [error, setWorkspacePickerOpen]);
+  }, [appLifecycle.status, setWorkspacePickerOpen]);
 
-  if (error) {
+  // Pattern Matching on Explicit App Lifecycle State Machine
+  if (appLifecycle.status === "FATAL_ERROR") {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground select-none font-mono">
         <div className="p-6 border border-destructive/20 bg-destructive/5 rounded-xl max-w-md">
           <h2 className="text-xl font-bold text-destructive mb-2">
             [WORKSPACE ERROR]
           </h2>
-          <p className="text-sm text-destructive/80">{error}</p>
+          <p className="text-sm text-destructive/80">{appLifecycle.message}</p>
         </div>
       </div>
     );
   }
 
-  if (!isLoaded) {
+  if (appLifecycle.status === "UNINITIALIZED" || appLifecycle.status === "LOADING_WORKSPACE") {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <div className="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
