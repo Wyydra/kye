@@ -6,5 +6,4 @@ description = "Desktop OS system shell adapter for Kye"
 
 [dependencies]
 domain = { path = "../domain" }
-storage-fs = { path = "../storage-fs" }
 thiserror = "2.0.18"

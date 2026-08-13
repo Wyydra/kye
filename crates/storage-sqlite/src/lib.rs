@@ -10,8 +10,8 @@ pub use fts::FtsEngine;
 pub use repository::SqliteGraphRepository;
 pub use sqlar::SqlarAssetRepository;
 
-use std::path::Path;
 use domain::ports::RepositoryError;
+use std::path::Path;
 
 impl SqliteGraphRepository {
     pub fn open(db_path: impl AsRef<Path>) -> Result<Self, RepositoryError> {

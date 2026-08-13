@@ -65,7 +65,10 @@ impl BlockFormatter for BinaryFormatter {
             props.insert(PropKey::from("url"), val);
             let title_str = title_parts.join("");
             if !title_str.is_empty() {
-                props.insert(PropKey::from("title"), Value::Text(Arc::from(title_str.as_str())));
+                props.insert(
+                    PropKey::from("title"),
+                    Value::Text(Arc::from(title_str.as_str())),
+                );
             }
         }
         props

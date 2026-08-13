@@ -26,9 +26,8 @@ impl AssetRepository for FileAssetRepository {
             let _ = fs::create_dir_all(parent);
         }
 
-        fs::write(&abs_path, data).map_err(|e| {
-            RepositoryError::Io(format!("Failed to write asset file: {}", e))
-        })?;
+        fs::write(&abs_path, data)
+            .map_err(|e| RepositoryError::Io(format!("Failed to write asset file: {}", e)))?;
 
         Ok(target_filename)
     }

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
+use std::collections::HashMap;
 
 use domain::command::Event;
 use domain::graph::Graph;
@@ -115,7 +115,6 @@ impl GraphRepository for SqliteGraphRepository {
     }
 
     fn apply_event(&self, event: &Event) -> Result<(), RepositoryError> {
-
         self.conn.with_conn_mut(|conn| {
             let tx = conn
                 .transaction()
@@ -170,9 +169,7 @@ impl GraphRepository for SqliteGraphRepository {
         })
     }
 
-    fn load_tombstones(
-        &self,
-    ) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError> {
+    fn load_tombstones(&self) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError> {
         self.conn.with_conn(|conn| {
             let mut stmt = conn
                 .prepare("SELECT node_id, deleted_at FROM tombstones")
@@ -201,10 +198,7 @@ impl GraphRepository for SqliteGraphRepository {
     }
 }
 
-fn apply_event_tx(
-    tx: &rusqlite::Transaction,
-    event: &Event,
-) -> Result<(), RepositoryError> {
+fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), RepositoryError> {
     match event {
         Event::NodeCreated {
             node,
@@ -293,7 +287,10 @@ fn apply_event_tx(
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
 
-            props_map.insert(key.as_str().to_string(), crate::dto::ValueJson::from(new_value));
+            props_map.insert(
+                key.as_str().to_string(),
+                crate::dto::ValueJson::from(new_value),
+            );
             let new_props_json = serde_json::to_string(&props_map).unwrap_or_else(|_| "{}".into());
 
             tx.execute(
@@ -367,7 +364,9 @@ fn apply_event_tx(
         } => {
             let node_id_str = node_id.to_string();
             let now_str = Utc::now().to_rfc3339();
-            let vo_json = new_view.as_ref().and_then(|v| serde_json::to_string(v).ok());
+            let vo_json = new_view
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok());
 
             tx.execute(
                 "UPDATE blocks SET view_override_json = ?1, updated_at = ?2 WHERE id = ?3",
@@ -404,7 +403,7 @@ impl KindRepository for SqliteGraphRepository {
     fn load_kinds(&self) -> Result<Vec<(Kind, KindDef)>, RepositoryError> {
         self.conn.with_conn(|conn| {
             let mut stmt = conn
-                .prepare("SELECT kind, label, icon, title_prop FROM kinds")
+                .prepare("SELECT kind, label, icon, title_prop, definition_json FROM kinds")
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
 
             let rows = stmt
@@ -414,6 +413,7 @@ impl KindRepository for SqliteGraphRepository {
                         label: r.get(1)?,
                         icon: r.get(2)?,
                         title_prop: r.get(3)?,
+                        definition_json: r.get(4).unwrap_or_else(|_| "{}".into()),
                     })
                 })
                 .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
@@ -432,13 +432,14 @@ impl KindRepository for SqliteGraphRepository {
         let row = KindRow::from_domain(kind, def);
         self.conn.with_conn(|conn| {
             conn.execute(
-                "INSERT INTO kinds (kind, label, icon, title_prop)
-                 VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO kinds (kind, label, icon, title_prop, definition_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT(kind) DO UPDATE SET
                     label = excluded.label,
                     icon = excluded.icon,
-                    title_prop = excluded.title_prop",
-                params![row.kind, row.label, row.icon, row.title_prop],
+                    title_prop = excluded.title_prop,
+                    definition_json = excluded.definition_json",
+                params![row.kind, row.label, row.icon, row.title_prop, row.definition_json],
             )
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
             Ok(())

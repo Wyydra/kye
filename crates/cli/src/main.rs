@@ -1,6 +1,6 @@
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
-use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
 use domain::model::remote::{RemoteName, RemoteUrl};
@@ -8,7 +8,7 @@ use domain::ports::SyncPeerPort;
 use domain::services::service::Service;
 use shell_desktop::DesktopSystemShell;
 use storage_fs::{FileAssetRepository, FileKindRepository, FsGraphRepository, WorkspaceFs};
-use sync_http::{get_local_ip, HttpSyncPeerAdapter, P2pServer};
+use sync_http::{HttpSyncPeerAdapter, P2pServer, get_local_ip};
 
 #[derive(Parser, Debug)]
 #[command(name = "kye-cli")]
@@ -93,32 +93,45 @@ enum RemoteCommands {
 fn build_service(
     workspace_path: &PathBuf,
 ) -> Result<
-    Service<
-        FsGraphRepository,
-        FileKindRepository,
-        (),
-        FileAssetRepository,
-        DesktopSystemShell,
-    >,
+    Service<FsGraphRepository, FileKindRepository, (), FileAssetRepository, DesktopSystemShell>,
     Box<dyn std::error::Error>,
 > {
     let abs_path = std::fs::canonicalize(workspace_path).unwrap_or_else(|_| workspace_path.clone());
-    let fs = WorkspaceFs::new(abs_path);
-    fs.init().map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
+    let fs = WorkspaceFs::new(abs_path.clone());
+    fs.init()
+        .map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
 
     let graph_repo = FsGraphRepository::load(fs.clone())
         .map_err(|e| format!("Failed to load graph: {:?}", e))?;
     let kind_repo = FileKindRepository::new(fs.clone());
-    let asset_repo = FileAssetRepository::new(fs.clone());
-    let shell = DesktopSystemShell::new(fs);
+    let asset_repo = FileAssetRepository::new(fs);
+    let shell = DesktopSystemShell::new(abs_path);
 
     Ok(Service::new(graph_repo, kind_repo, (), asset_repo, shell))
 }
 
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::time::FormatTime;
+
+struct LogTimeFormat;
+
+impl FormatTime for LogTimeFormat {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        let now = chrono::Local::now();
+        write!(w, "{}", now.format("%H:%M:%S%.3f"))
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,kye_cli=info,domain=info"));
+
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .compact()
+        .with_timer(LogTimeFormat)
+        .with_target(false)
+        .with_env_filter(filter)
         .init();
 
     let cli = Cli::parse();
@@ -139,7 +152,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let meta = service.get_meta()?;
 
                     if remotes.is_empty() {
-                        println!("No remotes configured. Use `kye remote add <name> <url>` to add one.");
+                        println!(
+                            "No remotes configured. Use `kye remote add <name> <url>` to add one."
+                        );
                     } else {
                         println!("Configured remotes (workspace: {}):", meta.name);
                         for r in remotes {
@@ -169,7 +184,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let service = build_service(&workspace)?;
             let peer_adapter = HttpSyncPeerAdapter::new();
 
-            println!("Initiating push to remote {:?}...", remote.as_deref().unwrap_or("default"));
+            println!(
+                "Initiating push to remote {:?}...",
+                remote.as_deref().unwrap_or("default")
+            );
             service.push_to_remote(&peer_adapter, remote.as_deref())?;
             println!("Push completed successfully!");
         }
@@ -187,25 +205,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 )?
                 .ok_or_else(|| format!("Remote {:?} not found", remote))?;
 
-            println!("Pulling graph from remote '{}' ({})", target_remote.name, target_remote.url);
+            println!(
+                "Pulling graph from remote '{}' ({})",
+                target_remote.name, target_remote.url
+            );
             let remote_graph = peer_adapter.pull_graph(&target_remote.url)?;
-            println!("Pulled graph with {} nodes from {}", remote_graph.len(), target_remote.name);
+            println!(
+                "Pulled graph with {} nodes from {}",
+                remote_graph.len(),
+                target_remote.name
+            );
         }
 
-        Commands::Serve { workspace, port, name } => {
+        Commands::Serve {
+            workspace,
+            port,
+            name,
+        } => {
             let abs_path = std::fs::canonicalize(&workspace).unwrap_or_else(|_| workspace.clone());
 
             tracing::info!("Initializing Kye Headless P2P Server...");
             tracing::info!("Workspace path: {}", abs_path.display());
 
-            let fs = WorkspaceFs::new(abs_path);
-            fs.init().map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
+            let fs = WorkspaceFs::new(abs_path.clone());
+            fs.init()
+                .map_err(|e| format!("Failed to initialize FS: {:?}", e))?;
 
             let graph_repo = FsGraphRepository::load(fs.clone())
                 .map_err(|e| format!("Failed to load graph: {:?}", e))?;
             let kind_repo = FileKindRepository::new(fs.clone());
-            let asset_repo = FileAssetRepository::new(fs.clone());
-            let shell = DesktopSystemShell::new(fs);
+            let asset_repo = FileAssetRepository::new(fs);
+            let shell = DesktopSystemShell::new(abs_path);
 
             let service = Arc::new(Service::new(graph_repo, kind_repo, (), asset_repo, shell));
 
@@ -215,7 +245,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let server = P2pServer::start(service, peer_id, name.clone(), port)
                 .map_err(|e| format!("Failed to start sync server: {}", e))?;
 
-            tracing::info!("Kye Headless Server listening on port {}! (Press Ctrl+C to exit)", port);
+            tracing::info!(
+                "Kye Headless Server listening on port {}! (Press Ctrl+C to exit)",
+                port
+            );
 
             tokio::signal::ctrl_c().await?;
             tracing::info!("Shutting down Kye Headless Server...");

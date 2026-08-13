@@ -74,4 +74,113 @@ impl<'a> SchemaResolver<'a> {
             Err(ResolverError::Validation(errors))
         }
     }
+
+    pub fn validate_connection(&self, connection_id: NodeId) -> Result<(), ResolverError> {
+        let conn_node = self
+            .graph
+            .get(connection_id)
+            .ok_or(ResolverError::NotFound(connection_id))?;
+
+        let mut errors = self.registry.validate_node(conn_node);
+
+        let from_id = conn_node.prop_ref("from");
+        let to_id = conn_node.prop_ref("to");
+
+        if let (Some(fid), Some(tid)) = (from_id, to_id) {
+            let from_node = self.graph.get(fid);
+            let to_node = self.graph.get(tid);
+
+            if let Some(conn_def) = self.registry.get(&conn_node.kind) {
+                for c in &conn_def.constraints {
+                    match c {
+                        crate::schema::Constraint::ConnectionSourceKinds(allowed) => {
+                            if let Some(source) = from_node {
+                                if !allowed.contains(&source.kind) {
+                                    errors.push(ValidationError::ConstraintViolation(format!(
+                                        "Source node {} ({}) is not allowed for connection {}",
+                                        source.id.short(),
+                                        source.kind,
+                                        conn_node.kind
+                                    )));
+                                }
+                            }
+                        }
+                        crate::schema::Constraint::ConnectionTargetKinds(allowed) => {
+                            if let Some(target) = to_node {
+                                if !allowed.contains(&target.kind) {
+                                    errors.push(ValidationError::ConstraintViolation(format!(
+                                        "Target node {} ({}) is not allowed for connection {}",
+                                        target.id.short(),
+                                        target.kind,
+                                        conn_node.kind
+                                    )));
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(ResolverError::Validation(errors))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use crate::primitives::Kind;
+    use crate::schema::{Constraint, KindDef};
+    use crate::value::Value;
+
+    #[test]
+    fn test_validate_connection_constraints() {
+        let mut registry = KindRegistry::new();
+        let state_kind = Kind::from("mbse.state");
+        let transition_kind = Kind::from("mbse.transition");
+        let task_kind = Kind::from("core.task");
+
+        let transition_def = KindDef::new("Transition", "title")
+            .with_constraint(Constraint::ConnectionSourceKinds(vec![state_kind.clone()]))
+            .with_constraint(Constraint::ConnectionTargetKinds(vec![state_kind.clone()]));
+
+        registry.register(transition_kind.clone(), transition_def);
+
+        let mut graph = Graph::new();
+        let now = Utc::now();
+
+        let state1_id = NodeId::new();
+        let state1 = Node::new(state1_id, state_kind.clone(), now);
+        graph.insert_root(state1).unwrap();
+
+        let task_id = NodeId::new();
+        let task = Node::new(task_id, task_kind.clone(), now);
+        graph.insert_root(task).unwrap();
+
+        // 1. Invalid connection (task -> state1)
+        let conn_invalid_id = NodeId::new();
+        let mut conn_invalid = Node::new(conn_invalid_id, transition_kind.clone(), now);
+        conn_invalid.set_prop("from", Value::Ref(task_id), now);
+        conn_invalid.set_prop("to", Value::Ref(state1_id), now);
+        graph.insert_root(conn_invalid).unwrap();
+
+        let resolver = SchemaResolver::new(&graph, &registry);
+        assert!(resolver.validate_connection(conn_invalid_id).is_err());
+
+        // 2. Valid connection (state1 -> state1 loop)
+        let conn_valid_id = NodeId::new();
+        let mut conn_valid = Node::new(conn_valid_id, transition_kind.clone(), now);
+        conn_valid.set_prop("from", Value::Ref(state1_id), now);
+        conn_valid.set_prop("to", Value::Ref(state1_id), now);
+        graph.insert_root(conn_valid).unwrap();
+
+        let resolver = SchemaResolver::new(&graph, &registry);
+        assert!(resolver.validate_connection(conn_valid_id).is_ok());
+    }
 }

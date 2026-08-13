@@ -4,9 +4,13 @@ use thiserror::Error;
 
 #[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum RemoteError {
-    #[error("Invalid remote name '{0}': name cannot be empty, must be <= 64 chars, and contain only alphanumeric, hyphen or underscore characters")]
+    #[error(
+        "Invalid remote name '{0}': name cannot be empty, must be <= 64 chars, and contain only alphanumeric, hyphen or underscore characters"
+    )]
     InvalidName(String),
-    #[error("Invalid remote URL '{0}': URL must start with http:// or https:// and be a valid web address")]
+    #[error(
+        "Invalid remote URL '{0}': URL must start with http:// or https:// and be a valid web address"
+    )]
     InvalidUrl(String),
 }
 
@@ -19,7 +23,10 @@ impl RemoteName {
         if s.is_empty() || s.len() > 64 {
             return Err(RemoteError::InvalidName(s.to_string()));
         }
-        if !s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        if !s
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
             return Err(RemoteError::InvalidName(s.to_string()));
         }
         Ok(Self(s.to_string()))

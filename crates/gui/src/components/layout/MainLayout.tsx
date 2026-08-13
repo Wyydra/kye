@@ -13,6 +13,7 @@ import { WorkspacePicker } from "./WorkspacePicker";
 import { SyncPanel } from "../SyncPanel";
 import { BufferBar } from "./BufferBar";
 import { StatusBar } from "./StatusBar";
+import { TypeManagerModal } from "../editors/TypeManagerModal";
 import { cn } from "../../lib/utils";
 
 /* --- Factorized UI Building Blocks for MainLayout --- */
@@ -167,6 +168,7 @@ export const MainLayout: React.FC = () => {
       {/* Modals & Pickers */}
       <NodeModal />
       <WorkspacePicker />
+      <TypeManagerModal />
       {isSyncPanelOpen && (
         <SyncPanel onClose={() => setSyncPanelOpen(false)} />
       )}

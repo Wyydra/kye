@@ -7,14 +7,32 @@ use crate::primitives::{Kind, PropKey, kinds, props};
 use crate::schema::{Constraint, KindDef, PropDef, ValidationError, ValueType};
 use crate::view::{CanvasLayout, CollectionLayout, DocumentLayout, Surface, ViewDef};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct KindRegistry {
     kinds: HashMap<Kind, KindDef>,
+}
+
+impl Default for KindRegistry {
+    fn default() -> Self {
+        let mut registry = Self {
+            kinds: HashMap::new(),
+        };
+        for (kind, def) in CoreLibrary::builtins() {
+            registry.register(kind, def);
+        }
+        registry
+    }
 }
 
 impl KindRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            kinds: HashMap::new(),
+        }
     }
 
     pub fn register(&mut self, kind: impl Into<Kind>, def: KindDef) {
@@ -35,6 +53,12 @@ impl KindRegistry {
 
     pub fn contains(&self, kind: &Kind) -> bool {
         self.kinds.contains_key(kind)
+    }
+
+    pub fn load_all(&mut self, kinds: impl IntoIterator<Item = (Kind, KindDef)>) {
+        for (k, d) in kinds {
+            self.register(k, d);
+        }
     }
 
     pub fn validate_node(&self, node: &Node) -> Vec<ValidationError> {
@@ -129,179 +153,175 @@ impl KindRegistry {
 pub struct CoreLibrary;
 
 impl CoreLibrary {
+    pub fn builtins() -> Vec<(Kind, KindDef)> {
+        vec![
+            (
+                kinds::page(),
+                KindDef::new("Page", props::title())
+                    .with_icon("📄")
+                    .with_prop(
+                        props::title(),
+                        PropDef::new(ValueType::Text).with_label("Title"),
+                    )
+                    .with_view(ViewDef::new(Surface::Document {
+                        layout: DocumentLayout::VerticalStream,
+                    })),
+            ),
+            (
+                kinds::paragraph(),
+                KindDef::new("Paragraph", props::body())
+                    .with_prop(
+                        props::body(),
+                        PropDef::new(ValueType::Rich).with_label("Content"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "paragraph".into(),
+                    })),
+            ),
+            (
+                kinds::heading(),
+                KindDef::new("Heading", props::body())
+                    .with_prop(
+                        props::body(),
+                        PropDef::new(ValueType::Rich).with_label("Text"),
+                    )
+                    .with_prop(
+                        props::level(),
+                        PropDef::new(ValueType::Int).optional().with_label("Level"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "heading".into(),
+                    })),
+            ),
+            (
+                kinds::task(),
+                KindDef::new("Task", props::title())
+                    .with_icon("✓")
+                    .with_prop(
+                        props::title(),
+                        PropDef::new(ValueType::Text).with_label("Title"),
+                    )
+                    .with_prop(
+                        props::checked(),
+                        PropDef::new(ValueType::Bool).optional().with_label("Done"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "task".into(),
+                    })),
+            ),
+            (
+                kinds::image(),
+                KindDef::new("Image", props::title())
+                    .with_icon("🖼")
+                    .with_prop(
+                        props::url(),
+                        PropDef::new(ValueType::Text).with_label("URL"),
+                    )
+                    .with_prop(
+                        props::title(),
+                        PropDef::new(ValueType::Text)
+                            .optional()
+                            .with_label("Caption"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "image".into(),
+                    })),
+            ),
+            (
+                kinds::audio(),
+                KindDef::new("Audio", props::title())
+                    .with_icon("🎵")
+                    .with_prop(
+                        props::url(),
+                        PropDef::new(ValueType::Text).with_label("URL"),
+                    )
+                    .with_prop(
+                        props::title(),
+                        PropDef::new(ValueType::Text).optional().with_label("Title"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "audio".into(),
+                    })),
+            ),
+            (
+                kinds::binary(),
+                KindDef::new("Binary", props::title())
+                    .with_icon("📎")
+                    .with_prop(
+                        props::url(),
+                        PropDef::new(ValueType::Text).with_label("URL"),
+                    )
+                    .with_prop(
+                        props::title(),
+                        PropDef::new(ValueType::Text)
+                            .optional()
+                            .with_label("Filename"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "file".into(),
+                    })),
+            ),
+            (
+                kinds::flashcard(),
+                KindDef::new("Flashcard", props::front())
+                    .with_icon("🗂")
+                    .with_prop(
+                        props::front(),
+                        PropDef::new(ValueType::Rich).with_label("Front"),
+                    )
+                    .with_prop(
+                        props::back(),
+                        PropDef::new(ValueType::Rich).with_label("Back"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "flashcard".into(),
+                    })),
+            ),
+            (
+                kinds::canvas(),
+                KindDef::new("Canvas", props::title())
+                    .with_icon("🎨")
+                    .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
+                    .with_view(ViewDef::new(Surface::Canvas {
+                        layout: CanvasLayout::Absolute,
+                        diagram_kind: None,
+                    })),
+            ),
+            (
+                kinds::connection(),
+                KindDef::new("Connection", props::from())
+                    .with_icon("→")
+                    .with_prop(
+                        props::from(),
+                        PropDef::new(ValueType::Ref).with_label("From"),
+                    )
+                    .with_prop(props::to(), PropDef::new(ValueType::Ref).with_label("To"))
+                    .with_prop(
+                        PropKey::from("routing"),
+                        PropDef::new(ValueType::Text)
+                            .optional()
+                            .with_label("Routing"),
+                    )
+                    .with_view(ViewDef::new(Surface::Widget {
+                        name: "connection".into(),
+                    })),
+            ),
+            (
+                kinds::inbox(),
+                KindDef::new("Inbox", props::title())
+                    .with_icon("📥")
+                    .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
+                    .with_view(ViewDef::new(Surface::Collection {
+                        layout: CollectionLayout::List,
+                    })),
+            ),
+        ]
+    }
+
     pub fn init(registry: &mut KindRegistry) {
-        registry.register(
-            kinds::page(),
-            KindDef::new("Page", props::title())
-                .with_icon("📄")
-                .with_prop(
-                    props::title(),
-                    PropDef::new(ValueType::Text).with_label("Title"),
-                )
-                .with_view(ViewDef::new(Surface::Document {
-                    layout: DocumentLayout::VerticalStream,
-                })),
-        );
-
-        registry.register(
-            kinds::paragraph(),
-            KindDef::new("Paragraph", props::body())
-                .with_prop(
-                    props::body(),
-                    PropDef::new(ValueType::Rich).with_label("Content"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "paragraph".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::heading(),
-            KindDef::new("Heading", props::body())
-                .with_prop(
-                    props::body(),
-                    PropDef::new(ValueType::Rich).with_label("Text"),
-                )
-                .with_prop(
-                    props::level(),
-                    PropDef::new(ValueType::Int).optional().with_label("Level"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "heading".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::task(),
-            KindDef::new("Task", props::title())
-                .with_icon("✓")
-                .with_prop(
-                    props::title(),
-                    PropDef::new(ValueType::Text).with_label("Title"),
-                )
-                .with_prop(
-                    props::checked(),
-                    PropDef::new(ValueType::Bool).optional().with_label("Done"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "task".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::image(),
-            KindDef::new("Image", props::title())
-                .with_icon("🖼")
-                .with_prop(
-                    props::url(),
-                    PropDef::new(ValueType::Text).with_label("URL"),
-                )
-                .with_prop(
-                    props::title(),
-                    PropDef::new(ValueType::Text)
-                        .optional()
-                        .with_label("Caption"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "image".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::audio(),
-            KindDef::new("Audio", props::title())
-                .with_icon("🎵")
-                .with_prop(
-                    props::url(),
-                    PropDef::new(ValueType::Text).with_label("URL"),
-                )
-                .with_prop(
-                    props::title(),
-                    PropDef::new(ValueType::Text)
-                        .optional()
-                        .with_label("Title"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "audio".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::binary(),
-            KindDef::new("Binary", props::title())
-                .with_icon("📎")
-                .with_prop(
-                    props::url(),
-                    PropDef::new(ValueType::Text).with_label("URL"),
-                )
-                .with_prop(
-                    props::title(),
-                    PropDef::new(ValueType::Text)
-                        .optional()
-                        .with_label("Filename"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "file".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::flashcard(),
-            KindDef::new("Flashcard", props::front())
-                .with_icon("🗂")
-                .with_prop(
-                    props::front(),
-                    PropDef::new(ValueType::Rich).with_label("Front"),
-                )
-                .with_prop(
-                    props::back(),
-                    PropDef::new(ValueType::Rich).with_label("Back"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "flashcard".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::canvas(),
-            KindDef::new("Canvas", props::title())
-                .with_icon("🎨")
-                .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-                .with_view(ViewDef::new(Surface::Canvas {
-                    layout: CanvasLayout::Absolute,
-                    diagram_kind: None,
-                })),
-        );
-
-        registry.register(
-            kinds::connection(),
-            KindDef::new("Connection", props::from())
-                .with_icon("→")
-                .with_prop(
-                    props::from(),
-                    PropDef::new(ValueType::Ref).with_label("From"),
-                )
-                .with_prop(props::to(), PropDef::new(ValueType::Ref).with_label("To"))
-                .with_prop(
-                    PropKey::from("routing"),
-                    PropDef::new(ValueType::Text)
-                        .optional()
-                        .with_label("Routing"),
-                )
-                .with_view(ViewDef::new(Surface::Widget {
-                    name: "connection".into(),
-                })),
-        );
-
-        registry.register(
-            kinds::inbox(),
-            KindDef::new("Inbox", props::title())
-                .with_icon("📥")
-                .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
-                .with_view(ViewDef::new(Surface::Collection {
-                    layout: CollectionLayout::List,
-                })),
-        );
+        for (kind, def) in Self::builtins() {
+            registry.register(kind, def);
+        }
     }
 }
 

@@ -1,6 +1,6 @@
+use crate::primitives::NodeId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::primitives::NodeId;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct NodeOccurrence {
@@ -16,7 +16,14 @@ pub struct NodeOccurrence {
 }
 
 impl NodeOccurrence {
-    pub fn new(node_id: NodeId, canvas_id: NodeId, x: f64, y: f64, width: f64, height: f64) -> Self {
+    pub fn new(
+        node_id: NodeId,
+        canvas_id: NodeId,
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             node_id,

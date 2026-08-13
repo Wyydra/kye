@@ -17,11 +17,34 @@ use sync_http::HttpSyncServer;
 use crate::commands::workspace::open_workspace_service;
 use crate::state::AppState;
 
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::format::Writer;
+use tracing_subscriber::fmt::time::FormatTime;
+
+struct LogTimeFormat;
+
+impl FormatTime for LogTimeFormat {
+    fn format_time(&self, w: &mut Writer<'_>) -> std::fmt::Result {
+        let now = chrono::Local::now();
+        write!(w, "{}", now.format("%H:%M:%S%.3f"))
+    }
+}
+
+pub fn init_logging() {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,kye_lib=info,domain=info"));
+
+    let _ = tracing_subscriber::fmt()
+        .compact()
+        .with_timer(LogTimeFormat)
+        .with_target(false)
+        .with_env_filter(filter)
+        .try_init();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    init_logging();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -38,7 +61,9 @@ pub fn run() {
             let raw_workspace_uri = match &store_rc {
                 Ok(store) => {
                     let _ = store.reload();
-                    store.get("workspace_path").and_then(|v| v.as_str().map(|s| s.to_string()))
+                    store
+                        .get("workspace_path")
+                        .and_then(|v| v.as_str().map(|s| s.to_string()))
                 }
                 Err(e) => {
                     tracing::error!("Store error: {:?}", e);
@@ -100,9 +125,7 @@ pub fn run() {
 }
 
 pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .try_init();
+    init_logging();
 
     if !workspace_path.exists() {
         return Err(format!(
@@ -135,7 +158,7 @@ pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {
 
     let kind_repo = FileKindRepository::new(fs.clone());
     let asset_repo = FileAssetRepository::new(fs.clone());
-    let shell = DesktopSystemShell::new(fs);
+    let shell = DesktopSystemShell::new(workspace_path.clone());
 
     let service = Arc::new(Service::new(
         crate::backend::DynamicGraphRepository::Fs(graph_repo),

@@ -6,19 +6,18 @@ use tauri_plugin_store::StoreBuilder;
 
 use domain::service::Service;
 use shell_desktop::DesktopSystemShell;
-use storage_fs::WorkspaceFs;
 use storage_sqlite::{SqlarAssetRepository, SqliteConnection, SqliteGraphRepository};
 
 use crate::backend::{DynamicAssetRepository, DynamicGraphRepository, DynamicKindRepository};
 use crate::dto::{GraphDto, WorkspaceMetaDto, WorkspaceStatusDto};
 use crate::error::{AppError, AppResult};
-use crate::state::{AppState, AppService, TauriEventBus};
+use crate::state::{AppService, AppState, TauriEventBus};
 
 pub fn open_workspace_service(
     uri_or_path: &str,
     app_handle: tauri::AppHandle,
 ) -> AppResult<(AppService, PathBuf)> {
-    tracing::info!("Opening workspace at URI/Path: '{}'", uri_or_path);
+    tracing::info!("Opening workspace: '{}'", uri_or_path);
 
     let clean_path_str = uri_or_path
         .strip_prefix("sqlite://")
@@ -42,7 +41,7 @@ pub fn open_workspace_service(
 
     // Open SQLite database
     let conn = SqliteConnection::open(&path).map_err(|e| {
-        tracing::error!("Failed to open SQLite database at '{}': {:?}", path.display(), e);
+        tracing::error!("Failed to open SQLite database '{}': {}", path.display(), e);
         AppError::Internal(format!("Failed to open SQLite database: {:?}", e))
     })?;
 
@@ -57,14 +56,14 @@ pub fn open_workspace_service(
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("Workspace");
-        tracing::info!("Initializing new workspace metadata: '{}'", name);
+        tracing::info!("Initializing new workspace: '{}'", name);
         let default_meta = WorkspaceMeta::new(uuid::Uuid::new_v4(), name);
         if let Err(e) = sqlite_repo.save_meta(&default_meta) {
-            tracing::error!("Failed to bootstrap workspace metadata: {:?}", e);
+            tracing::error!("Failed to bootstrap workspace metadata: {}", e);
         }
     }
 
-    tracing::info!("Successfully initialized workspace service at: '{}'", path.display());
+    tracing::info!("Workspace ready: '{}'", path.display());
 
     let graph_repo = DynamicGraphRepository::Sqlite(sqlite_repo.clone());
     let kind_repo = DynamicKindRepository::Sqlite(sqlite_repo);
@@ -72,8 +71,7 @@ pub fn open_workspace_service(
 
     // Desktop shell integration
     let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
-    let fs_workspace = WorkspaceFs::new(parent_dir);
-    let shell = DesktopSystemShell::new(fs_workspace);
+    let shell = DesktopSystemShell::new(parent_dir);
 
     let service = Arc::new(Service::new(
         graph_repo, kind_repo, event_bus, asset_repo, shell,
@@ -243,7 +241,8 @@ pub async fn list_workspaces(_app_handle: tauri::AppHandle) -> AppResult<Vec<Str
 
 #[tauri::command]
 pub async fn create_workspace(name: String, app_handle: tauri::AppHandle) -> AppResult<String> {
-    let target_uri = if name.ends_with(".kye") || name.ends_with(".db") || name.ends_with(".sqlite") {
+    let target_uri = if name.ends_with(".kye") || name.ends_with(".db") || name.ends_with(".sqlite")
+    {
         name
     } else {
         format!("{}.kye", name)

@@ -19,6 +19,10 @@ impl NodeId {
     pub fn as_uuid(&self) -> Uuid {
         self.0
     }
+
+    pub fn short(&self) -> String {
+        self.0.to_string()[..8].to_string()
+    }
 }
 
 impl Default for NodeId {
@@ -33,10 +37,31 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum KindError {
+    #[error("Kind identifier cannot be empty")]
+    Empty,
+    #[error("Kind identifier '{0}' contains invalid whitespace")]
+    ContainsWhitespace(String),
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct Kind(Arc<str>);
 
 impl Kind {
+    pub fn new(s: impl AsRef<str>) -> Result<Self, KindError> {
+        let s = s.as_ref().trim();
+        if s.is_empty() {
+            return Err(KindError::Empty);
+        }
+        if s.chars().any(|c| c.is_whitespace()) {
+            return Err(KindError::ContainsWhitespace(s.to_string()));
+        }
+        Ok(Self(Arc::from(s)))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -44,7 +69,12 @@ impl Kind {
 
 impl<S: AsRef<str>> From<S> for Kind {
     fn from(s: S) -> Self {
-        Self(Arc::from(s.as_ref()))
+        let s = s.as_ref().trim();
+        if s.is_empty() {
+            Self(Arc::from("core.unknown"))
+        } else {
+            Self(Arc::from(s))
+        }
     }
 }
 
@@ -54,10 +84,31 @@ impl fmt::Display for Kind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum PropKeyError {
+    #[error("Property key cannot be empty")]
+    Empty,
+    #[error("Property key '{0}' contains invalid whitespace")]
+    ContainsWhitespace(String),
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct PropKey(Arc<str>);
 
 impl PropKey {
+    pub fn new(s: impl AsRef<str>) -> Result<Self, PropKeyError> {
+        let s = s.as_ref().trim();
+        if s.is_empty() {
+            return Err(PropKeyError::Empty);
+        }
+        if s.chars().any(|c| c.is_whitespace()) {
+            return Err(PropKeyError::ContainsWhitespace(s.to_string()));
+        }
+        Ok(Self(Arc::from(s)))
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -65,7 +116,12 @@ impl PropKey {
 
 impl<S: AsRef<str>> From<S> for PropKey {
     fn from(s: S) -> Self {
-        Self(Arc::from(s.as_ref()))
+        let s = s.as_ref().trim();
+        if s.is_empty() {
+            Self(Arc::from("unnamed"))
+        } else {
+            Self(Arc::from(s))
+        }
     }
 }
 
@@ -75,7 +131,9 @@ impl fmt::Display for PropKey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum EdgeKind {
     /// Hierarchical parent-child relationship with ordering index
     ParentChild { index: usize },
@@ -271,5 +329,34 @@ pub mod props {
     }
     pub fn back() -> PropKey {
         PropKey::from("back")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kind_validation() {
+        assert!(Kind::new("core.page").is_ok());
+        assert!(Kind::new("user.custom_task").is_ok());
+        assert_eq!(Kind::new("").unwrap_err(), KindError::Empty);
+        assert_eq!(Kind::new("   ").unwrap_err(), KindError::Empty);
+        assert!(matches!(
+            Kind::new("core page").unwrap_err(),
+            KindError::ContainsWhitespace(_)
+        ));
+    }
+
+    #[test]
+    fn test_prop_key_validation() {
+        assert!(PropKey::new("title").is_ok());
+        assert!(PropKey::new("user_age").is_ok());
+        assert_eq!(PropKey::new("").unwrap_err(), PropKeyError::Empty);
+        assert_eq!(PropKey::new("   ").unwrap_err(), PropKeyError::Empty);
+        assert!(matches!(
+            PropKey::new("my title").unwrap_err(),
+            PropKeyError::ContainsWhitespace(_)
+        ));
     }
 }

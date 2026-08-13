@@ -863,7 +863,8 @@ mod tests {
             page_id.as_uuid()
         );
 
-        let parsed_nodes = parse_markdown_document(&doc_content, std::path::Path::new("Document Title.md"));
+        let parsed_nodes =
+            parse_markdown_document(&doc_content, std::path::Path::new("Document Title.md"));
         assert_eq!(parsed_nodes.len(), 3);
 
         let page_node = &parsed_nodes[0];
@@ -885,7 +886,10 @@ mod tests {
         let mut out = String::new();
         let asset_id = NodeId::new();
         let mut props = domain::value::Props::new();
-        props.insert(domain::primitives::PropKey::from("url"), Value::Ref(asset_id));
+        props.insert(
+            domain::primitives::PropKey::from("url"),
+            Value::Ref(asset_id),
+        );
 
         let node = domain::NodeBuilder::new(domain::primitives::kinds::image(), Utc::now())
             .with_props(props)

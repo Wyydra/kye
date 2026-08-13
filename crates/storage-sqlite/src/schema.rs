@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use domain::ports::RepositoryError;
+use rusqlite::Connection;
 
 pub fn init_schema(conn: &Connection) -> Result<(), RepositoryError> {
     conn.execute_batch(
@@ -35,7 +35,8 @@ pub fn init_schema(conn: &Connection) -> Result<(), RepositoryError> {
             kind TEXT PRIMARY KEY,
             label TEXT NOT NULL,
             icon TEXT,
-            title_prop TEXT NOT NULL
+            title_prop TEXT NOT NULL,
+            definition_json TEXT NOT NULL DEFAULT '{}'
         );
 
         CREATE TABLE IF NOT EXISTS sqlar (
@@ -68,6 +69,12 @@ pub fn init_schema(conn: &Connection) -> Result<(), RepositoryError> {
         ",
     )
     .map_err(|e| RepositoryError::Io(format!("Failed to initialize schema: {}", e)))?;
+
+    // Migration for existing kinds table missing definition_json column
+    let _ = conn.execute(
+        "ALTER TABLE kinds ADD COLUMN definition_json TEXT NOT NULL DEFAULT '{}'",
+        [],
+    );
 
     Ok(())
 }

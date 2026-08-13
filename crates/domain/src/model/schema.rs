@@ -1,9 +1,10 @@
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 use crate::primitives::{Kind, PropKey};
 use crate::view::ViewDef;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValidationError {
     MissingRequiredProp(PropKey),
     WrongType { prop: PropKey, expected: ValueType },
@@ -22,7 +23,7 @@ impl std::fmt::Display for ValidationError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ValueType {
     Bool,
     Int,
@@ -31,7 +32,6 @@ pub enum ValueType {
     Rich,
     Ref,
     RefTo(Kind),
-
     OneOf(Vec<String>),
     Array(Box<ValueType>),
     Optional(Box<ValueType>),
@@ -40,7 +40,7 @@ pub enum ValueType {
     Color,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PropDef {
     pub value_type: ValueType,
     pub required: bool,
@@ -74,31 +74,22 @@ impl PropDef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Constraint {
     AllowedChildKinds(Vec<Kind>),
-
     AllowedParentKinds(Vec<Kind>),
-
     ConnectionSourceKinds(Vec<Kind>),
-
     ConnectionTargetKinds(Vec<Kind>),
-
     MaxChildren(usize),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KindDef {
     pub label: String,
-
     pub icon: Option<String>,
-
     pub title_prop: PropKey,
-
     pub props: IndexMap<PropKey, PropDef>,
-
     pub view: Option<ViewDef>,
-
     pub constraints: Vec<Constraint>,
 }
 
@@ -132,5 +123,9 @@ impl KindDef {
     pub fn with_constraint(mut self, constraint: Constraint) -> Self {
         self.constraints.push(constraint);
         self
+    }
+
+    pub fn prop(&self, key: &PropKey) -> Option<&PropDef> {
+        self.props.get(key)
     }
 }

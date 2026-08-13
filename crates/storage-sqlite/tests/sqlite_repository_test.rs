@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use chrono::Utc;
+use std::path::PathBuf;
 
 use domain::command::Event;
 use domain::node::NodeBuilder;
@@ -53,10 +53,7 @@ fn test_sqlite_graph_events_and_tombstones() {
     let graph = repo.load_graph().expect("Failed to load graph");
     assert_eq!(graph.len(), 1);
     assert!(graph.contains(page_id));
-    assert_eq!(
-        graph.get(page_id).unwrap().title(),
-        Some("Ma Page Test")
-    );
+    assert_eq!(graph.get(page_id).unwrap().title(), Some("Ma Page Test"));
 
     // 2. Apply PropSet
     let update_event = Event::PropSet {
@@ -65,7 +62,8 @@ fn test_sqlite_graph_events_and_tombstones() {
         new_value: Value::Text("Titre Modifié".into()),
         old_value: None,
     };
-    repo.apply_event(&update_event).expect("Failed to apply prop set");
+    repo.apply_event(&update_event)
+        .expect("Failed to apply prop set");
 
     let updated_graph = repo.load_graph().expect("Failed to load updated graph");
     assert_eq!(
@@ -79,9 +77,12 @@ fn test_sqlite_graph_events_and_tombstones() {
         old_parent: None,
         old_index: 0,
     };
-    repo.apply_event(&delete_event).expect("Failed to delete node");
+    repo.apply_event(&delete_event)
+        .expect("Failed to delete node");
 
-    let empty_graph = repo.load_graph().expect("Failed to load graph after delete");
+    let empty_graph = repo
+        .load_graph()
+        .expect("Failed to load graph after delete");
     assert_eq!(empty_graph.len(), 0);
 
     let tombstones = repo.load_tombstones().expect("Failed to load tombstones");
@@ -92,22 +93,37 @@ fn test_sqlite_graph_events_and_tombstones() {
 
 #[test]
 fn test_sqlite_kind_repository() {
+    use domain::schema::{Constraint, PropDef, ValueType};
+    use domain::view::{DocumentLayout, Surface, ViewDef};
+
     let db_path = temp_db_path();
     let repo = SqliteGraphRepository::open(&db_path).expect("Failed to open db");
 
-    let kind = Kind::from("core.custom");
-    let def = KindDef::new("Custom Kind", "title").with_icon("⭐");
+    let kind = Kind::from("user.project");
+    let def = KindDef::new("Project", "title")
+        .with_icon("🚀")
+        .with_prop("title", PropDef::new(ValueType::Text).with_label("Project Title"))
+        .with_prop("deadline", PropDef::new(ValueType::Date).optional().with_label("Deadline"))
+        .with_prop("status", PropDef::new(ValueType::OneOf(vec!["todo".into(), "doing".into(), "done".into()])).with_label("Status"))
+        .with_view(ViewDef::new(Surface::Document { layout: DocumentLayout::VerticalStream }))
+        .with_constraint(Constraint::AllowedChildKinds(vec![Kind::from("core.task"), Kind::from("core.page")]));
 
     repo.save_kind(&kind, &def).expect("Failed to save kind");
 
     let kinds = repo.load_kinds().expect("Failed to load kinds");
     assert_eq!(kinds.len(), 1);
     assert_eq!(kinds[0].0, kind);
-    assert_eq!(kinds[0].1.label, "Custom Kind");
-    assert_eq!(kinds[0].1.icon.as_deref(), Some("⭐"));
+    assert_eq!(kinds[0].1.label, "Project");
+    assert_eq!(kinds[0].1.icon.as_deref(), Some("🚀"));
+    assert_eq!(kinds[0].1.title_prop.as_str(), "title");
+    assert_eq!(kinds[0].1.props.len(), 3);
+    assert!(kinds[0].1.prop(&domain::primitives::PropKey::from("deadline")).unwrap().label.as_deref() == Some("Deadline"));
+    assert_eq!(kinds[0].1.constraints.len(), 1);
 
     repo.delete_kind(&kind).expect("Failed to delete kind");
-    let empty_kinds = repo.load_kinds().expect("Failed to load kinds after delete");
+    let empty_kinds = repo
+        .load_kinds()
+        .expect("Failed to load kinds after delete");
     assert_eq!(empty_kinds.len(), 0);
 
     let _ = std::fs::remove_file(db_path);

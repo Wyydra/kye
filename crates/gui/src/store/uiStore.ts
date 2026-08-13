@@ -17,6 +17,8 @@ interface UIState {
   toggleSidebar: () => void;
   isSyncPanelOpen: boolean;
   setSyncPanelOpen: (open: boolean) => void;
+  isTypeManagerOpen: boolean;
+  setTypeManagerOpen: (open: boolean) => void;
 
   // Real Multi-Buffer State
   openBufferIds: string[];
@@ -38,6 +40,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   isSyncPanelOpen: false,
   setSyncPanelOpen: (open) => set({ isSyncPanelOpen: open }),
+  isTypeManagerOpen: false,
+  setTypeManagerOpen: (open) => set({ isTypeManagerOpen: open }),
 
   openBufferIds: [],
   openBuffer: (id: string) => {

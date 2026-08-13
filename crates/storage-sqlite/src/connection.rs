@@ -1,9 +1,9 @@
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use rusqlite::Connection;
 
-use domain::ports::RepositoryError;
 use crate::schema::init_schema;
+use domain::ports::RepositoryError;
 
 #[derive(Clone)]
 pub struct SqliteConnection {

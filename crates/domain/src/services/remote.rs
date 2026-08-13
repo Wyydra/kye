@@ -1,6 +1,6 @@
+use super::service::{Service, ServiceError};
 use crate::model::remote::{Remote, RemoteName, RemoteUrl};
 use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort};
-use super::service::{Service, ServiceError};
 
 impl<R, K, E, A, S> Service<R, K, E, A, S>
 where

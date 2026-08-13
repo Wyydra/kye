@@ -3184,7 +3184,6 @@ name = "shell-desktop"
 version = "0.1.0"
 dependencies = [
  "domain",
- "storage-fs",
  "thiserror 2.0.19",
 ]
 

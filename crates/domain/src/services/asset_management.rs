@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, RepositoryError, SystemShellPort};
+use crate::ports::{
+    AssetRepository, EventBus, GraphRepository, KindRepository, RepositoryError, SystemShellPort,
+};
 
 use super::service::{Service, ServiceError};
 
@@ -25,8 +27,12 @@ where
             .and_then(|n| n.to_str())
             .unwrap_or("asset.bin");
 
-        let bytes = fs::read(path)
-            .map_err(|e| RepositoryError::Io(format!("Failed to read asset file '{}': {}", source_path_str, e)))?;
+        let bytes = fs::read(path).map_err(|e| {
+            RepositoryError::Io(format!(
+                "Failed to read asset file '{}': {}",
+                source_path_str, e
+            ))
+        })?;
 
         self.save_asset(filename, &bytes)
     }

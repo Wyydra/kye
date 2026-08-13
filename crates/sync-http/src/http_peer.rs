@@ -23,7 +23,10 @@ impl HttpSyncPeerAdapter {
 
 impl SyncPeerPort for HttpSyncPeerAdapter {
     fn ping(&self, remote_url: &RemoteUrl) -> Result<PeerHandshake, SyncError> {
-        let url = format!("{}/api/p2p/handshake", remote_url.as_str().trim_end_matches('/'));
+        let url = format!(
+            "{}/api/p2p/handshake",
+            remote_url.as_str().trim_end_matches('/')
+        );
         let response: HandshakeResponse = ureq::get(&url)
             .timeout(Duration::from_secs(4))
             .call()
@@ -44,7 +47,10 @@ impl SyncPeerPort for HttpSyncPeerAdapter {
 
         let response: PushResponse = ureq::post(&url)
             .timeout(Duration::from_secs(6))
-            .send_json(serde_json::to_value(req_body).map_err(|e| SyncError::Serialization(e.to_string()))?)
+            .send_json(
+                serde_json::to_value(req_body)
+                    .map_err(|e| SyncError::Serialization(e.to_string()))?,
+            )
             .map_err(|e| SyncError::Network(e.to_string()))?
             .into_json()
             .map_err(|e| SyncError::Serialization(e.to_string()))?;
@@ -60,7 +66,10 @@ impl SyncPeerPort for HttpSyncPeerAdapter {
     }
 
     fn pull_graph(&self, remote_url: &RemoteUrl) -> Result<Graph, SyncError> {
-        let url = format!("{}/api/p2p/graph", remote_url.as_str().trim_end_matches('/'));
+        let url = format!(
+            "{}/api/p2p/graph",
+            remote_url.as_str().trim_end_matches('/')
+        );
         let dto: GraphDto = ureq::get(&url)
             .timeout(Duration::from_secs(6))
             .call()
@@ -71,8 +80,14 @@ impl SyncPeerPort for HttpSyncPeerAdapter {
         Ok(dto.to_graph())
     }
 
-    fn pull_tombstones(&self, remote_url: &RemoteUrl) -> Result<HashMap<NodeId, DateTime<Utc>>, SyncError> {
-        let url = format!("{}/api/p2p/tombstones", remote_url.as_str().trim_end_matches('/'));
+    fn pull_tombstones(
+        &self,
+        remote_url: &RemoteUrl,
+    ) -> Result<HashMap<NodeId, DateTime<Utc>>, SyncError> {
+        let url = format!(
+            "{}/api/p2p/tombstones",
+            remote_url.as_str().trim_end_matches('/')
+        );
         let response = match ureq::get(&url).timeout(Duration::from_secs(5)).call() {
             Ok(res) => res,
             Err(ureq::Error::Status(404, _)) => {

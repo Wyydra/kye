@@ -7,7 +7,7 @@ use domain::command::Command;
 use domain::ports::SyncPeerPort;
 use storage_fs::dto::RemoteDto;
 use sync_http::server::HandshakeResponse;
-use sync_http::{generate_qr_svg, HttpSyncPeerAdapter, HttpSyncServer};
+use sync_http::{HttpSyncPeerAdapter, HttpSyncServer, generate_qr_svg};
 
 fn get_local_ip() -> Option<String> {
     UdpSocket::bind("0.0.0.0:0")
@@ -79,7 +79,9 @@ pub async fn ping_remote_peer(remote_url: String) -> AppResult<HandshakeResponse
         let peer = HttpSyncPeerAdapter::new();
         let r_url = domain::model::remote::RemoteUrl::new(remote_url)
             .map_err(|e| AppError::Internal(e.to_string()))?;
-        let handshake = peer.ping(&r_url).map_err(|e| AppError::Internal(e.to_string()))?;
+        let handshake = peer
+            .ping(&r_url)
+            .map_err(|e| AppError::Internal(e.to_string()))?;
         Ok(HandshakeResponse {
             peer_id: handshake.peer_id,
             name: handshake.name,
@@ -95,7 +97,8 @@ pub async fn push_to_remote_peer(remote_url: String, cmds: Vec<Command>) -> AppR
         let peer = HttpSyncPeerAdapter::new();
         let r_url = domain::model::remote::RemoteUrl::new(remote_url)
             .map_err(|e| AppError::Internal(e.to_string()))?;
-        peer.push_commands(&r_url, &cmds).map_err(|e| AppError::Internal(e.to_string()))
+        peer.push_commands(&r_url, &cmds)
+            .map_err(|e| AppError::Internal(e.to_string()))
     })
     .await
     .map_err(|e| AppError::Internal(format!("Runtime error: {:?}", e)))?
@@ -106,9 +109,13 @@ pub fn add_remote(name: String, url: String, state: State<'_, AppState>) -> AppR
     let service = state
         .service()
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-    let r_name = domain::model::remote::RemoteName::new(name).map_err(|e| AppError::Internal(e.to_string()))?;
-    let r_url = domain::model::remote::RemoteUrl::new(url).map_err(|e| AppError::Internal(e.to_string()))?;
-    service.add_remote(r_name, r_url).map_err(|e| AppError::Internal(e.to_string()))?;
+    let r_name = domain::model::remote::RemoteName::new(name)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let r_url = domain::model::remote::RemoteUrl::new(url)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    service
+        .add_remote(r_name, r_url)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(())
 }
 
@@ -117,8 +124,11 @@ pub fn remove_remote(name: String, state: State<'_, AppState>) -> AppResult<bool
     let service = state
         .service()
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-    let r_name = domain::model::remote::RemoteName::new(name).map_err(|e| AppError::Internal(e.to_string()))?;
-    let removed = service.remove_remote(&r_name).map_err(|e| AppError::Internal(e.to_string()))?;
+    let r_name = domain::model::remote::RemoteName::new(name)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let removed = service
+        .remove_remote(&r_name)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(removed)
 }
 
@@ -127,7 +137,9 @@ pub fn list_remotes(state: State<'_, AppState>) -> AppResult<Vec<RemoteDto>> {
     let service = state
         .service()
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;
-    let remotes = service.list_remotes().map_err(|e| AppError::Internal(e.to_string()))?;
+    let remotes = service
+        .list_remotes()
+        .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(remotes
         .into_iter()
         .map(|r| RemoteDto {

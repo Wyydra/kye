@@ -80,6 +80,80 @@ pub enum Command {
     },
 }
 
+impl std::fmt::Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Command::CreateNode {
+                id,
+                kind,
+                parent_id,
+                index,
+                props,
+            } => {
+                let parent_str = match parent_id {
+                    Some(p) => format!("{}:{}", p.short(), index),
+                    None => format!("root:{}", index),
+                };
+                write!(
+                    f,
+                    "CreateNode({}, kind: \"{}\", parent: {}, props: ",
+                    id.short(),
+                    kind,
+                    parent_str
+                )?;
+                crate::value::format_props(props, f)?;
+                write!(f, ")")
+            }
+            Command::DeleteNode { id, cascade } => {
+                write!(f, "DeleteNode({}, cascade: {})", id.short(), cascade)
+            }
+            Command::MoveNode {
+                node_id,
+                new_parent_id,
+                new_index,
+            } => {
+                let dest = match new_parent_id {
+                    Some(p) => format!("{}:{}", p.short(), new_index),
+                    None => format!("root:{}", new_index),
+                };
+                write!(f, "MoveNode({} -> {})", node_id.short(), dest)
+            }
+            Command::SetProp {
+                node_id,
+                key,
+                value,
+            } => {
+                write!(
+                    f,
+                    "SetProp({}, {}: {})",
+                    node_id.short(),
+                    key.as_str(),
+                    value
+                )
+            }
+            Command::DeleteProp { node_id, key } => {
+                write!(f, "DeleteProp({}, -{})", node_id.short(), key.as_str())
+            }
+            Command::SetProps { node_id, props } => {
+                write!(f, "SetProps({}, ", node_id.short())?;
+                crate::value::format_props(props, f)?;
+                write!(f, ")")
+            }
+            Command::SetViewOverride { node_id, view } => {
+                write!(
+                    f,
+                    "SetViewOverride({}, has_view: {})",
+                    node_id.short(),
+                    view.is_some()
+                )
+            }
+            Command::SetKind { node_id, new_kind } => {
+                write!(f, "SetKind({} -> \"{}\")", node_id.short(), new_kind)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Event {
     NodeCreated {
@@ -129,6 +203,124 @@ pub enum Event {
         old_kind: Kind,
     },
     Batch(Vec<Event>),
+}
+
+impl std::fmt::Display for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Event::NodeCreated {
+                node,
+                parent_id,
+                index,
+            } => {
+                let loc = match parent_id {
+                    Some(p) => format!("{}:{}", p.short(), index),
+                    None => format!("root:{}", index),
+                };
+                write!(
+                    f,
+                    "NodeCreated({}) [{}] at {} ",
+                    node.id.short(),
+                    node.kind,
+                    loc
+                )?;
+                crate::value::format_props(&node.props, f)
+            }
+            Event::NodeDeleted {
+                nodes,
+                old_parent,
+                old_index,
+            } => {
+                let loc = match old_parent {
+                    Some(p) => format!("{}:{}", p.short(), old_index),
+                    None => format!("root:{}", old_index),
+                };
+                let count = nodes.len();
+                let primary = nodes
+                    .first()
+                    .map(|n| format!("{} [{}]", n.id.short(), n.kind))
+                    .unwrap_or_default();
+                write!(
+                    f,
+                    "NodeDeleted({}) from {} ({} node{} deleted)",
+                    primary,
+                    loc,
+                    count,
+                    if count > 1 { "s" } else { "" }
+                )
+            }
+            Event::NodeMoved {
+                node_id,
+                old_parent,
+                old_index,
+                new_parent,
+                new_index,
+            } => {
+                let from = match old_parent {
+                    Some(p) => format!("{}:{}", p.short(), old_index),
+                    None => format!("root:{}", old_index),
+                };
+                let to = match new_parent {
+                    Some(p) => format!("{}:{}", p.short(), new_index),
+                    None => format!("root:{}", new_index),
+                };
+                write!(f, "NodeMoved({}) {} -> {}", node_id.short(), from, to)
+            }
+            Event::PropSet {
+                node_id,
+                key,
+                new_value,
+                ..
+            } => {
+                write!(
+                    f,
+                    "PropSet({}, {}: {})",
+                    node_id.short(),
+                    key.as_str(),
+                    new_value
+                )
+            }
+            Event::PropsSet { node_id, changes } => {
+                write!(f, "PropsSet({}, {{", node_id.short())?;
+                for (i, (k, v, _)) in changes.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", k.as_str(), v)?;
+                }
+                write!(f, "}})")
+            }
+            Event::PropDeleted { node_id, key, .. } => {
+                write!(f, "PropDeleted({}, -{})", node_id.short(), key.as_str())
+            }
+            Event::KindSet {
+                node_id,
+                new_kind,
+                old_kind,
+            } => {
+                write!(
+                    f,
+                    "KindSet({}) \"{}\" -> \"{}\"",
+                    node_id.short(),
+                    old_kind,
+                    new_kind
+                )
+            }
+            Event::ViewOverrideSet {
+                node_id, new_view, ..
+            } => {
+                write!(
+                    f,
+                    "ViewOverrideSet({}, has_view: {})",
+                    node_id.short(),
+                    new_view.is_some()
+                )
+            }
+            Event::Batch(events) => {
+                write!(f, "Batch({} events)", events.len())
+            }
+        }
+    }
 }
 
 impl Event {
@@ -740,5 +932,31 @@ mod tests {
             panic!()
         };
         assert_eq!(n4.prop_text("title"), Some("My Page"));
+    }
+
+    #[test]
+    fn test_command_and_event_display() {
+        let id = NodeId::new();
+        let cmd = Command::CreateNode {
+            id,
+            kind: kinds::page(),
+            parent_id: None,
+            index: 0,
+            props: crate::props!("title" => Value::text("Hello")),
+        };
+        let cmd_str = format!("{}", cmd);
+        assert!(cmd_str.starts_with("CreateNode("));
+        assert!(cmd_str.contains("kind: \"core.page\""));
+        assert!(cmd_str.contains("title: \"Hello\""));
+
+        let event = Event::PropSet {
+            node_id: id,
+            key: crate::primitives::PropKey::from("x"),
+            new_value: Value::float(123.5),
+            old_value: None,
+        };
+        let evt_str = format!("{}", event);
+        assert!(evt_str.starts_with("PropSet("));
+        assert!(evt_str.contains("x: 123.5"));
     }
 }

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 use domain::command::Event;
 use domain::graph::Graph;

@@ -29,5 +29,6 @@ pub trait SyncPeerPort: Send + Sync + 'static {
     fn ping(&self, url: &RemoteUrl) -> Result<PeerHandshake, SyncError>;
     fn push_commands(&self, url: &RemoteUrl, cmds: &[Command]) -> Result<(), SyncError>;
     fn pull_graph(&self, url: &RemoteUrl) -> Result<Graph, SyncError>;
-    fn pull_tombstones(&self, url: &RemoteUrl) -> Result<HashMap<NodeId, DateTime<Utc>>, SyncError>;
+    fn pull_tombstones(&self, url: &RemoteUrl)
+    -> Result<HashMap<NodeId, DateTime<Utc>>, SyncError>;
 }

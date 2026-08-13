@@ -15,7 +15,33 @@ pub struct Node {
     pub updated_at: DateTime<Utc>,
 }
 
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Node({} [{}])", self.id.short(), self.kind)?;
+        if !self.props.is_empty() {
+            write!(f, " ")?;
+            crate::value::format_props(&self.props, f)?;
+        }
+        Ok(())
+    }
+}
+
 impl Node {
+    pub fn new(id: NodeId, kind: impl Into<Kind>, now: DateTime<Utc>) -> Self {
+        Self {
+            id,
+            kind: kind.into(),
+            props: Props::new(),
+            view_override: None,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn builder(kind: impl Into<Kind>, now: DateTime<Utc>) -> NodeBuilder {
+        NodeBuilder::new(kind, now)
+    }
+
     pub fn prop(&self, key: &str) -> Option<&Value> {
         self.props.get(&PropKey::from(key))
     }
@@ -38,6 +64,35 @@ impl Node {
 
     pub fn title(&self) -> Option<&str> {
         self.prop_text("title")
+    }
+
+    pub fn set_prop(&mut self, key: impl Into<PropKey>, value: Value, now: DateTime<Utc>) {
+        self.props.insert(key.into(), value);
+        self.touch(now);
+    }
+
+    pub fn delete_prop(&mut self, key: &PropKey, now: DateTime<Utc>) -> Option<Value> {
+        let old = self.props.swap_remove(key);
+        self.touch(now);
+        old
+    }
+
+    pub fn set_view_override(&mut self, view: Option<ViewDef>, now: DateTime<Utc>) {
+        self.view_override = view;
+        self.touch(now);
+    }
+
+    pub fn set_kind(&mut self, new_kind: impl Into<Kind>, now: DateTime<Utc>) {
+        self.kind = new_kind.into();
+        self.touch(now);
+    }
+
+    pub fn touch(&mut self, now: DateTime<Utc>) {
+        if now >= self.created_at {
+            self.updated_at = now;
+        } else {
+            self.updated_at = self.created_at;
+        }
     }
 }
 
@@ -89,5 +144,29 @@ impl NodeBuilder {
             created_at: self.now,
             updated_at: self.now,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+
+    #[test]
+    fn test_node_invariants_and_mutation() {
+        let t0 = Utc::now();
+        let mut node = Node::new(NodeId::new(), "core.task", t0);
+        assert_eq!(node.created_at, t0);
+        assert_eq!(node.updated_at, t0);
+
+        let t1 = t0 + Duration::seconds(10);
+        node.set_prop("title", Value::Text("Task 1".into()), t1);
+        assert_eq!(node.updated_at, t1);
+        assert_eq!(node.title(), Some("Task 1"));
+
+        // Invariant: touch with past time cannot set updated_at before created_at
+        let past = t0 - Duration::seconds(100);
+        node.touch(past);
+        assert_eq!(node.updated_at, node.created_at);
     }
 }

@@ -18,7 +18,10 @@ pub async fn import_asset(source_path: String, state: State<'_, AppState>) -> Ap
 }
 
 #[tauri::command]
-pub async fn read_asset_data_url(target_path: String, state: State<'_, AppState>) -> AppResult<String> {
+pub async fn read_asset_data_url(
+    target_path: String,
+    state: State<'_, AppState>,
+) -> AppResult<String> {
     let service = state
         .service()
         .ok_or_else(|| AppError::Internal("No workspace selected".into()))?;

@@ -1,7 +1,7 @@
-use rusqlite::params;
+use crate::connection::SqliteConnection;
 use domain::ports::RepositoryError;
 use domain::primitives::NodeId;
-use crate::connection::SqliteConnection;
+use rusqlite::params;
 
 pub struct FtsEngine {
     conn: SqliteConnection,

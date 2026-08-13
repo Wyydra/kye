@@ -3,15 +3,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use domain::ports::{RepositoryError, SystemShellPort};
-use storage_fs::WorkspaceFs;
 
 pub struct DesktopSystemShell {
-    fs: WorkspaceFs,
+    root: PathBuf,
 }
 
 impl DesktopSystemShell {
-    pub fn new(fs: WorkspaceFs) -> Self {
-        Self { fs }
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
     }
 }
 
@@ -20,7 +19,7 @@ impl SystemShellPort for DesktopSystemShell {
         let abs_path = if Path::new(target_path_str).is_absolute() {
             PathBuf::from(target_path_str)
         } else {
-            self.fs.root.join(target_path_str)
+            self.root.join(target_path_str)
         };
 
         if !abs_path.exists() {
@@ -61,10 +60,10 @@ impl SystemShellPort for DesktopSystemShell {
         let abs_path = if Path::new(target_path_str).is_absolute() {
             PathBuf::from(target_path_str)
         } else {
-            self.fs.root.join(target_path_str)
+            self.root.join(target_path_str)
         };
 
-        let _parent_dir = abs_path.parent().unwrap_or(&self.fs.root);
+        let _parent_dir = abs_path.parent().unwrap_or(&self.root);
 
         #[cfg(target_os = "linux")]
         {

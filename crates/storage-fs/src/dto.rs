@@ -6,8 +6,8 @@ use domain::graph::Graph;
 use domain::node::Node;
 use domain::primitives::{Kind, NodeId, PropKey};
 
-use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
 use domain::occurrence::{DetailLevel, NodeOccurrence};
+use domain::value::{Color, FloatBits, Mark, Props, RichText, Span, Value};
 use domain::view::{
     ActionDef, ActionKind, CanvasLayout, CollectionLayout, DataSource, DocumentLayout, Surface,
     ViewDef, ViewOverlay,
@@ -312,10 +312,19 @@ pub struct ViewDefDto {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "t", content = "v")]
 pub enum SurfaceDto {
-    Document { layout: DocumentLayoutDto },
-    Canvas { layout: CanvasLayoutDto, diagram_kind: Option<String> },
-    Collection { layout: CollectionLayoutDto },
-    Widget { name: String },
+    Document {
+        layout: DocumentLayoutDto,
+    },
+    Canvas {
+        layout: CanvasLayoutDto,
+        diagram_kind: Option<String>,
+    },
+    Collection {
+        layout: CollectionLayoutDto,
+    },
+    Widget {
+        name: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -347,8 +356,13 @@ pub enum CollectionLayoutDto {
 #[serde(tag = "t", content = "v")]
 pub enum DataSourceDto {
     DirectChildren,
-    PersistedQuery { query_node_id: String },
-    DualQuery { row_query_node_id: String, col_query_node_id: String },
+    PersistedQuery {
+        query_node_id: String,
+    },
+    DualQuery {
+        row_query_node_id: String,
+        col_query_node_id: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -386,7 +400,7 @@ impl From<&ViewDef> for ViewDefDto {
             bindings: v
                 .bindings
                 .iter()
-                .map(|(k, v)| (k.clone(), v.as_str().to_string()))
+                .map(|(k, v)| (k.as_str().to_string(), v.as_str().to_string()))
                 .collect(),
             actions: v.actions.iter().map(ActionDefDto::from).collect(),
         }
@@ -399,7 +413,8 @@ impl From<ViewDefDto> for ViewDef {
             .with_source(DataSource::from(dto.source))
             .with_overlay(ViewOverlay::from(dto.overlay));
         for (k, v) in dto.bindings {
-            view.bindings.insert(k, PropKey::from(v.as_str()));
+            view.bindings
+                .insert(domain::view::SlotName::from(k), PropKey::from(v.as_str()));
         }
         for a in dto.actions {
             view.actions.push(ActionDef::from(a));
@@ -414,14 +429,19 @@ impl From<&Surface> for SurfaceDto {
             Surface::Document { layout } => SurfaceDto::Document {
                 layout: DocumentLayoutDto::from(layout),
             },
-            Surface::Canvas { layout, diagram_kind } => SurfaceDto::Canvas {
+            Surface::Canvas {
+                layout,
+                diagram_kind,
+            } => SurfaceDto::Canvas {
                 layout: CanvasLayoutDto::from(layout),
-                diagram_kind: diagram_kind.clone(),
+                diagram_kind: diagram_kind.as_ref().map(|d| d.as_str().to_string()),
             },
             Surface::Collection { layout } => SurfaceDto::Collection {
                 layout: CollectionLayoutDto::from(layout),
             },
-            Surface::Widget { name } => SurfaceDto::Widget { name: name.clone() },
+            Surface::Widget { name } => SurfaceDto::Widget {
+                name: name.as_str().to_string(),
+            },
         }
     }
 }
@@ -432,14 +452,19 @@ impl From<SurfaceDto> for Surface {
             SurfaceDto::Document { layout } => Surface::Document {
                 layout: DocumentLayout::from(layout),
             },
-            SurfaceDto::Canvas { layout, diagram_kind } => Surface::Canvas {
-                layout: CanvasLayout::from(layout),
+            SurfaceDto::Canvas {
+                layout,
                 diagram_kind,
+            } => Surface::Canvas {
+                layout: CanvasLayout::from(layout),
+                diagram_kind: diagram_kind.map(domain::view::DiagramKind::from),
             },
             SurfaceDto::Collection { layout } => Surface::Collection {
                 layout: CollectionLayout::from(layout),
             },
-            SurfaceDto::Widget { name } => Surface::Widget { name },
+            SurfaceDto::Widget { name } => Surface::Widget {
+                name: domain::view::WidgetName::from(name),
+            },
         }
     }
 }
@@ -504,7 +529,10 @@ impl From<CollectionLayoutDto> for CollectionLayout {
     fn from(dto: CollectionLayoutDto) -> Self {
         match dto {
             CollectionLayoutDto::Table { columns } => CollectionLayout::Table {
-                columns: columns.into_iter().map(|c| PropKey::from(c.as_str())).collect(),
+                columns: columns
+                    .into_iter()
+                    .map(|c| PropKey::from(c.as_str()))
+                    .collect(),
             },
             CollectionLayoutDto::Kanban { group_by } => CollectionLayout::Kanban {
                 group_by: PropKey::from(group_by.as_str()),
@@ -563,7 +591,11 @@ impl From<DataSourceDto> for DataSource {
 impl From<&ViewOverlay> for ViewOverlayDto {
     fn from(o: &ViewOverlay) -> Self {
         Self {
-            hidden_edge_kinds: o.hidden_edge_kinds.iter().map(|k| k.as_str().to_string()).collect(),
+            hidden_edge_kinds: o
+                .hidden_edge_kinds
+                .iter()
+                .map(|k| k.as_str().to_string())
+                .collect(),
             focus_node_id: o.focus_node_id.map(|id| id.to_string()),
         }
     }
@@ -573,9 +605,9 @@ impl From<ViewOverlayDto> for ViewOverlay {
     fn from(dto: ViewOverlayDto) -> Self {
         Self {
             hidden_edge_kinds: dto.hidden_edge_kinds.into_iter().map(Kind::from).collect(),
-            focus_node_id: dto.focus_node_id.map(|id| {
-                NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())
-            }),
+            focus_node_id: dto
+                .focus_node_id
+                .map(|id| NodeId::from_uuid(uuid::Uuid::parse_str(&id).unwrap_or_default())),
         }
     }
 }
@@ -623,7 +655,7 @@ impl From<NodeOccurrenceDto> for NodeOccurrence {
 impl From<&ActionDef> for ActionDefDto {
     fn from(a: &ActionDef) -> Self {
         Self {
-            id: a.id.clone(),
+            id: a.id.as_str().to_string(),
             label: a.label.clone(),
             kind: match &a.kind {
                 ActionKind::ToggleProp { prop } => format!("toggle_prop:{}", prop.as_str()),
@@ -637,13 +669,12 @@ impl From<&ActionDef> for ActionDefDto {
 impl From<ActionDefDto> for ActionDef {
     fn from(dto: ActionDefDto) -> Self {
         ActionDef {
-            id: dto.id,
+            id: domain::view::ActionId::from(dto.id),
             label: dto.label,
             kind: ActionKind::Custom { name: dto.kind },
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]

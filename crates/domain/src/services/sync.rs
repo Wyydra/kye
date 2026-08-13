@@ -1,12 +1,14 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
+use super::service::{Service, ServiceError};
 use crate::command::Command;
 use crate::graph::Graph;
 use crate::model::sync_diff::{DiffLine, ReviewableCommand, SyncDiff, SyncSummary};
-use crate::ports::{AssetRepository, EventBus, GraphRepository, KindRepository, SystemShellPort, SyncPeerPort};
+use crate::ports::{
+    AssetRepository, EventBus, GraphRepository, KindRepository, SyncPeerPort, SystemShellPort,
+};
 use crate::primitives::NodeId;
-use super::service::{Service, ServiceError};
 
 impl<R, K, E, A, S> Service<R, K, E, A, S>
 where
@@ -30,9 +32,9 @@ where
             Some(n) => Some(crate::model::remote::RemoteName::new(n)?),
             None => None,
         };
-        let target_remote = meta
-            .get_remote(name_obj.as_ref())
-            .ok_or_else(|| ServiceError::RemoteNotFound(remote_name.unwrap_or("default").to_string()))?;
+        let target_remote = meta.get_remote(name_obj.as_ref()).ok_or_else(|| {
+            ServiceError::RemoteNotFound(remote_name.unwrap_or("default").to_string())
+        })?;
 
         let graph = self.repo.load_graph()?;
         let cmds: Vec<Command> = graph
@@ -58,7 +60,11 @@ where
         let diff = self.compute_sync_diff(peer, remote_url)?;
 
         let local_cmds: Vec<Command> = diff.local_changes.iter().map(|rc| rc.cmd.clone()).collect();
-        let remote_cmds: Vec<Command> = diff.remote_changes.iter().map(|rc| rc.cmd.clone()).collect();
+        let remote_cmds: Vec<Command> = diff
+            .remote_changes
+            .iter()
+            .map(|rc| rc.cmd.clone())
+            .collect();
 
         let applied_local = local_cmds.len();
         let pushed_remote = remote_cmds.len();
@@ -71,10 +77,11 @@ where
             let meta = self.repo.load_meta()?;
             let remote_url_obj = match remote_url {
                 Some(u) => crate::model::remote::RemoteUrl::new(u)?,
-                None => meta
-                    .get_remote(None)
-                    .ok_or_else(|| ServiceError::RemoteNotFound("default".to_string()))?
-                    .url,
+                None => {
+                    meta.get_remote(None)
+                        .ok_or_else(|| ServiceError::RemoteNotFound("default".to_string()))?
+                        .url
+                }
             };
             peer.push_commands(&remote_url_obj, &remote_cmds)?;
         }
@@ -94,10 +101,11 @@ where
         let meta = self.repo.load_meta()?;
         let remote_url = match remote_url {
             Some(u) => crate::model::remote::RemoteUrl::new(u)?,
-            None => meta
-                .get_remote(None)
-                .ok_or_else(|| ServiceError::RemoteNotFound("default".to_string()))?
-                .url,
+            None => {
+                meta.get_remote(None)
+                    .ok_or_else(|| ServiceError::RemoteNotFound("default".to_string()))?
+                    .url
+            }
         };
 
         let remote_graph = peer.pull_graph(&remote_url)?;
@@ -138,11 +146,11 @@ where
                             selected: true,
                             description: format!("Supprimer le nœud \"{}\"", node_title),
                             node_title: node_title.clone(),
-                            cmd: Command::DeleteNode {
-                                id,
-                                cascade: true,
-                            },
-                            diff_lines: vec![DiffLine::remove(format!("- Supprimer le nœud: {}", node_title))],
+                            cmd: Command::DeleteNode { id, cascade: true },
+                            diff_lines: vec![DiffLine::remove(format!(
+                                "- Supprimer le nœud: {}",
+                                node_title
+                            ))],
                         });
                     }
                 } else {
@@ -158,7 +166,11 @@ where
                     remote_changes.push(ReviewableCommand {
                         id: uuid::Uuid::new_v4().to_string(),
                         selected: true,
-                        description: format!("Créer le nœud \"{}\" ({})", node_title, node.kind.as_str()),
+                        description: format!(
+                            "Créer le nœud \"{}\" ({})",
+                            node_title,
+                            node.kind.as_str()
+                        ),
                         node_title: node_title.clone(),
                         cmd: Command::CreateNode {
                             id,
@@ -202,7 +214,10 @@ where
                                 new_parent_id: local_graph.parent_of(id),
                                 new_index: 0,
                             },
-                            diff_lines: vec![DiffLine::info(format!("Nouveau parent: {:?}", local_graph.parent_of(id)))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Nouveau parent: {:?}",
+                                local_graph.parent_of(id)
+                            ))],
                         });
                     }
 
@@ -210,13 +225,20 @@ where
                         remote_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Changer le type de \"{}\" vers {}", node_title, node.kind.as_str()),
+                            description: format!(
+                                "Changer le type de \"{}\" vers {}",
+                                node_title,
+                                node.kind.as_str()
+                            ),
                             node_title: node_title.clone(),
                             cmd: Command::SetKind {
                                 node_id: id,
                                 new_kind: node.kind.clone(),
                             },
-                            diff_lines: vec![DiffLine::info(format!("Nouveau type: {}", node.kind.as_str()))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Nouveau type: {}",
+                                node.kind.as_str()
+                            ))],
                         });
                     }
 
@@ -224,13 +246,19 @@ where
                         remote_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Mettre à jour le surchage de vue pour \"{}\"", node_title),
+                            description: format!(
+                                "Mettre à jour le surchage de vue pour \"{}\"",
+                                node_title
+                            ),
                             node_title: node_title.clone(),
                             cmd: Command::SetViewOverride {
                                 node_id: id,
                                 view: node.view_override.clone(),
                             },
-                            diff_lines: vec![DiffLine::info(format!("Mise en page modifiée pour {}", node_title))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Mise en page modifiée pour {}",
+                                node_title
+                            ))],
                         });
                     }
                 } else if r_node.updated_at > node.updated_at {
@@ -264,7 +292,10 @@ where
                                 new_parent_id: remote_graph.parent_of(id),
                                 new_index: 0,
                             },
-                            diff_lines: vec![DiffLine::info(format!("Nouveau parent: {:?}", remote_graph.parent_of(id)))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Nouveau parent: {:?}",
+                                remote_graph.parent_of(id)
+                            ))],
                         });
                     }
 
@@ -272,13 +303,20 @@ where
                         local_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Changer le type de \"{}\" vers {}", node_title, r_node.kind.as_str()),
+                            description: format!(
+                                "Changer le type de \"{}\" vers {}",
+                                node_title,
+                                r_node.kind.as_str()
+                            ),
                             node_title: node_title.clone(),
                             cmd: Command::SetKind {
                                 node_id: id,
                                 new_kind: r_node.kind.clone(),
                             },
-                            diff_lines: vec![DiffLine::info(format!("Nouveau type: {}", r_node.kind.as_str()))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Nouveau type: {}",
+                                r_node.kind.as_str()
+                            ))],
                         });
                     }
 
@@ -286,13 +324,19 @@ where
                         local_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Mettre à jour la surcharge de vue pour \"{}\"", node_title),
+                            description: format!(
+                                "Mettre à jour la surcharge de vue pour \"{}\"",
+                                node_title
+                            ),
                             node_title: node_title.clone(),
                             cmd: Command::SetViewOverride {
                                 node_id: id,
                                 view: r_node.view_override.clone(),
                             },
-                            diff_lines: vec![DiffLine::info(format!("Mise en page modifiée pour {}", node_title))],
+                            diff_lines: vec![DiffLine::info(format!(
+                                "Mise en page modifiée pour {}",
+                                node_title
+                            ))],
                         });
                     }
                 }
@@ -313,10 +357,7 @@ where
                         selected: true,
                         description: format!("Supprimer le nœud distant \"{}\"", node_title),
                         node_title: node_title.clone(),
-                        cmd: Command::DeleteNode {
-                            id,
-                            cascade: true,
-                        },
+                        cmd: Command::DeleteNode { id, cascade: true },
                         diff_lines: vec![
                             DiffLine::remove(format!("- Nœud: {}", node_title)),
                             DiffLine::remove(format!("- Type: {}", r_node.kind.as_str())),
@@ -337,7 +378,11 @@ where
                 local_changes.push(ReviewableCommand {
                     id: uuid::Uuid::new_v4().to_string(),
                     selected: true,
-                    description: format!("Créer le nœud \"{}\" ({})", node_title, r_node.kind.as_str()),
+                    description: format!(
+                        "Créer le nœud \"{}\" ({})",
+                        node_title,
+                        r_node.kind.as_str()
+                    ),
                     node_title: node_title.clone(),
                     cmd: Command::CreateNode {
                         id,
@@ -353,17 +398,15 @@ where
 
         // Sort topologically: CreateNode for ancestors first
         let sort_topologically = |changes: &mut Vec<ReviewableCommand>, graph: &Graph| {
-            changes.sort_by(|a, b| {
-                match (&a.cmd, &b.cmd) {
-                    (Command::CreateNode { id: id_a, .. }, Command::CreateNode { id: id_b, .. }) => {
-                        let depth_a = graph.ancestors_of(*id_a).count();
-                        let depth_b = graph.ancestors_of(*id_b).count();
-                        depth_a.cmp(&depth_b)
-                    }
-                    (Command::CreateNode { .. }, _) => std::cmp::Ordering::Less,
-                    (_, Command::CreateNode { .. }) => std::cmp::Ordering::Greater,
-                    _ => std::cmp::Ordering::Equal,
+            changes.sort_by(|a, b| match (&a.cmd, &b.cmd) {
+                (Command::CreateNode { id: id_a, .. }, Command::CreateNode { id: id_b, .. }) => {
+                    let depth_a = graph.ancestors_of(*id_a).count();
+                    let depth_b = graph.ancestors_of(*id_b).count();
+                    depth_a.cmp(&depth_b)
                 }
+                (Command::CreateNode { .. }, _) => std::cmp::Ordering::Less,
+                (_, Command::CreateNode { .. }) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
             });
         };
 
@@ -380,13 +423,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::remote::RemoteUrl;
     use crate::graph::Graph;
     use crate::model::node::NodeBuilder;
     use crate::model::primitives::kinds;
+    use crate::model::remote::RemoteUrl;
+    use crate::ports::RepositoryError;
     use crate::ports::SyncError;
     use crate::services::command::Event;
-    use crate::ports::RepositoryError;
     use std::sync::Mutex;
 
     struct DummyPeer {
@@ -407,14 +450,21 @@ mod tests {
         fn pull_graph(&self, _url: &RemoteUrl) -> Result<Graph, SyncError> {
             Ok(self.remote_graph.clone())
         }
-        fn pull_tombstones(&self, _url: &RemoteUrl) -> Result<HashMap<NodeId, chrono::DateTime<Utc>>, SyncError> {
+        fn pull_tombstones(
+            &self,
+            _url: &RemoteUrl,
+        ) -> Result<HashMap<NodeId, chrono::DateTime<Utc>>, SyncError> {
             Ok(self.tombstones.clone())
         }
     }
 
     fn apply_event_to_mock_graph(graph: &mut Graph, event: &Event) {
         match event {
-            Event::NodeCreated { node, parent_id, index } => {
+            Event::NodeCreated {
+                node,
+                parent_id,
+                index,
+            } => {
                 let node = node.clone();
                 if let Some(pid) = parent_id {
                     let _ = graph.insert_child(node, *pid, *index);
@@ -427,10 +477,20 @@ mod tests {
                     let _ = graph.remove_subtree(root.id);
                 }
             }
-            Event::NodeMoved { node_id, new_parent, new_index, .. } => {
+            Event::NodeMoved {
+                node_id,
+                new_parent,
+                new_index,
+                ..
+            } => {
                 let _ = graph.move_node(*node_id, *new_parent, *new_index);
             }
-            Event::PropSet { node_id, key, new_value, .. } => {
+            Event::PropSet {
+                node_id,
+                key,
+                new_value,
+                ..
+            } => {
                 let _ = graph.set_prop(*node_id, key.clone(), new_value.clone());
             }
             Event::PropDeleted { node_id, key, .. } => {
@@ -468,27 +528,46 @@ mod tests {
             *self.graph.lock().unwrap() = graph.clone();
             Ok(())
         }
-        fn load_tombstones(&self) -> Result<HashMap<NodeId, chrono::DateTime<Utc>>, RepositoryError> {
+        fn load_tombstones(
+            &self,
+        ) -> Result<HashMap<NodeId, chrono::DateTime<Utc>>, RepositoryError> {
             Ok(self.tombstones.lock().unwrap().clone())
         }
         fn load_meta(&self) -> Result<crate::model::workspace::WorkspaceMeta, RepositoryError> {
-            let mut meta = crate::model::workspace::WorkspaceMeta::new(uuid::Uuid::new_v4(), "Local");
+            let mut meta =
+                crate::model::workspace::WorkspaceMeta::new(uuid::Uuid::new_v4(), "Local");
             meta.add_remote(
                 crate::model::remote::RemoteName::new("default").unwrap(),
                 crate::model::remote::RemoteUrl::new("http://localhost:8080").unwrap(),
             );
             Ok(meta)
         }
-        fn save_meta(&self, _meta: &crate::model::workspace::WorkspaceMeta) -> Result<(), RepositoryError> {
+        fn save_meta(
+            &self,
+            _meta: &crate::model::workspace::WorkspaceMeta,
+        ) -> Result<(), RepositoryError> {
             Ok(())
         }
     }
 
     struct DummyKindRepo;
     impl crate::ports::KindRepository for DummyKindRepo {
-        fn load_kinds(&self) -> Result<Vec<(crate::primitives::Kind, crate::schema::KindDef)>, RepositoryError> { Ok(vec![]) }
-        fn save_kind(&self, _kind: &crate::primitives::Kind, _def: &crate::schema::KindDef) -> Result<(), RepositoryError> { Ok(()) }
-        fn delete_kind(&self, _kind: &crate::primitives::Kind) -> Result<(), RepositoryError> { Ok(()) }
+        fn load_kinds(
+            &self,
+        ) -> Result<Vec<(crate::primitives::Kind, crate::schema::KindDef)>, RepositoryError>
+        {
+            Ok(vec![])
+        }
+        fn save_kind(
+            &self,
+            _kind: &crate::primitives::Kind,
+            _def: &crate::schema::KindDef,
+        ) -> Result<(), RepositoryError> {
+            Ok(())
+        }
+        fn delete_kind(&self, _kind: &crate::primitives::Kind) -> Result<(), RepositoryError> {
+            Ok(())
+        }
     }
 
     struct DummyAssetRepo;

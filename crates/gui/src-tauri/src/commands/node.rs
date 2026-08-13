@@ -13,12 +13,19 @@ pub fn execute_command(
         AppError::Internal("No workspace selected".into())
     })?;
     let cmd = Command::from(command);
-    tracing::debug!("Executing domain command: {:?}", cmd);
+    let is_high_frequency = matches!(cmd, Command::SetProps { .. } | Command::SetProp { .. });
+
+    tracing::debug!("cmd: {}", cmd);
     let event = service.execute(cmd).map_err(|e| {
-        tracing::error!("Command execution failed: {:?}", e);
+        tracing::error!("Command failed: {}", e);
         e
     })?;
-    tracing::info!("Domain command executed successfully: {:?}", event);
+
+    if is_high_frequency {
+        tracing::debug!("evt: {}", event);
+    } else {
+        tracing::info!("evt: {}", event);
+    }
     Ok(EventDto::from(&event))
 }
 
@@ -32,12 +39,12 @@ pub fn execute_batch(
         AppError::Internal("No workspace selected".into())
     })?;
     let count = commands.len();
-    let cmds = commands.into_iter().map(Command::from).collect();
-    tracing::debug!("Executing batch of {} commands", count);
+    let cmds: Vec<Command> = commands.into_iter().map(Command::from).collect();
+    tracing::debug!("cmd: Batch({} commands)", count);
     let event = service.execute_batch(cmds).map_err(|e| {
-        tracing::error!("Batch command execution failed: {:?}", e);
+        tracing::error!("Batch execution failed: {}", e);
         e
     })?;
-    tracing::info!("Batch executed successfully: {} commands applied", count);
+    tracing::info!("evt: {}", event);
     Ok(EventDto::from(&event))
 }

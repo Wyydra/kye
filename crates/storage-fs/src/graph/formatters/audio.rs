@@ -33,7 +33,11 @@ impl BlockFormatter for AudioFormatter {
             .and_then(|v| v.as_text())
             .unwrap_or("audio");
 
-        format!("![{}]({})", if title.is_empty() { "audio" } else { title }, url)
+        format!(
+            "![{}]({})",
+            if title.is_empty() { "audio" } else { title },
+            url
+        )
     }
 
     fn extract(&self, text: &str) -> Props {
@@ -65,7 +69,10 @@ impl BlockFormatter for AudioFormatter {
             props.insert(PropKey::from("url"), val);
             let title_str = title_parts.join("");
             if !title_str.is_empty() {
-                props.insert(PropKey::from("title"), Value::Text(Arc::from(title_str.as_str())));
+                props.insert(
+                    PropKey::from("title"),
+                    Value::Text(Arc::from(title_str.as_str())),
+                );
             }
         }
         props

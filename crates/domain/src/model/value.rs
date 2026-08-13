@@ -106,6 +106,67 @@ impl PartialEq for FloatBits {
 
 impl Eq for FloatBits {}
 
+impl std::fmt::Display for FloatBits {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Null => write!(f, "null"),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Int(i) => write!(f, "{}", i),
+            Value::Float(fl) => write!(f, "{}", fl.0),
+            Value::Text(s) => {
+                if s.len() > 60 {
+                    write!(f, "\"{:.57}...\"", s)
+                } else {
+                    write!(f, "\"{}\"", s)
+                }
+            }
+            Value::Rich(rt) => {
+                let plain = rt.to_plain_text();
+                if plain.len() > 60 {
+                    write!(f, "\"{:.57}...\"", plain)
+                } else {
+                    write!(f, "\"{}\"", plain)
+                }
+            }
+            Value::Ref(id) => write!(f, "ref({})", id.short()),
+            Value::Array(items) => {
+                write!(f, "[")?;
+                for (i, v) in items.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    if i >= 3 {
+                        write!(f, "... +{} items", items.len() - 3)?;
+                        break;
+                    }
+                    write!(f, "{}", v)?;
+                }
+                write!(f, "]")
+            }
+            Value::Date(d) => write!(f, "{}", d),
+            Value::DateTime(dt) => write!(f, "{}", dt.format("%Y-%m-%d %H:%M:%S")),
+            Value::Color(c) => write!(f, "{}", c.as_str()),
+        }
+    }
+}
+
+pub fn format_props(props: &Props, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{{")?;
+    for (i, (k, v)) in props.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ")?;
+        }
+        write!(f, "{}: {}", k.as_str(), v)?;
+    }
+    write!(f, "}}")
+}
+
 impl Value {
     pub fn float(f: f64) -> Self {
         Self::Float(FloatBits(f))

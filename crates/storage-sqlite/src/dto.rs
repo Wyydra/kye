@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use domain::graph::Graph;
 use domain::node::{Node, NodeBuilder};
@@ -28,8 +28,8 @@ impl MetaRow {
             .as_ref()
             .and_then(|r| domain::model::remote::RemoteName::new(r.clone()).ok());
 
-        let raw_remotes: HashMap<String, String> = serde_json::from_str(&self.remotes_json)
-            .unwrap_or_default();
+        let raw_remotes: HashMap<String, String> =
+            serde_json::from_str(&self.remotes_json).unwrap_or_default();
         let mut remotes = HashMap::new();
         for (k, v) in raw_remotes {
             if let (Ok(r_name), Ok(r_url)) = (
@@ -206,22 +206,31 @@ pub struct KindRow {
     pub label: String,
     pub icon: Option<String>,
     pub title_prop: String,
+    pub definition_json: String,
 }
 
 impl KindRow {
     pub fn to_domain(&self) -> (Kind, KindDef) {
         let kind = Kind::from(self.kind.as_str());
+        if let Ok(mut def) = serde_json::from_str::<KindDef>(&self.definition_json) {
+            def.label = self.label.clone();
+            def.icon = self.icon.clone();
+            def.title_prop = domain::primitives::PropKey::from(self.title_prop.as_str());
+            return (kind, def);
+        }
         let def = KindDef::new(&self.label, self.title_prop.as_str())
             .with_icon(self.icon.as_deref().unwrap_or(""));
         (kind, def)
     }
 
     pub fn from_domain(kind: &Kind, def: &KindDef) -> Self {
+        let definition_json = serde_json::to_string(def).unwrap_or_else(|_| "{}".into());
         Self {
             kind: kind.as_str().to_string(),
             label: def.label.clone(),
             icon: def.icon.clone(),
             title_prop: def.title_prop.as_str().to_string(),
+            definition_json,
         }
     }
 }

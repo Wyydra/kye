@@ -126,11 +126,42 @@ export interface ActionDef {
   kind: string;
 }
 
+export type ValueType =
+  | { type: "Bool" }
+  | { type: "Int" }
+  | { type: "Float" }
+  | { type: "Text" }
+  | { type: "Rich" }
+  | { type: "Ref" }
+  | { type: "RefTo"; config: { kind: string } }
+  | { type: "OneOf"; config: { options: string[] } }
+  | { type: "Array"; config: { item_type: ValueType } }
+  | { type: "Optional"; config: { inner_type: ValueType } }
+  | { type: "Date" }
+  | { type: "DateTime" }
+  | { type: "Color" };
+
+export interface PropDef {
+  value_type: ValueType;
+  required: boolean;
+  label?: string;
+  description?: string;
+}
+
+export type Constraint =
+  | { type: "AllowedChildKinds"; config: { kinds: string[] } }
+  | { type: "AllowedParentKinds"; config: { kinds: string[] } }
+  | { type: "ConnectionSourceKinds"; config: { kinds: string[] } }
+  | { type: "ConnectionTargetKinds"; config: { kinds: string[] } }
+  | { type: "MaxChildren"; config: { max: number } };
+
 export interface KindDef {
   label: string;
   icon: string;
   title_prop: string;
   view?: ViewDef;
+  props?: Record<string, PropDef>;
+  constraints?: Constraint[];
 }
 
 export type Command =

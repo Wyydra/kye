@@ -77,24 +77,44 @@ impl KindRepository for FileKindRepository {
 #[derive(Serialize, Deserialize)]
 struct KindDefJson {
     kind: String,
-    label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
     icon: Option<String>,
-    title_prop: String,
+    #[serde(default)]
+    title_prop: Option<String>,
+    #[serde(default)]
+    definition: Option<KindDef>,
 }
 
 impl KindDefJson {
     fn from_kind_def(kind: &Kind, def: &KindDef) -> Self {
         Self {
             kind: kind.as_str().to_string(),
-            label: def.label.clone(),
+            label: Some(def.label.clone()),
             icon: def.icon.clone(),
-            title_prop: def.title_prop.as_str().to_string(),
+            title_prop: Some(def.title_prop.as_str().to_string()),
+            definition: Some(def.clone()),
         }
     }
 
     fn into_kind_def(self) -> KindDef {
-        KindDef::new(&self.label, self.title_prop.as_str())
-            .with_icon(self.icon.as_deref().unwrap_or(""))
+        if let Some(mut def) = self.definition {
+            if let Some(lbl) = self.label {
+                def.label = lbl;
+            }
+            if self.icon.is_some() {
+                def.icon = self.icon;
+            }
+            if let Some(tp) = self.title_prop {
+                def.title_prop = domain::primitives::PropKey::from(tp);
+            }
+            def
+        } else {
+            let label = self.label.unwrap_or_else(|| "Custom".into());
+            let title_prop = self.title_prop.unwrap_or_else(|| "title".into());
+            KindDef::new(&label, title_prop.as_str())
+                .with_icon(self.icon.as_deref().unwrap_or(""))
+        }
     }
 }

@@ -1,9 +1,9 @@
-use std::io::{Read, Write};
-use std::path::Path;
+use flate2::Compression;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
-use flate2::Compression;
 use rusqlite::params;
+use std::io::{Read, Write};
+use std::path::Path;
 use uuid::Uuid;
 
 use domain::ports::{AssetRepository, RepositoryError};
@@ -35,12 +35,16 @@ impl AssetRepository for SqlarAssetRepository {
         let target_filename = format!("{}_{}", &asset_id[..8], filename);
 
         // Compress text/svg/json with Zlib if beneficial
-        let (store_bytes, _is_compressed) = if ext == "svg" || ext == "json" || ext == "txt" || ext == "md" {
-            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
-            if encoder.write_all(raw_bytes).is_ok() && encoder.flush().is_ok() {
-                if let Ok(compressed) = encoder.finish() {
-                    if compressed.len() < uncompressed_sz {
-                        (compressed, true)
+        let (store_bytes, _is_compressed) =
+            if ext == "svg" || ext == "json" || ext == "txt" || ext == "md" {
+                let mut encoder = ZlibEncoder::new(Vec::new(), Compression::fast());
+                if encoder.write_all(raw_bytes).is_ok() && encoder.flush().is_ok() {
+                    if let Ok(compressed) = encoder.finish() {
+                        if compressed.len() < uncompressed_sz {
+                            (compressed, true)
+                        } else {
+                            (raw_bytes.to_vec(), false)
+                        }
                     } else {
                         (raw_bytes.to_vec(), false)
                     }
@@ -49,10 +53,7 @@ impl AssetRepository for SqlarAssetRepository {
                 }
             } else {
                 (raw_bytes.to_vec(), false)
-            }
-        } else {
-            (raw_bytes.to_vec(), false)
-        };
+            };
 
         let mode: i64 = 33188; // 0644
 
@@ -82,7 +83,9 @@ impl AssetRepository for SqlarAssetRepository {
                     let data: Vec<u8> = r.get(1)?;
                     Ok((sz as usize, data))
                 })
-                .map_err(|e| RepositoryError::NotFound(format!("Asset '{}' not found: {}", asset_name, e)))?;
+                .map_err(|e| {
+                    RepositoryError::NotFound(format!("Asset '{}' not found: {}", asset_name, e))
+                })?;
 
             let (original_sz, data) = row;
             if data.len() == original_sz {
@@ -90,9 +93,9 @@ impl AssetRepository for SqlarAssetRepository {
             } else {
                 let mut decoder = ZlibDecoder::new(&data[..]);
                 let mut decompressed = Vec::with_capacity(original_sz);
-                decoder
-                    .read_to_end(&mut decompressed)
-                    .map_err(|e| RepositoryError::Corrupted(format!("Decompression failed: {}", e)))?;
+                decoder.read_to_end(&mut decompressed).map_err(|e| {
+                    RepositoryError::Corrupted(format!("Decompression failed: {}", e))
+                })?;
                 Ok(decompressed)
             }
         })

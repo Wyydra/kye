@@ -72,7 +72,9 @@ impl Graph {
             }
         }
         children.sort_by_key(|(idx, _)| *idx);
-        children.into_iter().filter_map(move |(_, cid)| self.nodes.get(&cid))
+        children
+            .into_iter()
+            .filter_map(move |(_, cid)| self.nodes.get(&cid))
     }
 
     pub fn parent_of(&self, id: NodeId) -> Option<NodeId> {
@@ -402,10 +404,7 @@ impl Graph {
                     .entry(id)
                     .or_default()
                     .push((r, edge_ref.clone()));
-                self.incoming
-                    .entry(r)
-                    .or_default()
-                    .insert((id, edge_ref));
+                self.incoming.entry(r).or_default().insert((id, edge_ref));
             }
         }
     }
