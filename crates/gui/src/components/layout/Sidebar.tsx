@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { useGraphStore } from "../../store/graphStore";
-import { val } from "../../types/domain";
+import { extractTextFromValue } from "../../types/domain";
 import { useCanvasStore } from "../../store/canvasStore";
 import { useUIStore } from "../../store/uiStore";
 import { execute } from "../../lib/commands";
@@ -70,9 +70,11 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
 
   if (!node) return null;
 
+  const titleText = extractTextFromValue(node.props.title);
+  const bodyText = extractTextFromValue(node.props.body);
   const title =
-    val<string>(node.props.title) ||
-    val<string>(node.props.body)?.slice(0, 30) ||
+    titleText ||
+    (bodyText ? bodyText.slice(0, 30) : "") ||
     "Untitled Block";
 
   const isSelected = selectedNodeId === nodeId;
@@ -310,8 +312,8 @@ export const Sidebar: React.FC = () => {
         if (activeKind && node.kind !== activeKind) return false;
         if (!textQuery) return true;
 
-        const title = val<string>(node.props.title)?.toLowerCase() || "";
-        const body = val<string>(node.props.body)?.toLowerCase() || "";
+        const title = extractTextFromValue(node.props.title).toLowerCase();
+        const body = extractTextFromValue(node.props.body).toLowerCase();
         return title.includes(textQuery) || body.includes(textQuery);
       })
       .map((n) => n.id);

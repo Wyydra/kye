@@ -48,6 +48,30 @@ export function valRich(value: Value | undefined): RichText {
   return { spans: [] };
 }
 
+export function extractTextFromValue(value: Value | undefined): string {
+  if (!value) return "";
+  switch (value.t) {
+    case "Null":
+      return "";
+    case "Text":
+    case "Date":
+    case "DateTime":
+    case "Color":
+    case "Ref":
+      return value.v;
+    case "Int":
+    case "Float":
+    case "Bool":
+      return String(value.v);
+    case "Rich":
+      return value.v?.spans ? value.v.spans.map((s) => s.text).join("") : "";
+    case "Array":
+      return Array.isArray(value.v) ? value.v.map(extractTextFromValue).join(", ") : "";
+    default:
+      return "";
+  }
+}
+
 export interface RichText {
 
   spans: Span[];
