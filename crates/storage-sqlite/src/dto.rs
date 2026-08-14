@@ -134,10 +134,10 @@ impl BlockRow {
             .build();
         node.updated_at = updated_at;
 
-        if let Some(vo_str) = &self.view_override_json {
-            if let Ok(vo) = serde_json::from_str::<ViewDef>(vo_str) {
-                node.view_override = Some(vo);
-            }
+        if let Some(vo_str) = &self.view_override_json
+            && let Ok(vo) = serde_json::from_str::<ViewDef>(vo_str)
+        {
+            node.view_override = Some(vo);
         }
 
         Ok(node)

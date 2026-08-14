@@ -185,7 +185,7 @@ pub async fn create_workspace_file(
                 .dialog()
                 .file()
                 .add_filter("Kye Workspace Database", &["kye"])
-                .set_file_name("mon_workspace.kye")
+                .set_file_name("workspace.kye")
                 .save_file(move |picked| {
                     let _ = tx.send(picked);
                 });

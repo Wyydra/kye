@@ -94,27 +94,27 @@ impl<'a> SchemaResolver<'a> {
                 for c in &conn_def.constraints {
                     match c {
                         crate::schema::Constraint::ConnectionSourceKinds(allowed) => {
-                            if let Some(source) = from_node {
-                                if !allowed.contains(&source.kind) {
-                                    errors.push(ValidationError::ConstraintViolation(format!(
-                                        "Source node {} ({}) is not allowed for connection {}",
-                                        source.id.short(),
-                                        source.kind,
-                                        conn_node.kind
-                                    )));
-                                }
+                            if let Some(source) = from_node
+                                && !allowed.contains(&source.kind)
+                            {
+                                errors.push(ValidationError::ConstraintViolation(format!(
+                                    "Source node {} ({}) is not allowed for connection {}",
+                                    source.id.short(),
+                                    source.kind,
+                                    conn_node.kind
+                                )));
                             }
                         }
                         crate::schema::Constraint::ConnectionTargetKinds(allowed) => {
-                            if let Some(target) = to_node {
-                                if !allowed.contains(&target.kind) {
-                                    errors.push(ValidationError::ConstraintViolation(format!(
-                                        "Target node {} ({}) is not allowed for connection {}",
-                                        target.id.short(),
-                                        target.kind,
-                                        conn_node.kind
-                                    )));
-                                }
+                            if let Some(target) = to_node
+                                && !allowed.contains(&target.kind)
+                            {
+                                errors.push(ValidationError::ConstraintViolation(format!(
+                                    "Target node {} ({}) is not allowed for connection {}",
+                                    target.id.short(),
+                                    target.kind,
+                                    conn_node.kind
+                                )));
                             }
                         }
                         _ => {}

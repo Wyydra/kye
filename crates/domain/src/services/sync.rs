@@ -129,7 +129,7 @@ where
                 return t.to_string();
             }
             let id_str = id.to_string();
-            format!("Nœud ({})", &id_str[..8.min(id_str.len())])
+            format!("Node ({})", &id_str[..8.min(id_str.len())])
         };
 
         // 1. Process local nodes vs remote
@@ -144,19 +144,19 @@ where
                         local_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Supprimer le nœud \"{}\"", node_title),
+                            description: format!("Delete node \"{}\"", node_title),
                             node_title: node_title.clone(),
                             cmd: Command::DeleteNode { id, cascade: true },
                             diff_lines: vec![DiffLine::remove(format!(
-                                "- Supprimer le nœud: {}",
+                                "- Delete node: {}",
                                 node_title
                             ))],
                         });
                     }
                 } else {
                     let mut diff_lines = vec![
-                        DiffLine::info(format!("Nœud: {}", node_title)),
-                        DiffLine::info(format!("Type: {}", node.kind.as_str())),
+                        DiffLine::info(format!("Node: {}", node_title)),
+                        DiffLine::info(format!("Kind: {}", node.kind.as_str())),
                         DiffLine::add(format!("+ parent_id: {:?}", local_graph.parent_of(id))),
                     ];
                     for (k, v) in &node.props {
@@ -167,7 +167,7 @@ where
                         id: uuid::Uuid::new_v4().to_string(),
                         selected: true,
                         description: format!(
-                            "Créer le nœud \"{}\" ({})",
+                            "Create node \"{}\" ({})",
                             node_title,
                             node.kind.as_str()
                         ),
@@ -184,7 +184,7 @@ where
                 }
             } else if let Some(r_node) = remote_node {
                 if node.updated_at > r_node.updated_at {
-                    let mut diff_lines = vec![DiffLine::info(format!("Nœud: {}", node_title))];
+                    let mut diff_lines = vec![DiffLine::info(format!("Node: {}", node_title))];
                     for (k, v) in &node.props {
                         if r_node.props.get(k) != Some(v) {
                             diff_lines.push(DiffLine::add(format!("+ {}: {:?}", k, v)));
@@ -194,7 +194,7 @@ where
                     remote_changes.push(ReviewableCommand {
                         id: uuid::Uuid::new_v4().to_string(),
                         selected: true,
-                        description: format!("Mettre à jour les propriétés de \"{}\"", node_title),
+                        description: format!("Update properties of \"{}\"", node_title),
                         node_title: node_title.clone(),
                         cmd: Command::SetProps {
                             node_id: id,
@@ -207,7 +207,7 @@ where
                         remote_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Déplacer le nœud \"{}\"", node_title),
+                            description: format!("Move node \"{}\"", node_title),
                             node_title: node_title.clone(),
                             cmd: Command::MoveNode {
                                 node_id: id,
@@ -215,7 +215,7 @@ where
                                 new_index: 0,
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Nouveau parent: {:?}",
+                                "New parent: {:?}",
                                 local_graph.parent_of(id)
                             ))],
                         });
@@ -226,7 +226,7 @@ where
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
                             description: format!(
-                                "Changer le type de \"{}\" vers {}",
+                                "Change kind of \"{}\" to {}",
                                 node_title,
                                 node.kind.as_str()
                             ),
@@ -236,7 +236,7 @@ where
                                 new_kind: node.kind.clone(),
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Nouveau type: {}",
+                                "New kind: {}",
                                 node.kind.as_str()
                             ))],
                         });
@@ -247,7 +247,7 @@ where
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
                             description: format!(
-                                "Mettre à jour le surchage de vue pour \"{}\"",
+                                "Update view override for \"{}\"",
                                 node_title
                             ),
                             node_title: node_title.clone(),
@@ -256,13 +256,13 @@ where
                                 view: node.view_override.clone(),
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Mise en page modifiée pour {}",
+                                "Layout modified for {}",
                                 node_title
                             ))],
                         });
                     }
                 } else if r_node.updated_at > node.updated_at {
-                    let mut diff_lines = vec![DiffLine::info(format!("Nœud: {}", node_title))];
+                    let mut diff_lines = vec![DiffLine::info(format!("Node: {}", node_title))];
                     for (k, v) in &r_node.props {
                         if node.props.get(k) != Some(v) {
                             diff_lines.push(DiffLine::add(format!("+ {}: {:?}", k, v)));
@@ -272,7 +272,7 @@ where
                     local_changes.push(ReviewableCommand {
                         id: uuid::Uuid::new_v4().to_string(),
                         selected: true,
-                        description: format!("Mettre à jour les propriétés de \"{}\"", node_title),
+                        description: format!("Update properties of \"{}\"", node_title),
                         node_title: node_title.clone(),
                         cmd: Command::SetProps {
                             node_id: id,
@@ -285,7 +285,7 @@ where
                         local_changes.push(ReviewableCommand {
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
-                            description: format!("Déplacer le nœud \"{}\"", node_title),
+                            description: format!("Move node \"{}\"", node_title),
                             node_title: node_title.clone(),
                             cmd: Command::MoveNode {
                                 node_id: id,
@@ -293,7 +293,7 @@ where
                                 new_index: 0,
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Nouveau parent: {:?}",
+                                "New parent: {:?}",
                                 remote_graph.parent_of(id)
                             ))],
                         });
@@ -304,7 +304,7 @@ where
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
                             description: format!(
-                                "Changer le type de \"{}\" vers {}",
+                                "Change kind of \"{}\" to {}",
                                 node_title,
                                 r_node.kind.as_str()
                             ),
@@ -314,7 +314,7 @@ where
                                 new_kind: r_node.kind.clone(),
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Nouveau type: {}",
+                                "New kind: {}",
                                 r_node.kind.as_str()
                             ))],
                         });
@@ -325,7 +325,7 @@ where
                             id: uuid::Uuid::new_v4().to_string(),
                             selected: true,
                             description: format!(
-                                "Mettre à jour la surcharge de vue pour \"{}\"",
+                                "Update view override for \"{}\"",
                                 node_title
                             ),
                             node_title: node_title.clone(),
@@ -334,7 +334,7 @@ where
                                 view: r_node.view_override.clone(),
                             },
                             diff_lines: vec![DiffLine::info(format!(
-                                "Mise en page modifiée pour {}",
+                                "Layout modified for {}",
                                 node_title
                             ))],
                         });
@@ -355,20 +355,20 @@ where
                     remote_changes.push(ReviewableCommand {
                         id: uuid::Uuid::new_v4().to_string(),
                         selected: true,
-                        description: format!("Supprimer le nœud distant \"{}\"", node_title),
+                        description: format!("Delete remote node \"{}\"", node_title),
                         node_title: node_title.clone(),
                         cmd: Command::DeleteNode { id, cascade: true },
                         diff_lines: vec![
-                            DiffLine::remove(format!("- Nœud: {}", node_title)),
-                            DiffLine::remove(format!("- Type: {}", r_node.kind.as_str())),
+                            DiffLine::remove(format!("- Node: {}", node_title)),
+                            DiffLine::remove(format!("- Kind: {}", r_node.kind.as_str())),
                         ],
                     });
                     continue;
                 }
 
                 let mut diff_lines = vec![
-                    DiffLine::info(format!("Nœud: {}", node_title)),
-                    DiffLine::info(format!("Type: {}", r_node.kind.as_str())),
+                    DiffLine::info(format!("Node: {}", node_title)),
+                    DiffLine::info(format!("Kind: {}", r_node.kind.as_str())),
                     DiffLine::add(format!("+ parent_id: {:?}", remote_graph.parent_of(id))),
                 ];
                 for (k, v) in &r_node.props {
@@ -379,7 +379,7 @@ where
                     id: uuid::Uuid::new_v4().to_string(),
                     selected: true,
                     description: format!(
-                        "Créer le nœud \"{}\" ({})",
+                        "Create node \"{}\" ({})",
                         node_title,
                         r_node.kind.as_str()
                     ),

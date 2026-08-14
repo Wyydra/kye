@@ -90,12 +90,10 @@ enum RemoteCommands {
     },
 }
 
-fn build_service(
-    workspace_path: &PathBuf,
-) -> Result<
-    Service<FsGraphRepository, FileKindRepository, (), FileAssetRepository, DesktopSystemShell>,
-    Box<dyn std::error::Error>,
-> {
+type CliService =
+    Service<FsGraphRepository, FileKindRepository, (), FileAssetRepository, DesktopSystemShell>;
+
+fn build_service(workspace_path: &PathBuf) -> Result<CliService, Box<dyn std::error::Error>> {
     let abs_path = std::fs::canonicalize(workspace_path).unwrap_or_else(|_| workspace_path.clone());
     let fs = WorkspaceFs::new(abs_path.clone());
     fs.init()

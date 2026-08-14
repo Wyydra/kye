@@ -30,11 +30,9 @@ impl FtsEngine {
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
 
             let mut node_ids = Vec::new();
-            for r in rows {
-                if let Ok(id_str) = r {
-                    if let Ok(uuid) = uuid::Uuid::parse_str(&id_str) {
-                        node_ids.push(NodeId::from_uuid(uuid));
-                    }
+            for id_str in rows.flatten() {
+                if let Ok(uuid) = uuid::Uuid::parse_str(&id_str) {
+                    node_ids.push(NodeId::from_uuid(uuid));
                 }
             }
 

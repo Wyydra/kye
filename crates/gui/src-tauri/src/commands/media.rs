@@ -30,7 +30,7 @@ pub async fn read_asset_data_url(
         .read_asset(&target_path)
         .map_err(|e| AppError::Internal(format!("Failed to read asset bytes: {}", e)))?;
 
-    let ext = target_path.split('.').last().unwrap_or("").to_lowercase();
+    let ext = target_path.split('.').next_back().unwrap_or("").to_lowercase();
     let mime = match ext.as_str() {
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",
