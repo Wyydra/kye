@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Node, Event, KindDef, val } from "../types/domain";
+import { Node, Event, KindDef } from "../types/domain";
 import { kyeService } from "../services/kyeService";
 import { UnlistenFn } from "@tauri-apps/api/event";
 import { AppLifecycleState } from "../types/appLifecycle";
@@ -37,14 +37,8 @@ const applyEventToState = (
 
       if (!parentId) {
         if (!newRoots.includes(createdNode.id)) {
-          newRoots.push(createdNode.id);
-          newRoots.sort((a, b) => {
-            const nodeA = newNodes[a];
-            const nodeB = newNodes[b];
-            const titleA = val<string>(nodeA?.props["title"]) || "";
-            const titleB = val<string>(nodeB?.props["title"]) || "";
-            return titleA.toLowerCase().localeCompare(titleB.toLowerCase());
-          });
+          const idx = Math.min(event.index, newRoots.length);
+          newRoots.splice(idx, 0, createdNode.id);
         }
       } else {
         const parent = newNodes[parentId];

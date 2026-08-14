@@ -13,12 +13,14 @@ import {
   Layers,
   Network,
   Terminal,
+  Edit2,
+  MoreHorizontal,
 } from "lucide-react";
 import { VStack, HStack } from "../ui/LayoutPrimitives";
 import { Badge } from "../ui/Badge";
+import { BlockContextMenu } from "../ui/BlockContextMenu";
 import { cn } from "../../lib/utils";
 
-/* --- Helper to get Kind Icon / Emoji --- */
 const getKindIcon = (kind: string, kindDef?: { icon?: string; label?: string }): string => {
   if (kindDef?.icon) return kindDef.icon;
   if (kind === "core.page") return "📄";
@@ -33,7 +35,6 @@ const getKindIcon = (kind: string, kindDef?: { icon?: string; label?: string }):
   return "🏷️";
 };
 
-/* --- Tree Item Sub-component (Universal Block Recursion) --- */
 interface SidebarTreeItemProps {
   nodeId: string;
   depth?: number;
@@ -54,7 +55,24 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  if (!node) return null;
+
+  const titleText = extractTextFromValue(node.props.title);
+  const bodyText = extractTextFromValue(node.props.body);
+  const title =
+    titleText ||
+    (bodyText ? bodyText.slice(0, 30) : "") ||
+    "Untitled Block";
+
+  const [editTitle, setEditTitle] = useState(title);
+
+  useEffect(() => {
+    setEditTitle(title);
+  }, [title]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -68,14 +86,20 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showAddMenu]);
 
-  if (!node) return null;
-
-  const titleText = extractTextFromValue(node.props.title);
-  const bodyText = extractTextFromValue(node.props.body);
-  const title =
-    titleText ||
-    (bodyText ? bodyText.slice(0, 30) : "") ||
-    "Untitled Block";
+  const handleCommitRename = () => {
+    setIsRenaming(false);
+    const trimmed = editTitle.trim();
+    if (trimmed && trimmed !== title) {
+      execute({
+        type: "set_prop",
+        node_id: nodeId,
+        key: "title",
+        value: { t: "Text", v: trimmed },
+      });
+    } else {
+      setEditTitle(title);
+    }
+  };
 
   const isSelected = selectedNodeId === nodeId;
   const hasChildren = node.children && node.children.length > 0;
@@ -116,6 +140,11 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
       {/* Row */}
       <div
         onClick={() => openBuffer(nodeId)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setContextMenuPos({ x: e.clientX, y: e.clientY });
+        }}
         style={{ paddingLeft: `${0.3 + depth * 0.75}rem` }}
         className={cn(
           "w-full flex items-center gap-1.5 py-1 px-1.5 rounded text-xs font-mono cursor-pointer transition-all duration-150 relative",
@@ -149,13 +178,59 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
           {iconEmoji}
         </span>
 
-        {/* Title */}
-        <span className="truncate flex-1 text-xs tracking-tight">{title}</span>
+        {/* Title or Inline Edit Input */}
+        {isRenaming ? (
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={handleCommitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleCommitRename();
+              } else if (e.key === "Escape") {
+                setIsRenaming(false);
+                setEditTitle(title);
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+            className="flex-1 bg-background border border-primary/60 rounded px-1.5 py-0.5 text-xs text-foreground font-mono focus:outline-none"
+          />
+        ) : (
+          <span
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              setIsRenaming(true);
+            }}
+            className="truncate flex-1 text-xs tracking-tight select-none"
+            title="Double-click to rename"
+          >
+            {title}
+          </span>
+        )}
 
         {/* Hover Kind Label */}
-        <span className="text-[9px] text-muted-foreground/50 opacity-0 group-hover/item:opacity-100 transition-opacity uppercase font-mono mr-1">
-          {kindDef?.label || node.kind.replace("core.", "")}
-        </span>
+        {!isRenaming && (
+          <span className="text-[9px] text-muted-foreground/50 opacity-0 group-hover/item:opacity-100 transition-opacity uppercase font-mono mr-1">
+            {kindDef?.label || node.kind.replace("core.", "")}
+          </span>
+        )}
+
+        {/* Hover Rename Button */}
+        {!isRenaming && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsRenaming(true);
+            }}
+            className="p-0.5 opacity-0 group-hover/item:opacity-100 hover:text-foreground hover:bg-muted/60 rounded transition-all cursor-pointer mr-0.5"
+            title="Rename Block (F2)"
+          >
+            <Edit2 className="w-2.5 h-2.5 text-muted-foreground hover:text-foreground" />
+          </button>
+        )}
 
         {/* Quick Add Sub-Block Button */}
         <div className="relative" ref={menuRef}>
@@ -194,6 +269,21 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
             </div>
           )}
         </div>
+
+        {/* Context Menu Trigger (···) */}
+        {!isRenaming && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setContextMenuPos({ x: rect.right, y: rect.bottom });
+            }}
+            className="p-0.5 opacity-0 group-hover/item:opacity-100 hover:text-foreground hover:bg-muted/60 rounded transition-all cursor-pointer ml-0.5"
+            title="More Options (Right-click)"
+          >
+            <MoreHorizontal className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+          </button>
+        )}
       </div>
 
       {/* Children Tree */}
@@ -210,6 +300,16 @@ const SidebarTreeItem: React.FC<SidebarTreeItemProps> = ({
           ))}
         </VStack>
       )}
+
+      {/* Universal & Programmable Block Context Menu */}
+      <BlockContextMenu
+        isOpen={!!contextMenuPos}
+        x={contextMenuPos?.x ?? 0}
+        y={contextMenuPos?.y ?? 0}
+        nodeId={nodeId}
+        onClose={() => setContextMenuPos(null)}
+        onStartRename={() => setIsRenaming(true)}
+      />
     </div>
   );
 };
