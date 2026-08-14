@@ -13,10 +13,10 @@ pub struct SqliteConnection {
 impl SqliteConnection {
     pub fn open(db_path: impl AsRef<Path>) -> Result<Self, RepositoryError> {
         let path = db_path.as_ref();
-        if let Some(parent) = path.parent() {
-            if !parent.as_os_str().is_empty() {
-                let _ = std::fs::create_dir_all(parent);
-            }
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            let _ = std::fs::create_dir_all(parent);
         }
 
         let conn = Connection::open(path)
@@ -26,7 +26,8 @@ impl SqliteConnection {
         conn.execute_batch(
             "PRAGMA foreign_keys = ON;
              PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;",
+             PRAGMA synchronous = NORMAL;
+             PRAGMA busy_timeout = 5000;",
         )
         .map_err(|e| RepositoryError::Io(format!("Failed to set PRAGMAs: {}", e)))?;
 
@@ -34,6 +35,17 @@ impl SqliteConnection {
 
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
+        })
+    }
+
+    pub fn checkpoint_truncate(&self) -> Result<(), RepositoryError> {
+        self.with_conn(|conn| {
+            conn.execute_batch(
+                "PRAGMA wal_checkpoint(TRUNCATE);
+                 PRAGMA optimize;",
+            )
+            .map_err(|e| RepositoryError::Io(format!("SQLite checkpoint failed: {}", e)))?;
+            Ok(())
         })
     }
 

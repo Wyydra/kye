@@ -69,7 +69,7 @@ impl GraphRepository for SqliteGraphRepository {
     fn load_graph(&self) -> Result<Graph, RepositoryError> {
         self.conn.with_conn(|conn| {
             let mut stmt = conn
-                .prepare("SELECT id, parent_id, kind, properties, content_ids, created_at, updated_at, view_override_json FROM blocks")
+                .prepare("SELECT id, parent_id, kind, properties, content_ids, created_at, updated_at, view_override_json FROM blocks ORDER BY rowid ASC")
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
 
             let block_rows = stmt
@@ -88,24 +88,47 @@ impl GraphRepository for SqliteGraphRepository {
                 .map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
 
             let mut graph = Graph::new();
-            let mut parents: HashMap<NodeId, NodeId> = HashMap::new();
+            let mut parent_to_children_order: Vec<(NodeId, Vec<NodeId>)> = Vec::new();
+            let mut fallback_parents: Vec<(NodeId, NodeId)> = Vec::new();
 
             for row_res in block_rows {
                 let row = row_res.map_err(|e| RepositoryError::Corrupted(e.to_string()))?;
                 let node = row.to_domain()?;
                 let node_id = node.id;
 
-                if let Some(p_str) = &row.parent_id {
-                    if let Ok(p_uuid) = uuid::Uuid::parse_str(p_str) {
-                        parents.insert(node_id, NodeId::from_uuid(p_uuid));
-                    }
+                let parsed_children: Vec<NodeId> = serde_json::from_str::<Vec<String>>(&row.content_ids)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|s| uuid::Uuid::parse_str(&s).ok().map(NodeId::from_uuid))
+                    .collect();
+
+                if !parsed_children.is_empty() {
+                    parent_to_children_order.push((node_id, parsed_children));
+                }
+
+                if let Some(p_str) = &row.parent_id
+                    && let Ok(p_uuid) = uuid::Uuid::parse_str(p_str)
+                {
+                    fallback_parents.push((node_id, NodeId::from_uuid(p_uuid)));
                 }
 
                 let _ = graph.insert_root(node);
             }
 
-            for (child, parent) in parents {
-                if graph.get(parent).is_some() {
+            // 1. First reconstruct children using the exact ordered content_ids
+            let mut moved_children = std::collections::HashSet::new();
+            for (parent_id, children_ids) in parent_to_children_order {
+                for (index, child_id) in children_ids.into_iter().enumerate() {
+                    if graph.get(child_id).is_some() && graph.get(parent_id).is_some() {
+                        let _ = graph.move_node(child_id, Some(parent_id), index);
+                        moved_children.insert(child_id);
+                    }
+                }
+            }
+
+            // 2. For any child with parent_id not listed in content_ids, attach as fallback
+            for (child, parent) in fallback_parents {
+                if !moved_children.contains(&child) && graph.get(parent).is_some() {
                     let _ = graph.move_node(child, Some(parent), usize::MAX);
                 }
             }
@@ -196,6 +219,10 @@ impl GraphRepository for SqliteGraphRepository {
             Ok(map)
         })
     }
+
+    fn flush(&self) -> Result<(), RepositoryError> {
+        self.conn.checkpoint_truncate()
+    }
 }
 
 fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), RepositoryError> {
@@ -203,7 +230,7 @@ fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), Repos
         Event::NodeCreated {
             node,
             parent_id,
-            index: _,
+            index,
         } => {
             let parent_id_str = parent_id.map(|id| id.to_string());
             let node_id_str = node.id.to_string();
@@ -228,13 +255,41 @@ fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), Repos
                 params![node_id_str, parent_id_str, kind_str, properties, created_at_str, updated_at_str],
             )
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+            if let Some(pid) = parent_id {
+                let pid_str = pid.to_string();
+                let mut stmt = tx
+                    .prepare("SELECT content_ids FROM blocks WHERE id = ?1")
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                let content_ids_raw: Option<String> = stmt
+                    .query_row(params![pid_str], |r| r.get(0))
+                    .optional()
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+                let mut children: Vec<String> = content_ids_raw
+                    .and_then(|s| serde_json::from_str(&s).ok())
+                    .unwrap_or_default();
+
+                let insert_idx = (*index).min(children.len());
+                children.insert(insert_idx, node_id_str);
+                let new_content_ids = serde_json::to_string(&children).unwrap_or_else(|_| "[]".into());
+
+                tx.execute(
+                    "UPDATE blocks SET content_ids = ?1 WHERE id = ?2",
+                    params![new_content_ids, pid_str],
+                )
+                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            }
         }
         Event::NodeDeleted {
             nodes,
-            old_parent: _,
+            old_parent,
             old_index: _,
         } => {
             let now_str = Utc::now().to_rfc3339();
+            let deleted_ids_set: std::collections::HashSet<String> =
+                nodes.iter().map(|n| n.id.to_string()).collect();
+
             for n in nodes {
                 let id_str = n.id.to_string();
                 tx.execute("DELETE FROM blocks WHERE id = ?1", params![id_str])
@@ -247,12 +302,36 @@ fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), Repos
                 )
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
             }
+
+            if let Some(old_pid) = old_parent {
+                let old_pid_str = old_pid.to_string();
+                let mut stmt = tx
+                    .prepare("SELECT content_ids FROM blocks WHERE id = ?1")
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                let content_ids_raw: Option<String> = stmt
+                    .query_row(params![old_pid_str], |r| r.get(0))
+                    .optional()
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+                if let Some(raw) = content_ids_raw {
+                    let mut children: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+                    children.retain(|id| !deleted_ids_set.contains(id));
+                    let new_content_ids =
+                        serde_json::to_string(&children).unwrap_or_else(|_| "[]".into());
+
+                    tx.execute(
+                        "UPDATE blocks SET content_ids = ?1 WHERE id = ?2",
+                        params![new_content_ids, old_pid_str],
+                    )
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                }
+            }
         }
         Event::NodeMoved {
             node_id,
             new_parent,
-            new_index: _,
-            old_parent: _,
+            new_index,
+            old_parent,
             old_index: _,
         } => {
             let node_id_str = node_id.to_string();
@@ -264,6 +343,59 @@ fn apply_event_tx(tx: &rusqlite::Transaction, event: &Event) -> Result<(), Repos
                 params![parent_id_str, now_str, node_id_str],
             )
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+            // 1. Remove from old parent content_ids
+            if let Some(old_pid) = old_parent {
+                let old_pid_str = old_pid.to_string();
+                let mut stmt = tx
+                    .prepare("SELECT content_ids FROM blocks WHERE id = ?1")
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                let content_ids_raw: Option<String> = stmt
+                    .query_row(params![old_pid_str], |r| r.get(0))
+                    .optional()
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+                if let Some(raw) = content_ids_raw {
+                    let mut children: Vec<String> = serde_json::from_str(&raw).unwrap_or_default();
+                    children.retain(|id| id != &node_id_str);
+                    let new_content_ids =
+                        serde_json::to_string(&children).unwrap_or_else(|_| "[]".into());
+
+                    tx.execute(
+                        "UPDATE blocks SET content_ids = ?1 WHERE id = ?2",
+                        params![new_content_ids, old_pid_str],
+                    )
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                }
+            }
+
+            // 2. Insert into new parent content_ids
+            if let Some(new_pid) = new_parent {
+                let new_pid_str = new_pid.to_string();
+                let mut stmt = tx
+                    .prepare("SELECT content_ids FROM blocks WHERE id = ?1")
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+                let content_ids_raw: Option<String> = stmt
+                    .query_row(params![new_pid_str], |r| r.get(0))
+                    .optional()
+                    .map_err(|e| RepositoryError::Io(e.to_string()))?;
+
+                let mut children: Vec<String> = content_ids_raw
+                    .and_then(|s| serde_json::from_str(&s).ok())
+                    .unwrap_or_default();
+
+                children.retain(|id| id != &node_id_str);
+                let target_idx = (*new_index).min(children.len());
+                children.insert(target_idx, node_id_str);
+                let new_content_ids =
+                    serde_json::to_string(&children).unwrap_or_else(|_| "[]".into());
+
+                tx.execute(
+                    "UPDATE blocks SET content_ids = ?1 WHERE id = ?2",
+                    params![new_content_ids, new_pid_str],
+                )
+                .map_err(|e| RepositoryError::Io(e.to_string()))?;
+            }
         }
         Event::PropSet {
             node_id,

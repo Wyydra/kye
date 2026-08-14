@@ -58,6 +58,13 @@ impl GraphRepository for DynamicGraphRepository {
             Self::Sqlite(r) => r.load_tombstones(),
         }
     }
+
+    fn flush(&self) -> Result<(), RepositoryError> {
+        match self {
+            Self::Fs(r) => r.flush(),
+            Self::Sqlite(r) => r.flush(),
+        }
+    }
 }
 
 #[derive(Clone)]

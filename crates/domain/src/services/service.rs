@@ -89,6 +89,10 @@ where
         Ok(self.shell.open_external(target_path)?)
     }
 
+    pub fn flush(&self) -> Result<(), ServiceError> {
+        Ok(self.repo.flush()?)
+    }
+
     pub fn reveal_in_explorer(&self, target_path: &str) -> Result<(), ServiceError> {
         Ok(self.shell.reveal_in_explorer(target_path)?)
     }

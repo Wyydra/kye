@@ -120,8 +120,24 @@ pub fn run() {
             commands::sync::compute_sync_diff,
             commands::sync::sync_with_remote_peer,
         ])
-        .run(tauri::generate_context!())
-        .expect("Tauri Error");
+        .build(tauri::generate_context!())
+        .expect("Tauri Error")
+        .run(|app_handle, event| match event {
+            tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.shutdown();
+                }
+            }
+            tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::CloseRequested { .. },
+                ..
+            } => {
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.shutdown();
+                }
+            }
+            _ => {}
+        });
 }
 
 pub fn run_headless(workspace_path: PathBuf, port: u16) -> Result<(), String> {

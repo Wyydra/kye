@@ -35,8 +35,11 @@ impl EventBus for TauriEventBus {
     }
 }
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 pub struct AppState {
     inner: Arc<Mutex<AppStateInner>>,
+    is_shutting_down: Arc<AtomicBool>,
 }
 
 pub struct AppStateInner {
@@ -53,6 +56,7 @@ impl AppState {
                 workspace_path,
                 p2p_server: None,
             })),
+            is_shutting_down: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -66,5 +70,28 @@ impl AppState {
 
     pub fn service(&self) -> Option<AppService> {
         self.with_inner(|inner| inner.service.clone())
+    }
+
+    pub fn shutdown(&self) {
+        if self.is_shutting_down.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        tracing::info!("Initiating graceful application shutdown...");
+        self.with_inner(|inner| {
+            if let Some(server) = inner.p2p_server.take() {
+                tracing::info!("Stopping P2P sync server...");
+                server.stop();
+            }
+            if let Some(service) = inner.service.take() {
+                tracing::info!("Flushing database and workspace storage...");
+                if let Err(e) = service.flush() {
+                    tracing::error!("Failed to flush storage on shutdown: {}", e);
+                } else {
+                    tracing::info!("Storage successfully flushed.");
+                }
+            }
+        });
+        tracing::info!("Graceful application shutdown completed.");
     }
 }

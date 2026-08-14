@@ -28,6 +28,9 @@ pub trait GraphRepository: Send + Sync + 'static {
     fn save_all(&self, graph: &Graph) -> Result<(), RepositoryError>;
 
     fn load_tombstones(&self) -> Result<HashMap<NodeId, DateTime<Utc>>, RepositoryError>;
+    fn flush(&self) -> Result<(), RepositoryError> {
+        Ok(())
+    }
 }
 
 pub trait KindRepository: Send + Sync + 'static {
