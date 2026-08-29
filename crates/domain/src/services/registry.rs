@@ -158,7 +158,7 @@ impl CoreLibrary {
             (
                 kinds::page(),
                 KindDef::new("Page", props::title())
-                    .with_icon("📄")
+                    .with_icon("§")
                     .with_prop(
                         props::title(),
                         PropDef::new(ValueType::Text).with_label("Title"),
@@ -170,6 +170,7 @@ impl CoreLibrary {
             (
                 kinds::paragraph(),
                 KindDef::new("Paragraph", props::body())
+                    .with_icon("¶")
                     .with_prop(
                         props::body(),
                         PropDef::new(ValueType::Rich).with_label("Content"),
@@ -181,6 +182,7 @@ impl CoreLibrary {
             (
                 kinds::heading(),
                 KindDef::new("Heading", props::body())
+                    .with_icon("#")
                     .with_prop(
                         props::body(),
                         PropDef::new(ValueType::Rich).with_label("Text"),
@@ -212,7 +214,7 @@ impl CoreLibrary {
             (
                 kinds::image(),
                 KindDef::new("Image", props::title())
-                    .with_icon("🖼")
+                    .with_icon("◫")
                     .with_prop(
                         props::url(),
                         PropDef::new(ValueType::Text).with_label("URL"),
@@ -230,7 +232,7 @@ impl CoreLibrary {
             (
                 kinds::audio(),
                 KindDef::new("Audio", props::title())
-                    .with_icon("🎵")
+                    .with_icon("♫")
                     .with_prop(
                         props::url(),
                         PropDef::new(ValueType::Text).with_label("URL"),
@@ -246,7 +248,7 @@ impl CoreLibrary {
             (
                 kinds::binary(),
                 KindDef::new("Binary", props::title())
-                    .with_icon("📎")
+                    .with_icon("&")
                     .with_prop(
                         props::url(),
                         PropDef::new(ValueType::Text).with_label("URL"),
@@ -264,7 +266,7 @@ impl CoreLibrary {
             (
                 kinds::flashcard(),
                 KindDef::new("Flashcard", props::front())
-                    .with_icon("🗂")
+                    .with_icon("□")
                     .with_prop(
                         props::front(),
                         PropDef::new(ValueType::Rich).with_label("Front"),
@@ -280,7 +282,7 @@ impl CoreLibrary {
             (
                 kinds::canvas(),
                 KindDef::new("Canvas", props::title())
-                    .with_icon("🎨")
+                    .with_icon("◇")
                     .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
                     .with_view(ViewDef::new(Surface::Canvas {
                         layout: CanvasLayout::Absolute,
@@ -309,7 +311,7 @@ impl CoreLibrary {
             (
                 kinds::inbox(),
                 KindDef::new("Inbox", props::title())
-                    .with_icon("📥")
+                    .with_icon(">")
                     .with_prop(props::title(), PropDef::new(ValueType::Text).optional())
                     .with_view(ViewDef::new(Surface::Collection {
                         layout: CollectionLayout::List,

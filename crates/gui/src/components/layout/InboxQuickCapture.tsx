@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useGraphStore } from "../../store/graphStore";
-import { execute } from "../../lib/commands";
+import { createNode, createChildNode } from "../../lib/nodeFactory";
 import { val } from "../../types/domain";
 import { FileText, CheckSquare, Sparkles, Send, Check } from "lucide-react";
 
@@ -16,7 +16,6 @@ export const InboxQuickCapture: React.FC = () => {
     setStatus("capturing");
     try {
       const state = useGraphStore.getState();
-      const roots = state.roots;
       const nodes = state.nodes;
 
       // 1. Locate or create the "Inbox" page
@@ -27,30 +26,18 @@ export const InboxQuickCapture: React.FC = () => {
       let inboxId = inboxNode ? inboxNode.id : null;
 
       if (!inboxId) {
-        inboxId = crypto.randomUUID();
-        await execute({
-          type: "create_node",
-          id: inboxId,
+        inboxId = await createNode({
           kind: "core.page",
-          parent_id: null,
-          index: roots.length,
-          props: { title: { t: "Text", v: "Inbox" } },
+          title: "Inbox",
+          openBuffer: false,
         });
       }
 
       // 2. Append the new block to the Inbox
-      const newChildId = crypto.randomUUID();
-      const updatedInbox = useGraphStore.getState().nodes[inboxId];
-      const nextIndex = updatedInbox ? updatedInbox.children.length : 0;
-
       if (type === "note") {
-        await execute({
-          type: "create_node",
-          id: newChildId,
-          kind: "core.paragraph",
-          parent_id: inboxId,
-          index: nextIndex,
-          props: {
+        await createChildNode(inboxId, "core.paragraph", {
+          openBuffer: false,
+          initialProps: {
             body: {
               t: "Rich",
               v: { spans: [{ text: text.trim(), marks: [] }] },
@@ -58,13 +45,9 @@ export const InboxQuickCapture: React.FC = () => {
           },
         });
       } else {
-        await execute({
-          type: "create_node",
-          id: newChildId,
-          kind: "core.task",
-          parent_id: inboxId,
-          index: nextIndex,
-          props: {
+        await createChildNode(inboxId, "core.task", {
+          openBuffer: false,
+          initialProps: {
             title: {
               t: "Rich",
               v: { spans: [{ text: text.trim(), marks: [] }] },

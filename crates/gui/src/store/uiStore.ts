@@ -10,20 +10,23 @@ interface UIState {
   setFocusedNode: (id: string | null) => void;
   modalNodeId: string | null;
   setModalNodeId: (id: string | null) => void;
-  isWorkspacePickerOpen: boolean;
-  setWorkspacePickerOpen: (open: boolean) => void;
-  isSidebarOpen: boolean;
-  setSidebarOpen: (open: boolean) => void;
-  toggleSidebar: () => void;
+  isWorkspaceSwitcherOpen: boolean;
+  setWorkspaceSwitcherOpen: (open: boolean) => void;
+  isCreateWorkspaceModalOpen: boolean;
+  setCreateWorkspaceModalOpen: (open: boolean) => void;
   isSyncPanelOpen: boolean;
   setSyncPanelOpen: (open: boolean) => void;
   isTypeManagerOpen: boolean;
   setTypeManagerOpen: (open: boolean) => void;
+  isInspectorOpen: boolean;
+  setInspectorOpen: (open: boolean) => void;
+  toggleInspector: () => void;
 
   // Real Multi-Buffer State
   openBufferIds: string[];
   openBuffer: (id: string) => void;
   closeBuffer: (id: string) => void;
+  resetUI: () => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -33,15 +36,17 @@ export const useUIStore = create<UIState>((set, get) => ({
   setFocusedNode: (id) => set({ focusedNodeId: id }),
   modalNodeId: null,
   setModalNodeId: (id) => set({ modalNodeId: id }),
-  isWorkspacePickerOpen: false,
-  setWorkspacePickerOpen: (open) => set({ isWorkspacePickerOpen: open }),
-  isSidebarOpen: true,
-  setSidebarOpen: (open) => set({ isSidebarOpen: open }),
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+  isWorkspaceSwitcherOpen: false,
+  setWorkspaceSwitcherOpen: (open) => set({ isWorkspaceSwitcherOpen: open }),
+  isCreateWorkspaceModalOpen: false,
+  setCreateWorkspaceModalOpen: (open) => set({ isCreateWorkspaceModalOpen: open }),
   isSyncPanelOpen: false,
   setSyncPanelOpen: (open) => set({ isSyncPanelOpen: open }),
   isTypeManagerOpen: false,
   setTypeManagerOpen: (open) => set({ isTypeManagerOpen: open }),
+  isInspectorOpen: false,
+  setInspectorOpen: (open) => set({ isInspectorOpen: open }),
+  toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
 
   openBufferIds: [],
   openBuffer: (id: string) => {
@@ -62,5 +67,19 @@ export const useUIStore = create<UIState>((set, get) => ({
       const nextId = updated.length > 0 ? updated[updated.length - 1] : null;
       useCanvasStore.getState().setSelectedNodeId(nextId);
     }
+  },
+  resetUI: () => {
+    useCanvasStore.getState().setSelectedNodeId(null);
+    set({
+      openBufferIds: [],
+      focusedNodeId: null,
+      modalNodeId: null,
+      isWorkspaceSwitcherOpen: false,
+      isCreateWorkspaceModalOpen: false,
+      isSyncPanelOpen: false,
+      isTypeManagerOpen: false,
+      isInspectorOpen: false,
+      activeViewMode: "editor",
+    });
   },
 }));

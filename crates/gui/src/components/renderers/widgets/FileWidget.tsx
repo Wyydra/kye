@@ -4,8 +4,9 @@ import { Node, val } from "../../../types/domain";
 import { execute } from "../../../lib/commands";
 import { kyeService } from "../../../services/kyeService";
 import { useFileDrop } from "../../../hooks/useFileDrop";
-import { useAssetUrl } from "../../../hooks/useAssetUrl";
 import { useGraphStore } from "../../../store/graphStore";
+import { useUIStore } from "../../../store/uiStore";
+import { UploadCloud, FileText } from "lucide-react";
 
 function formatBytes(bytes?: number): string {
   if (!bytes || bytes === 0) return "0 B";
@@ -18,50 +19,79 @@ function formatBytes(bytes?: number): string {
 function getFileTypeInfo(path?: string, mime?: string) {
   const ext = (path?.split(".").pop() || "").toLowerCase();
 
-  if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext) || mime?.startsWith("image/")) {
-    return { type: "image", color: "bg-blue-500/10 text-blue-500 border-blue-500/20", label: "IMAGE", isImage: true };
-  }
   if (ext === "pdf" || mime === "application/pdf") {
-    return { type: "pdf", color: "bg-red-500/10 text-red-500 border-red-500/20", label: "PDF", isImage: false };
+    return {
+      type: "pdf",
+      color: "bg-red-500/10 text-red-500 border-red-500/20",
+      label: "PDF",
+    };
   }
   if (["doc", "docx"].includes(ext)) {
-    return { type: "word", color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20", label: "DOCX", isImage: false };
+    return {
+      type: "word",
+      color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
+      label: "DOCX",
+    };
   }
   if (["xls", "xlsx", "csv"].includes(ext)) {
-    return { type: "excel", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20", label: "SHEET", isImage: false };
+    return {
+      type: "excel",
+      color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+      label: "SHEET",
+    };
   }
   if (["ppt", "pptx"].includes(ext)) {
-    return { type: "ppt", color: "bg-orange-500/10 text-orange-500 border-orange-500/20", label: "SLIDES", isImage: false };
+    return {
+      type: "ppt",
+      color: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+      label: "SLIDES",
+    };
   }
   if (["zip", "tar", "gz", "7z", "rar"].includes(ext)) {
-    return { type: "archive", color: "bg-amber-500/10 text-amber-500 border-amber-500/20", label: "ARCHIVE", isImage: false };
+    return {
+      type: "archive",
+      color: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+      label: "ARCHIVE",
+    };
   }
-  return { type: "file", color: "bg-slate-500/10 text-slate-500 border-slate-500/20", label: ext.toUpperCase() || "FILE", isImage: false };
+  return {
+    type: "file",
+    color: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+    label: ext.toUpperCase() || "FILE",
+  };
 }
 
 export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
-  const assetNodeId = val<string>(node.props.url);
-  const assetNode = useGraphStore((state) => (assetNodeId ? state.nodes[assetNodeId] : null));
+  const rawUrl = val<string>(node.props.url) || val<string>(node.props.target) || val<string>(node.props.path);
 
-  const targetFile = assetNode ? val<string>(assetNode.props.target) : null;
-  const title = (assetNode ? val<string>(assetNode.props.title) : null) || targetFile || "Untitled File";
+  const setFocusedNode = useUIStore((state) => state.setFocusedNode);
+  const assetNode = useGraphStore((state) => (rawUrl ? state.nodes[rawUrl] : null));
+  const targetFile =
+    (assetNode ? val<string>(assetNode.props.target) || val<string>(assetNode.props.url) || val<string>(assetNode.props.path) : null) ||
+    rawUrl;
+
+  const fileName =
+    (assetNode ? val<string>(assetNode.props.title) : null) ||
+    val<string>(node.props.title) ||
+    (targetFile ? targetFile.split(/[\/\\]/).pop() : null) ||
+    "Document";
+
   const mimeType = assetNode ? val<string>(assetNode.props.mime_type) : undefined;
   const sizeBytes = assetNode ? val<number>(assetNode.props.size_bytes) : undefined;
-
-  const assetUrl = useAssetUrl(assetNodeId);
   const fileInfo = getFileTypeInfo(targetFile || "", mimeType);
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths) => {
     if (paths && paths.length > 0) {
       try {
-        const importedAssetId = await kyeService.importAsset(paths[0]);
-        if (!importedAssetId) return;
+        const importedUrl = await kyeService.importAsset(paths[0]);
+        if (!importedUrl) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: importedAssetId },
+          value: { t: "Text", v: importedUrl },
         });
+        setFocusedNode(node.id);
       } catch (e) {
         console.error("Failed to import asset on drop", e);
       }
@@ -72,125 +102,62 @@ export const FileWidget: React.FC<{ node: Node }> = ({ node }) => {
     try {
       const selected = await open({ multiple: false });
       if (typeof selected === "string") {
-        const importedAssetId = await kyeService.importAsset(selected);
-        if (!importedAssetId) return;
+        const importedUrl = await kyeService.importAsset(selected);
+        if (!importedUrl) return;
         execute({
           type: "set_prop",
           node_id: node.id,
           key: "url",
-          value: { t: "Ref", v: importedAssetId },
+          value: { t: "Text", v: importedUrl },
         });
+        setFocusedNode(node.id);
       }
     } catch (e) {
       console.error("Failed to select file", e);
     }
   };
 
-  const handleOpenExternal = async () => {
-    if (!targetFile) return;
-    try {
-      await kyeService.openAsset(targetFile);
-    } catch (e) {
-      console.error("Failed to open file externally", e);
-    }
-  };
-
-  const handleRevealInExplorer = async () => {
-    if (!targetFile) return;
-    try {
-      await kyeService.revealAsset(targetFile);
-    } catch (e) {
-      console.error("Failed to reveal file in folder", e);
-    }
-  };
-
-  if (!assetNodeId) {
+  if (!rawUrl) {
     return (
       <div
         ref={dropRef}
-        className="w-full h-32 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg bg-muted/20 text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors my-2"
-        onClick={handleSelectFile}
+        onClick={(e) => {
+          e.stopPropagation();
+          setFocusedNode(node.id);
+          handleSelectFile();
+        }}
+        className="w-full h-28 flex flex-col items-center justify-center border-2 border-dashed border-border/70 rounded-xl bg-muted/15 text-muted-foreground hover:bg-muted/30 hover:border-primary/50 cursor-pointer transition-all duration-150 my-2 font-sans select-none gap-1.5"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mb-2 opacity-50">
-          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-          <polyline points="13 2 13 9 20 9"/>
-        </svg>
-        <span className="text-sm font-medium">Click to select a file (PDF, DOCX, XLSX, Image...)</span>
-        <span className="text-xs opacity-70">or drag and drop one here</span>
+        <UploadCloud className="w-6 h-6 text-primary/70" />
+        <span className="text-xs font-semibold text-foreground">
+          Click to attach a file
+        </span>
+        <span className="text-[11px] text-muted-foreground/60">
+          or drag and drop here
+        </span>
       </div>
     );
   }
 
-  // Render image preview if it's an image
-  if (fileInfo.isImage && assetUrl) {
-    return (
-      <div ref={dropRef} className="flex flex-col items-center my-2 max-w-full group relative">
-        <img
-          src={assetUrl}
-          alt={title}
-          className="max-w-full h-auto rounded-md shadow-sm border border-border"
-          style={{ maxHeight: "600px" }}
-        />
-        <div className="flex items-center gap-2 mt-2">
-          <button
-            onClick={handleOpenExternal}
-            className="text-xs px-2.5 py-1 rounded bg-secondary hover:bg-secondary/80 transition-colors flex items-center gap-1"
-            title="Open in OS application"
-          >
-            ↗ Open
-          </button>
-          <button
-            onClick={handleRevealInExplorer}
-            className="text-xs px-2.5 py-1 rounded bg-secondary hover:bg-secondary/80 transition-colors flex items-center gap-1"
-            title="Show in folder"
-          >
-            📁 Folder
-          </button>
-          {title && <span className="text-sm text-muted-foreground italic ml-2">{title}</span>}
-        </div>
-      </div>
-    );
-  }
-
-  // Render rich generic file widget (PDF, DOCX, XLSX, etc.)
   return (
     <div
       ref={dropRef}
-      className="flex items-center justify-between p-3.5 my-2 rounded-lg border border-border bg-card/60 hover:bg-card/90 shadow-sm transition-all group"
+      onClick={(e) => {
+        e.stopPropagation();
+        setFocusedNode(node.id);
+      }}
+      className="flex items-center gap-3 p-3 my-2 rounded-xl border border-border/70 bg-card/70 hover:border-primary/40 shadow-xs font-sans select-none cursor-pointer transition-colors"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`px-2.5 py-1.5 rounded-md text-xs font-bold border ${fileInfo.color} shrink-0`}>
-          {fileInfo.label}
-        </div>
-        <div className="flex flex-col min-w-0">
-          <span className="text-sm font-semibold text-foreground truncate">{title}</span>
-          <span className="text-xs text-muted-foreground truncate font-mono">{targetFile} {sizeBytes ? `• ${formatBytes(sizeBytes)}` : ""}</span>
-        </div>
+      <div className={`px-2 py-1 rounded-lg text-xs font-bold border ${fileInfo.color} shrink-0`}>
+        {fileInfo.label}
       </div>
-
-      <div className="flex items-center gap-2 shrink-0 ml-4">
-        <button
-          onClick={handleOpenExternal}
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-1.5 shadow-xs"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          Open
-        </button>
-
-        <button
-          onClick={handleRevealInExplorer}
-          className="px-2.5 py-1.5 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors flex items-center gap-1"
-          title="Show in File Explorer"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-        </button>
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className="text-xs font-semibold text-foreground truncate">{fileName}</span>
+        <span className="text-[10px] text-muted-foreground font-mono truncate">
+          {sizeBytes ? formatBytes(sizeBytes) : "Embedded Attachment"}
+        </span>
       </div>
+      <FileText className="w-4 h-4 text-muted-foreground/40 shrink-0" />
     </div>
   );
 };

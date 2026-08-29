@@ -12,7 +12,7 @@ import {
   Check,
   Sparkles,
 } from "lucide-react";
-import { VStack, HStack } from "./LayoutPrimitives";
+import { KindIcon } from "../kinds/KindIcon";
 import { Badge } from "./Badge";
 import { cn } from "../../lib/utils";
 
@@ -83,7 +83,6 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
   const clampedY = Math.min(Math.max(8, y), window.innerHeight - menuHeight - 8);
 
   const title = extractTextFromValue(node.props.title) || "Untitled Block";
-  const iconEmoji = kindDef?.icon || "📄";
 
   const handleCopyLink = async () => {
     const ok = await copyWikiLink();
@@ -101,66 +100,61 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
       ref={menuRef}
       style={{ left: `${clampedX}px`, top: `${clampedY}px` }}
       onClick={(e) => e.stopPropagation()}
-      className="fixed z-[300] w-56 bg-card/95 backdrop-blur-md border border-border/70 shadow-2xl rounded-xl p-1 font-mono text-xs select-none animate-in fade-in zoom-in-95 duration-100"
+      className="fixed z-[300] w-56 bg-card/95 backdrop-blur-md border border-border/70 shadow-2xl rounded-xl p-1 font-sans text-xs select-none animate-in fade-in zoom-in-95 duration-100"
     >
       {/* Header with Type & Title Preview */}
-      <HStack justify-between="true" className="px-2.5 py-1.5 border-b border-border/40 bg-muted/20 rounded-t-lg" align="center">
-        <HStack gap="xs" align="center" className="truncate">
-          <span className="text-xs shrink-0">{iconEmoji}</span>
-          <span className="truncate font-semibold text-[11px] text-foreground">{title}</span>
-        </HStack>
-        <Badge variant="muted" className="text-[8.5px] uppercase shrink-0 font-mono ml-1">
+      <div className="px-2.5 py-1.5 border-b border-border/40 bg-muted/20 rounded-t-lg flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1.5 truncate min-w-0">
+          <KindIcon kind={node.kind} kindDef={kindDef} size={13} className="text-primary" />
+          <span className="truncate font-semibold text-xs text-foreground">{title}</span>
+        </div>
+        <Badge variant="muted" size="xs" className="shrink-0 font-mono text-[9px]">
           {kindDef?.label || node.kind.replace("core.", "")}
         </Badge>
-      </HStack>
+      </div>
 
-      <VStack gap="none" className="py-1">
-        {/* Universal Action 1: Rename */}
+      <div className="py-1 space-y-0.5">
+        {/* Action 1: Rename */}
         <button
           onClick={() => {
             onClose();
             if (onStartRename) onStartRename();
           }}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-primary/20 hover:text-primary text-foreground transition-colors cursor-pointer text-left"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/60 text-foreground transition-colors cursor-pointer text-left"
         >
-          <HStack gap="xs" align="center">
-            <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Rename</span>
-          </HStack>
-          <span className="text-[10px] text-muted-foreground/50">F2</span>
+          <Edit2 className="w-3.5 h-3.5 text-muted-foreground" />
+          <span>Rename</span>
         </button>
 
-        {/* Universal Action 2: Duplicate */}
+        {/* Action 2: Duplicate */}
         <button
           onClick={() => {
             duplicateNode();
             onClose();
           }}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-primary/20 hover:text-primary text-foreground transition-colors cursor-pointer text-left"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/60 text-foreground transition-colors cursor-pointer text-left"
         >
           <Copy className="w-3.5 h-3.5 text-muted-foreground" />
           <span>Duplicate</span>
         </button>
 
-        {/* Universal Action 3: Copy WikiLink */}
+        {/* Action 3: Copy Link */}
         <button
           onClick={handleCopyLink}
-          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-primary/20 hover:text-primary text-foreground transition-colors cursor-pointer text-left"
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-muted/60 text-foreground transition-colors cursor-pointer text-left"
         >
-          <HStack gap="xs" align="center">
+          <div className="flex items-center gap-2">
             <Link className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Copy WikiLink</span>
-          </HStack>
-          {copied ? (
-            <span className="text-[10px] text-emerald-400 flex items-center gap-0.5">
+            <span>Copy Link</span>
+          </div>
+          {copied && (
+            <span className="text-[10px] text-emerald-500 font-medium flex items-center gap-0.5">
               <Check className="w-3 h-3" /> Copied
             </span>
-          ) : (
-            <span className="text-[10px] text-muted-foreground/50">[[...]]</span>
           )}
         </button>
 
-        {/* Universal Action 4: Convert Type (Submenu Trigger) */}
+        {/* Action 4: Convert Type */}
         <div
           className="relative"
           onMouseEnter={() => setShowKindSubmenu(true)}
@@ -168,18 +162,18 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
         >
           <button
             onClick={() => setShowKindSubmenu(!showKindSubmenu)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-primary/20 hover:text-primary text-foreground transition-colors cursor-pointer text-left"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-muted/60 text-foreground transition-colors cursor-pointer text-left"
           >
-            <HStack gap="xs" align="center">
+            <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
               <span>Change Type</span>
-            </HStack>
+            </div>
             <ChevronRight className="w-3 h-3 text-muted-foreground" />
           </button>
 
           {showKindSubmenu && (
             <div className="absolute left-full top-0 ml-1 w-48 bg-card/95 backdrop-blur-md border border-border/70 shadow-2xl rounded-xl p-1 max-h-56 overflow-y-auto space-y-0.5 animate-in fade-in zoom-in-95 duration-100">
-              <div className="px-2 py-1 text-[9px] uppercase font-bold text-muted-foreground border-b border-border/40">
+              <div className="px-2 py-1 text-[9px] uppercase font-bold text-muted-foreground border-b border-border/40 mb-1">
                 Switch Type To
               </div>
               {Object.entries(kinds).map(([kId, kDef]) => (
@@ -190,13 +184,13 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
                     onClose();
                   }}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors cursor-pointer",
+                    "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer",
                     node.kind === kId
-                      ? "bg-primary/20 text-primary font-bold"
-                      : "hover:bg-primary/20 hover:text-primary text-foreground"
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "hover:bg-muted/60 text-foreground"
                   )}
                 >
-                  <span>{kDef.icon || "📄"}</span>
+                  <KindIcon kind={kId} kindDef={kDef} size={13} />
                   <span className="truncate flex-1">{kDef.label}</span>
                   {node.kind === kId && <Check className="w-3 h-3 text-primary shrink-0" />}
                 </button>
@@ -205,12 +199,12 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
           )}
         </div>
 
-        {/* Dynamic Programmable Actions per Type */}
+        {/* Dynamic Programmable Actions */}
         {typeActions.length > 0 && (
           <>
             <div className="my-1 border-t border-border/40" />
             <div className="px-2.5 py-0.5 text-[9px] uppercase font-bold text-muted-foreground/60">
-              Type Actions
+              Actions
             </div>
             {typeActions.map((action) => (
               <button
@@ -219,9 +213,9 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
                   await runAction(action);
                   onClose();
                 }}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-primary/20 hover:text-primary text-foreground transition-colors cursor-pointer text-left"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-muted/60 text-foreground transition-colors cursor-pointer text-left"
               >
-                <span className="text-primary text-xs">◆</span>
+                <span className="text-primary text-xs">•</span>
                 <span className="truncate">{action.label}</span>
               </button>
             ))}
@@ -235,12 +229,12 @@ export const BlockContextMenu: React.FC<BlockContextMenuProps> = ({
             deleteNode();
             onClose();
           }}
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-destructive/20 text-destructive transition-colors cursor-pointer text-left font-semibold"
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-destructive/15 text-destructive transition-colors cursor-pointer text-left font-medium"
         >
           <Trash2 className="w-3.5 h-3.5" />
           <span>Delete Block</span>
         </button>
-      </VStack>
+      </div>
     </div>
   );
 

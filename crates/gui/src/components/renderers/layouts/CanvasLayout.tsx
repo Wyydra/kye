@@ -1,6 +1,7 @@
 import React from "react";
 import { Node } from "../../../types/domain";
 import { CanvasContainer } from "../../canvas/CanvasContainer";
+import { createCanvasNode } from "../../../lib/nodeFactory";
 import { execute } from "../../../lib/commands";
 import { useGraphStore } from "../../../store/graphStore";
 import { kyeService } from "../../../services/kyeService";
@@ -19,17 +20,7 @@ export const CanvasLayout: React.FC<CanvasLayoutProps> = ({ node, depth = 0 }) =
   const childrenIds = node ? node.children : roots;
 
   const handleDoubleClick = (x: number, y: number, kind: string) => {
-    execute({
-      type: "create_node",
-      id: crypto.randomUUID(),
-      kind,
-      parent_id: parentId,
-      index: childrenIds.length,
-      props: {
-        x: { t: "Float", v: x },
-        y: { t: "Float", v: y },
-      },
-    });
+    createCanvasNode(kind, x, y, parentId);
   };
 
   const dropRef = useFileDrop<HTMLDivElement>(async (paths, position) => {

@@ -58,7 +58,7 @@ export const RichTextToolbar: React.FC<ToolbarProps> = ({ onFormat, targetRef })
         <button
           key={spec.id}
           onClick={() => onFormat(spec.mark)}
-          title={spec.shortcut ? `${spec.label} ${spec.shortcut}` : spec.label}
+          title={spec.label}
           className="w-8 h-8 flex items-center justify-center hover:bg-muted text-foreground/80 hover:text-foreground rounded transition-colors"
         >
           {spec.icon}

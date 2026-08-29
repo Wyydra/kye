@@ -1,11 +1,59 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Command, Event, Graph, KindDef, SyncDiff, WorkspaceMeta } from "../types/domain";
-import { WorkspaceStatus } from "../types/appLifecycle";
+import { RecentWorkspace, WorkspaceStatus } from "../types/appLifecycle";
 
 export const kyeService = {
   async getWorkspaceStatus(): Promise<WorkspaceStatus> {
     return invoke("get_workspace_status");
+  },
+
+  async getDefaultWorkspaceDir(): Promise<string> {
+    return invoke("get_default_workspace_dir");
+  },
+
+  async pickWorkspaceDirectory(): Promise<string | null> {
+    return invoke("pick_workspace_directory");
+  },
+
+  async pickWorkspaceFile(): Promise<string | null> {
+    return invoke("pick_workspace_file");
+  },
+
+  async listRecentWorkspaces(): Promise<RecentWorkspace[]> {
+    return invoke("list_recent_workspaces");
+  },
+
+  async openWorkspace(path: string): Promise<RecentWorkspace> {
+    return invoke("open_workspace", { path });
+  },
+
+  async createWorkspace(
+    name: string,
+    directory?: string,
+    template?: string
+  ): Promise<RecentWorkspace> {
+    return invoke("create_workspace", { name, directory, template });
+  },
+
+  async closeWorkspace(): Promise<void> {
+    return invoke("close_workspace");
+  },
+
+  async removeRecentWorkspace(path: string): Promise<RecentWorkspace[]> {
+    return invoke("remove_recent_workspace", { path });
+  },
+
+  async togglePinRecentWorkspace(path: string): Promise<RecentWorkspace[]> {
+    return invoke("toggle_pin_recent_workspace", { path });
+  },
+
+  async revealWorkspaceInExplorer(path?: string): Promise<void> {
+    return invoke("reveal_workspace_in_explorer", { path });
+  },
+
+  async setWorkspaceName(name: string): Promise<WorkspaceMeta> {
+    return invoke("set_workspace_name", { name });
   },
 
   async selectWorkspaceFolder(path?: string): Promise<string | null> {
@@ -14,14 +62,6 @@ export const kyeService = {
 
   async getWorkspacePath(): Promise<string | null> {
     return invoke("get_workspace_path");
-  },
-
-  async listWorkspaces(): Promise<string[]> {
-    return invoke("list_workspaces");
-  },
-
-  async createWorkspace(name: string): Promise<string> {
-    return invoke("create_workspace", { name });
   },
 
   async createWorkspaceFile(): Promise<string | null> {

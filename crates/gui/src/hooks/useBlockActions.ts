@@ -41,14 +41,6 @@ export function useBlockActions(nodeId: string) {
       });
     }
 
-    if ((node.kind === "core.image" || node.kind === "core.file" || node.kind === "core.binary") && !list.some((a) => a.kind === "reveal_asset")) {
-      list.push({
-        id: "reveal_in_explorer",
-        label: "Reveal File in Explorer",
-        kind: "reveal_asset",
-      });
-    }
-
     return list;
   }, [node, kindDef]);
 

@@ -8,6 +8,8 @@ import { useCanvasStore } from "../../store/canvasStore";
 import { CanvasCreationMenu } from "../renderers/layouts/CanvasCreationMenu";
 import { GridBackground } from "../renderers/layouts/GridBackground";
 import { getVisibleWorldRect, Rect } from "../../lib/viewport";
+import { Plus, Minus } from "lucide-react";
+import { Button } from "../ui/Button";
 
 interface CanvasContainerProps {
   childrenIds: string[];
@@ -30,6 +32,7 @@ export const CanvasContainer: React.FC<CanvasContainerProps> = ({
   const setConnectionDraft = useCanvasStore((state) => state.setConnectionDraft);
   const updateConnectionDraft = useCanvasStore((state) => state.updateConnectionDraft);
   const viewport = useCanvasStore((state) => state.viewport);
+  const setViewport = useCanvasStore((state) => state.setViewport);
 
   useCanvasCamera(containerRef, layerRef);
 
@@ -105,31 +108,62 @@ export const CanvasContainer: React.FC<CanvasContainerProps> = ({
     };
   }, [!!connectionDraft, setConnectionDraft, updateConnectionDraft]);
 
-  const handleDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-node-id], .interactive-handle")) return;
-
+  const openCreationMenuAt = useCallback(
+    (clientX: number, clientY: number) => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const mouseX = clientX - rect.left;
+      const mouseY = clientY - rect.top;
 
       const { x, y, zoom } = useCanvasStore.getState().viewport;
-
       const worldX = (mouseX - x) / zoom;
       const worldY = (mouseY - y) / zoom;
 
-      setMenu({ x: e.clientX, y: e.clientY, worldX, worldY });
+      setMenu({ x: clientX, y: clientY, worldX, worldY });
     },
     []
   );
 
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-node-id], .interactive-handle")) return;
+      openCreationMenuAt(e.clientX, e.clientY);
+    },
+    [openCreationMenuAt]
+  );
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-node-id], .interactive-handle")) return;
+      e.preventDefault();
+      openCreationMenuAt(e.clientX, e.clientY);
+    },
+    [openCreationMenuAt]
+  );
+
+  const handleZoom = (delta: number) => {
+    const nextZoom = Math.max(0.1, Math.min(3, viewport.zoom + delta));
+    setViewport({ ...viewport, zoom: nextZoom });
+  };
+
+  const handleResetZoom = () => {
+    setViewport({ ...viewport, zoom: 1 });
+  };
+
+  const handleAddAtCenter = () => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    openCreationMenuAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  };
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-background overflow-hidden cursor-default touch-none select-none"
+      className="relative w-full h-full bg-background overflow-hidden cursor-default touch-none select-none font-sans"
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       onPointerDown={(e) => {
         if (e.target === containerRef.current) {
           setMenu(null);
@@ -151,6 +185,45 @@ export const CanvasContainer: React.FC<CanvasContainerProps> = ({
           depth={depth}
           visibleWorldRect={visibleRect}
         />
+      </div>
+
+      {/* Floating Canvas Click Controls */}
+      <div className="absolute bottom-4 right-4 z-40 flex items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-border/70 rounded-lg p-1 shadow-md">
+        <Button
+          variant="ghost"
+          size="xs"
+          leftIcon={<Plus className="w-3.5 h-3.5" />}
+          onClick={handleAddAtCenter}
+          title="Add block to canvas"
+        >
+          Add Node
+        </Button>
+
+        <div className="w-[1px] h-4 bg-border/60" />
+
+        <button
+          onClick={() => handleZoom(-0.15)}
+          className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Zoom out"
+        >
+          <Minus className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          onClick={handleResetZoom}
+          className="px-1.5 py-0.5 hover:bg-muted rounded text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Reset zoom to 100%"
+        >
+          {Math.round(viewport.zoom * 100)}%
+        </button>
+
+        <button
+          onClick={() => handleZoom(0.15)}
+          className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          title="Zoom in"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {menu && (

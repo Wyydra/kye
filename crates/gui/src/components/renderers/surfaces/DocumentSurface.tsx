@@ -24,6 +24,7 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   const setFocusedNode = useUIStore((state) => state.setFocusedNode);
 
   const titleVal = val<string>(node.props["title"]) ?? "";
+  const isCollapsed = !!val<boolean>(node.props["is_collapsed"]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     execute({
@@ -80,6 +81,11 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
     );
   }
 
+  // If this node is collapsed (e.g. toggle heading), do not render its sub-tree!
+  if (isCollapsed && depth > 0) {
+    return <>{titleHeader}</>;
+  }
+
   if (isColumns) {
     return (
       <VStack gap="none">
@@ -94,7 +100,10 @@ export const DocumentSurface: React.FC<DocumentSurfaceProps> = ({
   }
 
   return (
-    <VStack gap="xs" className={depth > 0 ? "border-l border-border/30 pl-4 my-0.5" : ""}>
+    <VStack
+      gap="xs"
+      className={depth > 0 ? "border-l border-border/30 hover:border-primary/40 pl-4 my-1 transition-colors" : ""}
+    >
       {titleHeader}
       {node.children.map((childId) => (
         <NodeRenderer key={childId} nodeId={childId} depth={depth + 1} />

@@ -74,13 +74,40 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             let (service, resolved_path) = match raw_workspace_uri {
-                Some(uri) => match open_workspace_service(&uri, app_handle.clone()) {
-                    Ok((svc, p)) => (Some(svc), Some(p)),
-                    Err(e) => {
-                        tracing::error!("Failed to open workspace '{}': {:?}", uri, e);
+                Some(uri) => {
+                    let clean_uri = uri
+                        .strip_prefix("sqlite://")
+                        .or_else(|| uri.strip_prefix("file://"))
+                        .or_else(|| uri.strip_prefix("fs://"))
+                        .unwrap_or(&uri);
+                    let p = PathBuf::from(clean_uri);
+                    let actual_file = if p.is_dir() || p.extension().is_none() {
+                        p.join("workspace.kye")
+                    } else {
+                        p
+                    };
+
+                    if actual_file.exists() {
+                        match open_workspace_service(&uri, app_handle.clone()) {
+                            Ok((svc, p)) => {
+                                let meta_name = svc.get_meta().map(|m| m.name).ok();
+                                let _ = crate::commands::workspace::record_workspace_opened(
+                                    &app_handle,
+                                    &p,
+                                    meta_name.as_deref(),
+                                );
+                                (Some(svc), Some(p))
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to open workspace '{}': {:?}", uri, e);
+                                (None, None)
+                            }
+                        }
+                    } else {
+                        tracing::warn!("Saved workspace '{}' does not exist on disk.", uri);
                         (None, None)
                     }
-                },
+                }
                 None => (None, None),
             };
 
@@ -94,7 +121,19 @@ pub fn run() {
             commands::workspace::get_workspace_path,
             commands::workspace::get_meta,
             commands::workspace::get_graph,
+            commands::workspace::get_default_workspace_dir,
+            commands::workspace::pick_workspace_directory,
+            commands::workspace::pick_workspace_file,
+            commands::workspace::list_recent_workspaces,
+            commands::workspace::open_workspace,
+            commands::workspace::create_workspace,
+            commands::workspace::create_workspace_file,
             commands::workspace::select_workspace_folder,
+            commands::workspace::close_workspace,
+            commands::workspace::remove_recent_workspace,
+            commands::workspace::toggle_pin_recent_workspace,
+            commands::workspace::reveal_workspace_in_explorer,
+            commands::workspace::set_workspace_name,
             commands::node::execute_command,
             commands::node::execute_batch,
             commands::kind::get_kinds,
@@ -104,9 +143,6 @@ pub fn run() {
             commands::media::read_asset_data_url,
             commands::media::open_asset,
             commands::media::reveal_asset,
-            commands::workspace::list_workspaces,
-            commands::workspace::create_workspace,
-            commands::workspace::create_workspace_file,
             commands::sync::get_local_peer_info,
             commands::sync::generate_pairing_qr,
             commands::sync::start_p2p_server,

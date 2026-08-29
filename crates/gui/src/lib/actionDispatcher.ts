@@ -1,7 +1,6 @@
-import { Node, KindDef, ActionDef, extractTextFromValue } from "../types/domain";
+import { Node, KindDef, ActionDef } from "../types/domain";
 import { execute } from "./commands";
 import { useUIStore } from "../store/uiStore";
-import { kyeService } from "../services/kyeService";
 
 export interface ActionContext {
   nodeId: string;
@@ -46,30 +45,14 @@ export async function executeBlockAction(action: ActionDef, ctx: ActionContext):
     return;
   }
 
-  // 3. Built-in Asset Reveal Action
-  if (kind === "reveal_asset") {
-    const targetPath =
-      extractTextFromValue(ctx.node.props.url) ||
-      extractTextFromValue(ctx.node.props.file) ||
-      extractTextFromValue(ctx.node.props.body);
-    if (targetPath) {
-      try {
-        await kyeService.revealAsset(targetPath);
-      } catch (e) {
-        console.error("Failed to reveal asset in explorer:", e);
-      }
-    }
-    return;
-  }
-
-  // 4. Open in Canvas Action
+  // 3. Open in Canvas Action
   if (kind === "open_canvas") {
     useUIStore.getState().openBuffer(ctx.nodeId);
     useUIStore.getState().setActiveViewMode("graph");
     return;
   }
 
-  // 5. User Programmable Action Hook (Script / Plugin Extension)
+  // 4. User Programmable Action Hook (Script / Plugin Extension)
   const customHandler = customActionRegistry.get(kind);
   if (customHandler) {
     try {
@@ -80,5 +63,5 @@ export async function executeBlockAction(action: ActionDef, ctx: ActionContext):
     return;
   }
 
-  console.info(`[ActionDispatcher] Programmable user action triggered: ${action.label} (${kind}) on node ${ctx.nodeId}`);
+  console.info(`[ActionDispatcher] Action triggered: ${action.label} (${kind}) on node ${ctx.nodeId}`);
 }

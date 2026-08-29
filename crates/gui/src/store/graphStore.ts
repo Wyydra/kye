@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { Node, Event, KindDef } from "../types/domain";
+import { Node, Event, KindDef, WorkspaceMeta } from "../types/domain";
 import { kyeService } from "../services/kyeService";
 import { UnlistenFn } from "@tauri-apps/api/event";
-import { AppLifecycleState } from "../types/appLifecycle";
+import { AppLifecycleState, RecentWorkspace } from "../types/appLifecycle";
 import { useUIStore } from "./uiStore";
 
 interface GraphState {
@@ -12,8 +12,18 @@ interface GraphState {
   isLoaded: boolean;
   error: string | null;
   appLifecycle: AppLifecycleState;
+  workspaceMeta: WorkspaceMeta | null;
+  recentWorkspaces: RecentWorkspace[];
 
   loadGraph: (forceReload?: boolean) => Promise<void>;
+  loadRecentWorkspaces: () => Promise<void>;
+  openWorkspace: (path: string) => Promise<void>;
+  createWorkspace: (name: string, directory?: string, template?: string) => Promise<void>;
+  closeWorkspace: () => Promise<void>;
+  removeRecentWorkspace: (path: string) => Promise<void>;
+  togglePinRecentWorkspace: (path: string) => Promise<void>;
+  revealCurrentWorkspace: () => Promise<void>;
+  setWorkspaceName: (name: string) => Promise<void>;
   applyEvent: (event: Event) => void;
 }
 
@@ -225,6 +235,17 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   isLoaded: false,
   error: null,
   appLifecycle: { status: "UNINITIALIZED" },
+  workspaceMeta: null,
+  recentWorkspaces: [],
+
+  loadRecentWorkspaces: async () => {
+    try {
+      const recents = await kyeService.listRecentWorkspaces();
+      set({ recentWorkspaces: recents });
+    } catch (e) {
+      console.warn("Failed to load recent workspaces", e);
+    }
+  },
 
   loadGraph: async (forceReload = false) => {
     if (!forceReload && get().isLoaded && unlisten) return;
@@ -238,7 +259,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
           appLifecycle: { status: "NO_WORKSPACE" },
           isLoaded: false,
           error: null,
+          workspaceMeta: null,
         });
+        await get().loadRecentWorkspaces();
         return;
       }
 
@@ -246,9 +269,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         appLifecycle: { status: "LOADING_WORKSPACE", path: status.path || undefined },
       });
 
-      const [graph, kindsArray] = await Promise.all([
+      const [graph, kindsArray, meta] = await Promise.all([
         kyeService.getGraph(),
         kyeService.getKinds(),
+        kyeService.getMeta().catch(() => null),
       ]);
 
       const kinds: Record<string, KindDef> = {};
@@ -260,10 +284,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         nodes: graph.nodes,
         kinds,
         roots: graph.roots,
+        workspaceMeta: meta,
         isLoaded: true,
         error: null,
         appLifecycle: { status: "READY", path: status.path || "" },
       });
+
+      await get().loadRecentWorkspaces();
 
       if (!unlisten) {
         const promise = kyeService.listenToEvents((event) => {
@@ -277,6 +304,124 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         isLoaded: false,
         appLifecycle: { status: "FATAL_ERROR", message: e.toString() },
       });
+    }
+  },
+
+  openWorkspace: async (path: string) => {
+    try {
+      useUIStore.getState().resetUI();
+      set({
+        appLifecycle: { status: "LOADING_WORKSPACE", path },
+        isLoaded: false,
+        nodes: {},
+        roots: [],
+      });
+
+      await kyeService.openWorkspace(path);
+      await get().loadGraph(true);
+
+      const state = get();
+      if (state.roots.length > 0) {
+        useUIStore.getState().openBuffer(state.roots[0]);
+      }
+    } catch (e: any) {
+      console.error("Failed to open workspace", e);
+      set({
+        error: e.toString(),
+        appLifecycle: { status: "FATAL_ERROR", message: e.toString() },
+      });
+    }
+  },
+
+  createWorkspace: async (name: string, directory?: string, template?: string) => {
+    try {
+      useUIStore.getState().resetUI();
+      set({
+        appLifecycle: { status: "LOADING_WORKSPACE" },
+        isLoaded: false,
+        nodes: {},
+        roots: [],
+      });
+
+      await kyeService.createWorkspace(name, directory, template);
+      await get().loadGraph(true);
+
+      const state = get();
+      if (state.roots.length > 0) {
+        useUIStore.getState().openBuffer(state.roots[0]);
+      }
+    } catch (e: any) {
+      console.error("Failed to create workspace", e);
+      set({
+        error: e.toString(),
+        appLifecycle: { status: "FATAL_ERROR", message: e.toString() },
+      });
+    }
+  },
+
+  closeWorkspace: async () => {
+    try {
+      useUIStore.getState().resetUI();
+      await kyeService.closeWorkspace();
+      set({
+        nodes: {},
+        kinds: {},
+        roots: [],
+        workspaceMeta: null,
+        isLoaded: false,
+        error: null,
+        appLifecycle: { status: "NO_WORKSPACE" },
+      });
+      await get().loadRecentWorkspaces();
+    } catch (e: any) {
+      console.error("Failed to close workspace", e);
+    }
+  },
+
+  removeRecentWorkspace: async (path: string) => {
+    try {
+      const updated = await kyeService.removeRecentWorkspace(path);
+      set({ recentWorkspaces: updated });
+      const currentPath = get().appLifecycle.status === "READY" ? (get().appLifecycle as any).path : null;
+      if (currentPath === path) {
+        set({
+          nodes: {},
+          kinds: {},
+          roots: [],
+          workspaceMeta: null,
+          isLoaded: false,
+          appLifecycle: { status: "NO_WORKSPACE" },
+        });
+      }
+    } catch (e) {
+      console.error("Failed to remove recent workspace", e);
+    }
+  },
+
+  togglePinRecentWorkspace: async (path: string) => {
+    try {
+      const updated = await kyeService.togglePinRecentWorkspace(path);
+      set({ recentWorkspaces: updated });
+    } catch (e) {
+      console.error("Failed to toggle pin recent workspace", e);
+    }
+  },
+
+  revealCurrentWorkspace: async () => {
+    try {
+      await kyeService.revealWorkspaceInExplorer();
+    } catch (e) {
+      console.error("Failed to reveal workspace", e);
+    }
+  },
+
+  setWorkspaceName: async (name: string) => {
+    try {
+      const updated = await kyeService.setWorkspaceName(name);
+      set({ workspaceMeta: updated });
+      await get().loadRecentWorkspaces();
+    } catch (e) {
+      console.error("Failed to set workspace name", e);
     }
   },
 

@@ -2,8 +2,8 @@ import React from "react";
 import { ParagraphWidget } from "./ParagraphWidget";
 import { HeadingWidget } from "./HeadingWidget";
 import { TaskWidget } from "./TaskWidget";
-import { ImageWidget } from "./ImageWidget";
 import { FlashcardWidget } from "./FlashcardWidget";
+import { ImageWidget } from "./ImageWidget";
 import { FileWidget } from "./FileWidget";
 import { Node } from "../../../types/domain";
 
@@ -18,8 +18,6 @@ export const WIDGET_REGISTRY: Record<string, WidgetComponent> = {
   file: FileWidget,
   asset: FileWidget,
 };
-
-
 
 export function registerWidget(name: string, component: WidgetComponent) {
   WIDGET_REGISTRY[name] = component;

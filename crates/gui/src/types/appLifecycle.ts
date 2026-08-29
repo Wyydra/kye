@@ -9,3 +9,13 @@ export interface WorkspaceStatus {
   isSelected: boolean;
   path: string | null;
 }
+
+export interface RecentWorkspace {
+  id: string;
+  name: string;
+  path: string;
+  lastOpened: number;
+  isPinned: boolean;
+  exists: boolean;
+}
+
